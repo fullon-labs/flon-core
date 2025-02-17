@@ -48,6 +48,8 @@ const static uint32_t genesis_num_supported_key_types = 2;
 const static int percent_100 = 10000;
 const static int percent_1   = 100;
 
+const static uint32_t gas_rate_precision = 1000000; // The precision of the gas conversion rate
+
 static const uint32_t account_cpu_usage_average_window_ms  = 24*60*60*1000l;
 static const uint32_t account_net_usage_average_window_ms  = 24*60*60*1000l;
 static const uint32_t block_cpu_usage_average_window_ms    = 60*1000l;
@@ -60,6 +62,9 @@ static const uint32_t maximum_elastic_resource_multiplier  = 1000;
 
 const static uint32_t   rate_limiting_precision        = 1000*1000;
 
+const static uint32_t   default_gas_per_ram_bytes                    = 10000;  // gas per ram bytes, 1GAS=100bytes
+const static uint32_t   default_gas_per_net_bytes                    = 10000;  // gas per net bytes, 1GAS=100bytes
+const static uint32_t   default_gas_per_cpu_us                       = 100;  // gas per cpu us, 1GAS=10000us=10ms
 
 const static uint32_t   default_max_block_net_usage                  = 1024 * 1024; /// at 500ms blocks and 200byte trx, this enables ~10,000 TPS burst
 const static uint32_t   default_target_block_net_usage_pct           = 10 * percent_1; /// we target 1000 TPS

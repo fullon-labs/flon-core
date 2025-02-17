@@ -205,6 +205,7 @@ namespace eosio { namespace chain { namespace resource_limits {
       int64_t net_weight = -1;
       int64_t cpu_weight = -1;
       int64_t ram_bytes = -1;
+      int64_t gas = -1;
 
    };
 
@@ -227,13 +228,13 @@ namespace eosio { namespace chain { namespace resource_limits {
    struct resource_usage_object : public chainbase::object<resource_usage_object_type, resource_usage_object> {
       OBJECT_CTOR(resource_usage_object)
 
-      id_type id;
-      account_name owner; //< owner should not be changed within a chainbase modifier lambda
+      id_type           id;
+      account_name      owner; //< owner should not be changed within a chainbase modifier lambda
 
-      usage_accumulator        net_usage;
-      usage_accumulator        cpu_usage;
-
-      uint64_t                 ram_usage = 0;
+      uint64_t          net_usage = 0; // bytes
+      uint64_t          cpu_usage = 0; // us
+      uint64_t          ram_usage = 0; // bytes
+      uint64_t          gas_usage = 0;
    };
 
    using resource_usage_index = chainbase::shared_multi_index_container<
@@ -260,6 +261,8 @@ namespace eosio { namespace chain { namespace resource_limits {
 
       uint32_t account_cpu_usage_average_window = config::account_cpu_usage_average_window_ms / config::block_interval_ms;
       uint32_t account_net_usage_average_window = config::account_net_usage_average_window_ms / config::block_interval_ms;
+      uint32_t gas_per_net_bytes = config::default_gas_per_net_bytes;
+      uint32_t gas_per_cpu_us = config::default_gas_per_cpu_us;
    };
 
    using resource_limits_config_index = chainbase::shared_multi_index_container<
@@ -334,7 +337,7 @@ CHAINBASE_SET_INDEX_TYPE(eosio::chain::resource_limits::resource_limits_state_ob
 FC_REFLECT(eosio::chain::resource_limits::usage_accumulator, (last_ordinal)(value_ex)(consumed))
 
 // @ignore pending
-FC_REFLECT(eosio::chain::resource_limits::resource_limits_object, (owner)(net_weight)(cpu_weight)(ram_bytes))
-FC_REFLECT(eosio::chain::resource_limits::resource_usage_object,  (owner)(net_usage)(cpu_usage)(ram_usage))
-FC_REFLECT(eosio::chain::resource_limits::resource_limits_config_object, (cpu_limit_parameters)(net_limit_parameters)(account_cpu_usage_average_window)(account_net_usage_average_window))
+FC_REFLECT(eosio::chain::resource_limits::resource_limits_object, (owner)(net_weight)(cpu_weight)(ram_bytes)(gas))
+FC_REFLECT(eosio::chain::resource_limits::resource_usage_object,  (owner)(net_usage)(cpu_usage)(ram_usage)(gas_usage))
+FC_REFLECT(eosio::chain::resource_limits::resource_limits_config_object, (cpu_limit_parameters)(net_limit_parameters)(account_cpu_usage_average_window)(account_net_usage_average_window)(gas_per_net_bytes)(gas_per_cpu_us))
 FC_REFLECT(eosio::chain::resource_limits::resource_limits_state_object, (average_block_net_usage)(average_block_cpu_usage)(pending_net_usage)(pending_cpu_usage)(total_net_weight)(total_cpu_weight)(total_ram_bytes)(virtual_net_limit)(virtual_cpu_limit))

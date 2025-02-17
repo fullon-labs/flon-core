@@ -140,7 +140,7 @@ void resource_limits_manager::update_account_usage(const flat_set<account_name>&
    for( const auto& a : accounts ) {
       const auto& usage = _db.get<resource_usage_object,by_owner>( a );
       _db.modify( usage, [&]( auto& bu ){
-          bu.net_usage.add( 0, time_slot, config.account_net_usage_average_window );
+         //  bu.net_usage.add( 0, time_slot, config.account_net_usage_average_window );
           bu.cpu_usage.add( 0, time_slot, config.account_cpu_usage_average_window );
       });
    }
@@ -157,58 +157,69 @@ void resource_limits_manager::add_transaction_usage(const flat_set<account_name>
       int64_t net_weight;
       int64_t cpu_weight;
       get_account_limits( a, unused, net_weight, cpu_weight );
+      auto gas = get_account_gas(a);
+      uint128_t gas_usage = 0;
+
+      if (gas >= 0) {
+         uint128_t cpu_gas = 0;
+         uint128_t net_gas = 0;
+         if (cpu_usage > 0) {
+            cpu_gas = (uint128_t)cpu_usage * config.gas_per_cpu_us / config::gas_rate_precision;
+            EOS_ASSERT( cpu_gas < (uint128_t)std::numeric_limits<uint64_t>::max() ,
+                        rate_limiting_state_inconsistent,
+                        "Overflow when calculating account cpu gas usage!");
+            gas_usage += cpu_gas;
+         }
+         if (net_usage > 0) {
+            net_gas = (uint128_t)net_usage * config.gas_per_net_bytes / config::gas_rate_precision;
+            EOS_ASSERT( net_gas < (uint128_t)std::numeric_limits<uint64_t>::max() ,
+                        rate_limiting_state_inconsistent,
+                        "Overflow when calculating account net gas usage!");
+            gas_usage += net_gas;
+         }
+
+         EOS_ASSERT( (uint128_t)usage.gas_usage + gas_usage <= (uint128_t)gas,
+                     tx_net_usage_exceeded,
+                     "authorizing account '${n}' has insufficient gas for cpu usage ${cpu_usage} and net usage ${net_usage} of this transaction ,"
+                     "needs gas ${gas_usage} (cpu gas ${cpu_gas} and net gas ${net_gas}), but has available gas ${gas}",
+                     ("n", a)
+                     ("cpu_usage", cpu_usage)
+                     ("net_usage", net_usage)
+                     ("gas_usage", gas_usage)
+                     ("cpu_gas", cpu_gas)
+                     ("net_gas", net_gas)
+                     ("gas", gas - (int64_t)usage.gas_usage) );
+
+         assert( std::numeric_limits<uint64_t>::max() - usage.gas_usage >= gas_usage);
+      }
+
+      EOS_ASSERT( std::numeric_limits<uint64_t>::max() - usage.cpu_usage >= cpu_usage,
+                  rate_limiting_state_inconsistent,
+                  "Overflow when adding cpu usage!");
+      EOS_ASSERT( std::numeric_limits<uint64_t>::max() - usage.net_usage >= net_usage,
+                  rate_limiting_state_inconsistent,
+                  "Overflow when adding net usage!");
 
       _db.modify( usage, [&]( auto& bu ){
-          bu.net_usage.add( net_usage, time_slot, config.account_net_usage_average_window );
-          bu.cpu_usage.add( cpu_usage, time_slot, config.account_cpu_usage_average_window );
+         //  bu.net_usage.add( net_usage, time_slot, config.account_net_usage_average_window );
+
+         bu.net_usage += net_usage;
+         bu.cpu_usage += net_usage;
+         bu.gas_usage += gas_usage;
 
          if (auto dm_logger = _get_deep_mind_logger(is_trx_transient)) {
             dm_logger->on_update_account_usage(bu);
          }
       });
-
-      if( cpu_weight >= 0 && state.total_cpu_weight > 0 ) {
-         uint128_t window_size = config.account_cpu_usage_average_window;
-         auto virtual_network_capacity_in_window = (uint128_t)state.virtual_cpu_limit * window_size;
-         auto cpu_used_in_window                 = ((uint128_t)usage.cpu_usage.value_ex * window_size) / (uint128_t)config::rate_limiting_precision;
-
-         uint128_t user_weight     = (uint128_t)cpu_weight;
-         uint128_t all_user_weight = state.total_cpu_weight;
-
-         auto max_user_use_in_window = (virtual_network_capacity_in_window * user_weight) / all_user_weight;
-
-         EOS_ASSERT( cpu_used_in_window <= max_user_use_in_window,
-                     tx_cpu_usage_exceeded,
-                     "authorizing account '${n}' has insufficient objective cpu resources for this transaction,"
-                     " used in window ${cpu_used_in_window}us, allowed in window ${max_user_use_in_window}us",
-                     ("n", a)
-                     ("cpu_used_in_window",cpu_used_in_window)
-                     ("max_user_use_in_window",max_user_use_in_window) );
-      }
-
-      if( net_weight >= 0 && state.total_net_weight > 0) {
-
-         uint128_t window_size = config.account_net_usage_average_window;
-         auto virtual_network_capacity_in_window = (uint128_t)state.virtual_net_limit * window_size;
-         auto net_used_in_window                 = ((uint128_t)usage.net_usage.value_ex * window_size) / (uint128_t)config::rate_limiting_precision;
-
-         uint128_t user_weight     = (uint128_t)net_weight;
-         uint128_t all_user_weight = state.total_net_weight;
-
-         auto max_user_use_in_window = (virtual_network_capacity_in_window * user_weight) / all_user_weight;
-
-         EOS_ASSERT( net_used_in_window <= max_user_use_in_window,
-                     tx_net_usage_exceeded,
-                     "authorizing account '${n}' has insufficient net resources for this transaction,"
-                     " used in window ${net_used_in_window}, allowed in window ${max_user_use_in_window}",
-                     ("n", a)
-                     ("net_used_in_window",net_used_in_window)
-                     ("max_user_use_in_window",max_user_use_in_window) );
-
-      }
    }
 
    // account for this transaction in the block and do not exceed those limits either
+   EOS_ASSERT( std::numeric_limits<uint64_t>::max() - state.pending_cpu_usage >= cpu_usage,
+            rate_limiting_state_inconsistent,
+            "Overflow when adding block pending cpu usage!");
+   EOS_ASSERT( std::numeric_limits<uint64_t>::max() - state.pending_net_usage >= net_usage,
+            rate_limiting_state_inconsistent,
+            "Overflow when adding block pending net usage!");
    _db.modify(state, [&](resource_limits_state_object& rls){
       rls.pending_cpu_usage += cpu_usage;
       rls.pending_net_usage += net_usage;
@@ -321,6 +332,16 @@ void resource_limits_manager::get_account_limits( const account_name& account, i
       ram_bytes  = buo.ram_bytes;
       net_weight = buo.net_weight;
       cpu_weight = buo.cpu_weight;
+   }
+}
+
+int64_t resource_limits_manager::get_account_gas( const account_name& account) const {
+   const auto* pending_buo = _db.find<resource_limits_object,by_owner>( boost::make_tuple(true, account) );
+   if (pending_buo) {
+      return pending_buo->gas;
+   } else {
+      const auto& buo = _db.get<resource_limits_object,by_owner>( boost::make_tuple( false, account ) );
+      return buo.gas;
    }
 }
 
