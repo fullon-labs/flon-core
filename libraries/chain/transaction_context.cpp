@@ -141,19 +141,20 @@ namespace eosio::chain {
             validate_cpu_usage_to_bill( billed_cpu_time_us, std::numeric_limits<int64_t>::max(), false, subjective_cpu_bill_us); // Fail early if the amount to be billed is too high
 
          // Record accounts to be billed for network and CPU usage
-         if( control.is_builtin_activated(builtin_protocol_feature_t::only_bill_first_authorizer) ) {
-            bill_to_accounts.insert( trx.first_authorizer() );
-         } else {
-            for( const auto& act : trx.actions ) {
-               for( const auto& auth : act.authorization ) {
-                  bill_to_accounts.insert( auth.actor );
-               }
-            }
-         }
-         validate_ram_usage.reserve( bill_to_accounts.size() );
+         // if( control.is_builtin_activated(builtin_protocol_feature_t::only_bill_first_authorizer) ) {
+         //    bill_to_accounts.insert( trx.first_authorizer() );
+         // } else {
+         //    for( const auto& act : trx.actions ) {
+         //       for( const auto& auth : act.authorization ) {
+         //          bill_to_accounts.insert( auth.actor );
+         //       }
+         //    }
+         // }
+         bill_to_account = trx.first_authorizer();
+         validate_ram_usage.reserve( 1 );
 
          // Update usage values of accounts to reflect new time
-         rl.update_account_usage( bill_to_accounts, block_timestamp_type(control.pending_block_time()).slot );
+         // rl.update_account_usage( bill_to_account, block_timestamp_type(control.pending_block_time()).slot );
 
          // Calculate the highest network usage and CPU time that all of the billed accounts can afford to be billed
          bool greylisted_net = false, greylisted_cpu = false;
@@ -349,7 +350,7 @@ namespace eosio::chain {
          trace->elapsed = fc::time_point::now() - start;
          return;
       }
-                                         
+
       if( is_input ) {
          const transaction& trx = packed_trx.get_transaction();
          auto& am = control.get_mutable_authorization_manager();
@@ -400,7 +401,7 @@ namespace eosio::chain {
 
       validate_cpu_usage_to_bill( billed_cpu_time_us, account_cpu_limit, true, subjective_cpu_bill_us );
 
-      rl.add_transaction_usage( bill_to_accounts, static_cast<uint64_t>(billed_cpu_time_us), net_usage,
+      rl.add_transaction_usage( bill_to_account, static_cast<uint64_t>(billed_cpu_time_us), net_usage,
                                 block_timestamp_type(control.pending_block_time()).slot, is_transient() ); // Should never fail
    }
 
@@ -634,26 +635,26 @@ namespace eosio::chain {
       bool greylisted_cpu = false;
 
       uint32_t specified_greylist_limit = control.get_greylist_limit();
-      for( const auto& a : bill_to_accounts ) {
+      // for( const auto& a : bill_to_accounts ) {
          uint32_t greylist_limit = config::maximum_elastic_resource_multiplier;
          if( !force_elastic_limits && control.is_speculative_block() ) {
-            if( control.is_resource_greylisted(a) ) {
+            if( control.is_resource_greylisted(bill_to_account) ) {
                greylist_limit = 1;
             } else {
                greylist_limit = specified_greylist_limit;
             }
          }
-         auto [net_limit, net_was_greylisted] = rl.get_account_net_limit(a, greylist_limit);
+         auto [net_limit, net_was_greylisted] = rl.get_account_net_limit(bill_to_account, greylist_limit);
          if( net_limit >= 0 ) {
             account_net_limit = std::min( account_net_limit, net_limit );
             greylisted_net |= net_was_greylisted;
          }
-         auto [cpu_limit, cpu_was_greylisted] = rl.get_account_cpu_limit(a, greylist_limit);
+         auto [cpu_limit, cpu_was_greylisted] = rl.get_account_cpu_limit(bill_to_account, greylist_limit);
          if( cpu_limit >= 0 ) {
             account_cpu_limit = std::min( account_cpu_limit, cpu_limit );
             greylisted_cpu |= cpu_was_greylisted;
          }
-      }
+      // }
 
       EOS_ASSERT( (!force_elastic_limits && control.is_speculative_block()) || (!greylisted_cpu && !greylisted_net),
                   transaction_exception, "greylisted when not producing block" );

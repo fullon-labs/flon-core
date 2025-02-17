@@ -210,7 +210,8 @@ namespace eosio::chain {
          fc::time_point                published;
 
          action_digests_t              executed_action_receipts;
-         flat_set<account_name>        bill_to_accounts;
+         // flat_set<account_name>        bill_to_accounts;
+         account_name                  bill_to_account;
          flat_set<account_name>        validate_ram_usage;
 
          /// the maximum number of virtual CPU instructions of the transaction that can be safely billed to the billable accounts

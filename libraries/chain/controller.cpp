@@ -2905,7 +2905,7 @@ struct controller_impl {
          // hard failure logic
 
          if( !validating ) {
-            resource_limits.update_account_usage( trx_context.bill_to_accounts, block_timestamp_type(pending_block_time()).slot );
+            // resource_limits.update_account_usage( trx_context.bill_to_account, block_timestamp_type(pending_block_time()).slot );
             int64_t account_cpu_limit = 0;
             std::tie( std::ignore, account_cpu_limit, std::ignore, std::ignore ) = trx_context.max_bandwidth_billed_accounts_can_pay( true );
 
@@ -2917,7 +2917,7 @@ struct controller_impl {
             cpu_time_to_bill_us = limited_cpu_time_to_bill_us;
          }
 
-         resource_limits.add_transaction_usage( trx_context.bill_to_accounts, cpu_time_to_bill_us, 0,
+         resource_limits.add_transaction_usage( trx_context.bill_to_account, cpu_time_to_bill_us, 0,
                                                 block_timestamp_type(pending_block_time()).slot ); // Should never fail
 
          trace->receipt = push_receipt(gtrx.trx_id, transaction_receipt::hard_fail, cpu_time_to_bill_us, 0);
