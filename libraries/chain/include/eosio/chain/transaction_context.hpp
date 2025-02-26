@@ -125,9 +125,9 @@ namespace eosio::chain {
          void squash();
          void undo();
 
-         inline void add_net_usage( uint64_t u ) { net_usage += u; check_net_usage(); }
+         void add_net_usage( uint64_t u );
 
-         void check_net_usage()const;
+         void set_transaction_usage(uint64_t cpu_usage, uint64_t net_usage);
 
          void checktime()const;
 
@@ -151,6 +151,7 @@ namespace eosio::chain {
          uint32_t update_billed_cpu_time( fc::time_point now );
 
          std::tuple<int64_t, int64_t, bool, bool> max_bandwidth_billed_accounts_can_pay( bool force_elastic_limits = false )const;
+         int64_t max_cpu_gas_billed_account_can_pay(bool is_cpu_only);
 
          void validate_referenced_accounts( const transaction& trx, bool enforce_actor_whitelist_blacklist )const;
 
@@ -189,13 +190,12 @@ namespace eosio::chain {
          void schedule_transaction();
          void record_transaction( const transaction_id_type& id, fc::time_point_sec expire );
 
-         void validate_cpu_usage_to_bill( int64_t billed_us, int64_t account_cpu_limit, bool check_minimum, int64_t subjective_billed_us )const;
-         void validate_account_cpu_usage( int64_t billed_us, int64_t account_cpu_limit,  int64_t subjective_billed_us )const;
-         void validate_account_cpu_usage_estimate( int64_t billed_us, int64_t account_cpu_limit, int64_t subjective_billed_us )const;
+
+         void check_cpu_limit(const fc::time_point& now, bool check_minimum) const;
+         void check_net_limit() const;
+         void validate_transaction_usage() const;
 
          void disallow_transaction_extensions( const char* error_msg )const;
-
-         std::string get_tx_cpu_usage_exceeded_reason_msg(fc::microseconds& limit) const;
 
       /// Fields:
       public:
@@ -211,6 +211,7 @@ namespace eosio::chain {
 
          action_digests_t              executed_action_receipts;
          // flat_set<account_name>        bill_to_accounts;
+         // TODO: rename to payer, reference to trace->gas_usage.payer
          account_name                  bill_to_account;
          flat_set<account_name>        validate_ram_usage;
 
@@ -239,6 +240,7 @@ namespace eosio::chain {
          bool                          net_limit_due_to_greylist = false;
          uint64_t                      eager_net_limit = 0;
          uint64_t&                     net_usage; /// reference to trace->net_usage
+         // TODO: pre_buy_gas // pre buy gas of trx payer
 
          bool                          cpu_limit_due_to_greylist = false;
 
@@ -248,7 +250,7 @@ namespace eosio::chain {
          fc::microseconds              objective_duration_limit;
          fc::time_point                _deadline = fc::time_point::maximum(); // calculated deadline
          int64_t                       deadline_exception_code = block_cpu_usage_exceeded::code_value;
-         int64_t                       billing_timer_exception_code = block_cpu_usage_exceeded::code_value;
+         int64_t                       initial_cpu_exception_code = block_cpu_usage_exceeded::code_value;
          fc::time_point                pseudo_start;
          fc::microseconds              billed_time;
          trx_block_context             trx_blk_context;
@@ -260,7 +262,10 @@ namespace eosio::chain {
             node_configured_max_transaction_time,
             speculative_executed_adjusted_max_transaction_time // prev_billed_cpu_time_us > 0
          };
+         tx_cpu_usage_exceeded_reason  initial_tx_cpu_usage_reason = tx_cpu_usage_exceeded_reason::account_cpu_limit;
          tx_cpu_usage_exceeded_reason  tx_cpu_usage_reason = tx_cpu_usage_exceeded_reason::account_cpu_limit;
+
+         std::string get_tx_cpu_usage_exceeded_reason_msg(tx_cpu_usage_exceeded_reason reason) const;
    };
 
 } // namespace eosio::chain

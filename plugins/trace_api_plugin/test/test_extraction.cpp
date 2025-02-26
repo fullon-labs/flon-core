@@ -27,7 +27,7 @@ namespace {
          {},
          chain::transaction_receipt_header{status},
          fc::microseconds(0),
-         0,
+         {},
          false,
          std::move(actions),
          {},
@@ -165,7 +165,7 @@ BOOST_AUTO_TEST_SUITE(block_extraction)
             make_transaction_trace( ptrx1.id(), 1, 1, chain::transaction_receipt_header::executed,
                   { actt1, actt2, actt3 } ),
             std::make_shared<packed_transaction>(ptrx1) );
-      
+
       // accept the block with one transaction
       auto bp1 = make_block( chain::block_id_type(), 1, 1, "bp.one"_n,
             { chain::packed_transaction(ptrx1) } );

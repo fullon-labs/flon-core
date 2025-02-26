@@ -79,7 +79,8 @@ namespace eosio { namespace chain {
          void set_block_parameters( const elastic_limit_parameters& cpu_limit_parameters, const elastic_limit_parameters& net_limit_parameters );
 
          // void update_account_usage( const flat_set<account_name>& accounts, uint32_t ordinal );
-         void add_transaction_usage( const account_name& account, uint64_t cpu_usage, uint64_t net_usage, uint32_t ordinal, bool is_trx_transient = false );
+         void add_transaction_usage( transaction_gas_usage& trx_gas_usage, bool is_trx_transient = false );
+         void calc_and_check_transaction_gas_usage( transaction_gas_usage& trx_gas_usage, uint64_t gas_limit);
 
          void add_pending_ram_usage( const account_name account, int64_t ram_delta, bool is_trx_transient = false );
          void verify_account_ram_usage( const account_name accunt )const;
@@ -87,7 +88,8 @@ namespace eosio { namespace chain {
          /// set_account_limits returns true if new ram_bytes limit is more restrictive than the previously set one
          bool set_account_limits( const account_name& account, int64_t ram_bytes, int64_t net_weight, int64_t cpu_weight, bool is_trx_transient);
          void get_account_limits( const account_name& account, int64_t& ram_bytes, int64_t& net_weight, int64_t& cpu_weight) const;
-         int64_t get_account_gas( const account_name& account) const;
+         uint64_t get_account_gas( const account_name& account) const;
+         void get_account_gas_limits( const account_name& account, uint64_t& gas, bool& is_unlimited) const;
 
          bool is_unlimited_cpu( const account_name& account ) const;
 
@@ -104,16 +106,20 @@ namespace eosio { namespace chain {
          uint64_t get_block_cpu_limit() const;
          uint64_t get_block_net_limit() const;
 
-         std::pair<int64_t, bool> get_account_cpu_limit( const account_name& name, uint32_t greylist_limit = config::maximum_elastic_resource_multiplier ) const;
-         std::pair<int64_t, bool> get_account_net_limit( const account_name& name, uint32_t greylist_limit = config::maximum_elastic_resource_multiplier ) const;
+         // std::pair<account_resource_limit, bool>
+         // get_account_cpu_limit( const account_name& name, uint32_t greylist_limit = config::maximum_elastic_resource_multiplier, const std::optional<block_timestamp_type>& current_time={} ) const;
+         // std::pair<account_resource_limit, bool>
+         // get_account_net_limit( const account_name& name, uint32_t greylist_limit = config::maximum_elastic_resource_multiplier, const std::optional<block_timestamp_type>& current_time={} ) const;
+         uint64_t get_account_cpu_limit( const account_name& name) const;
+         uint64_t get_account_net_limit( const account_name& name) const;
 
-         std::pair<account_resource_limit, bool>
-         get_account_cpu_limit_ex( const account_name& name, uint32_t greylist_limit = config::maximum_elastic_resource_multiplier, const std::optional<block_timestamp_type>& current_time={} ) const;
-         std::pair<account_resource_limit, bool>
-         get_account_net_limit_ex( const account_name& name, uint32_t greylist_limit = config::maximum_elastic_resource_multiplier, const std::optional<block_timestamp_type>& current_time={} ) const;
 
          int64_t get_account_ram_usage( const account_name& name ) const;
 
+         uint64_t calc_gas_by_cpu(uint64_t gas);
+         uint64_t calc_gas_by_net(uint64_t gas);
+         uint64_t calc_cpu_limit_by_gas(uint64_t gas);
+         uint64_t calc_net_limit_by_gas(uint64_t gas);
       private:
          chainbase::database&         _db;
          std::function<deep_mind_handler*(bool is_trx_transient)> _get_deep_mind_logger;
