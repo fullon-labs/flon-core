@@ -148,11 +148,11 @@ endif()
 
 message( STATUS "Using '${CORE_SYMBOL_NAME}' as CORE symbol name" )
 
-if ("${FLON_ROOT_KEY}" STREQUAL "")
-   set(FLON_ROOT_KEY "EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV")
+if ("${SYSTEM_ROOT_KEY}" STREQUAL "")
+   set(SYSTEM_ROOT_KEY "${PUBLIC_KEY_LEGACY_PREFIX}6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV")
 endif()
 
-message( STATUS "Using '${FLON_ROOT_KEY}' as public key for '${SYSTEM_ACCOUNT_NAME}' account" )
+message( STATUS "Using '${SYSTEM_ROOT_KEY}' as public key for '${SYSTEM_ACCOUNT_NAME}' account" )
 
 option(ENABLE_TCMALLOC "use tcmalloc (requires gperftools)" OFF)
 if( ENABLE_TCMALLOC )

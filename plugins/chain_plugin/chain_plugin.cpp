@@ -487,10 +487,10 @@ void chain_plugin_impl::plugin_initialize(const variables_map& options) {
       ilog("initializing chain plugin");
 
       try {
-         genesis_state gs; // Check if EOSIO_ROOT_KEY is bad
+         genesis_state gs; // Check if system_root_key is bad
       } catch ( const std::exception& ) {
-         elog( "EOSIO_ROOT_KEY ('${root_key}') is invalid. Recompile with a valid public key.",
-               ("root_key", genesis_state::eosio_root_key));
+         elog( "SYSTEM_ROOT_KEY ('${root_key}') is invalid. Recompile with a valid public key.",
+               ("root_key", genesis_state::system_root_key));
          throw;
       }
 
