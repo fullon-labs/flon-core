@@ -39,7 +39,7 @@ boost::unit_test::test_suite* init_unit_test_suite(int argc, char* argv[]) {
       }
    }
 
-   appbase::compatible_chain_eos();
+   // appbase::compatible_chain_eos();
 
    setup_test_logging();
 
