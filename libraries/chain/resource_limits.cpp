@@ -216,13 +216,11 @@ void resource_limits_manager::add_transaction_usage(transaction_gas_usage& trx_g
    const auto& usage = _db.get<resource_usage_object,by_owner>( trx_gas_usage.payer );
    const auto& cpu_usage = trx_gas_usage.cpu_usage;
    const auto& net_usage = trx_gas_usage.net_usage;
-   // int64_t unused;
-   // int64_t net_weight;
-   // int64_t cpu_weight;
-   // get_account_limits( a, unused, net_weight, cpu_weight );
-   auto gas = get_account_gas(trx_gas_usage.payer);
-   // transaction_gas_usage
-   res_utils::calc_transaction_gas_usage(trx_gas_usage, gas, config);
+
+   auto acc_limits = res_utils::get_account_limits(_db, trx_gas_usage.payer);
+   if (!acc_limits.is_unlimited) {
+      res_utils::calc_transaction_gas_usage(trx_gas_usage, acc_limits.gas, config);
+   }
    // TODO: add gas_usage to trace.gas_usage
 
    // TODO: check limit account, should add is_unlimited_account?

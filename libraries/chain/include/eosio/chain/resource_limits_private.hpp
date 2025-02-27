@@ -206,7 +206,7 @@ namespace eosio { namespace chain { namespace resource_limits {
       int64_t cpu_weight      = -1;
       int64_t ram_bytes       = -1;
       uint64_t gas            = 0;
-      bool    is_unlimited    =  false;
+      bool    is_unlimited    = true;
 
    };
 
