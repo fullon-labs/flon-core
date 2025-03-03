@@ -86,9 +86,7 @@ namespace eosio { namespace chain {
          void add_ram_usage( const account_name account, int64_t ram_delta, bool is_trx_transient = false );
          void verify_account_ram_usage( const account_name accunt )const;
 
-         /// set_account_limits returns true if new ram_bytes limit is more restrictive than the previously set one
-         bool set_account_limits( const account_name& account, int64_t ram_bytes, int64_t net_weight, int64_t cpu_weight, bool is_trx_transient);
-         void set_account_gas( const account_name& account, uint64_t gas, bool is_trx_transient);
+         void set_account_limits( const account_name& account, uint64_t gas, bool is_unlimited, bool is_trx_transient);
 
          void get_account_limits( const account_name& account, int64_t& ram_bytes, int64_t& net_weight, int64_t& cpu_weight) const;
          uint64_t get_account_gas( const account_name& account) const;

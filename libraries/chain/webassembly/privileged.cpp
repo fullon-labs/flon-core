@@ -26,16 +26,11 @@ namespace eosio { namespace chain { namespace webassembly {
       context.control.preactivate_feature( *feature_digest, context.trx_context.is_transient() );
    }
 
-   void interface::set_resource_limits( account_name account, int64_t ram_bytes, int64_t net_weight, int64_t cpu_weight ) {
+   void interface::set_resource_limits( account_name account, uint64_t gas, bool is_unlimited ) {
       EOS_ASSERT(!context.trx_context.is_read_only(), wasm_execution_error, "set_resource_limits not allowed in a readonly transaction");
-      EOS_ASSERT(ram_bytes >= -1, wasm_execution_error, "invalid value for ram resource limit expected [-1,INT64_MAX]");
-      EOS_ASSERT(net_weight >= -1, wasm_execution_error, "invalid value for net resource weight expected [-1,INT64_MAX]");
-      EOS_ASSERT(cpu_weight >= -1, wasm_execution_error, "invalid value for cpu resource weight expected [-1,INT64_MAX]");
-      // TODO: validate ?
-      // if( context.control.get_mutable_resource_limits_manager().set_account_limits(account, ram_bytes, net_weight, cpu_weight, context.trx_context.is_transient()) ) {
-      //    context.trx_context.validate_ram_usage.insert( account );
-      // }
+      context.control.get_mutable_resource_limits_manager().set_account_limits(account, gas, is_unlimited, context.trx_context.is_transient());
    }
+
 
    void interface::get_resource_limits( account_name account, legacy_ptr<int64_t> ram_bytes, legacy_ptr<int64_t> net_weight, legacy_ptr<int64_t> cpu_weight ) const {
       context.control.get_resource_limits_manager().get_account_limits( account, *ram_bytes, *net_weight, *cpu_weight);

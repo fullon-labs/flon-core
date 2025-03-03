@@ -448,70 +448,18 @@ int64_t resource_limits_manager::get_account_ram_usage( const account_name& name
    return _db.get<resource_usage_object,by_owner>( name ).ram_usage;
 }
 
-void resource_limits_manager::set_account_gas( const account_name& account, uint64_t gas, bool is_trx_transient) {
+void resource_limits_manager::set_account_limits( const account_name& account, uint64_t gas, bool is_unlimited, bool is_trx_transient) {
+
    // TODO: no pending
    const auto& limits = _db.get<resource_limits_object, by_owner>( boost::make_tuple(false, account));
    _db.modify( limits, [&]( resource_limits_object& rlo ){
       rlo.gas = gas;
+      rlo.is_unlimited = is_unlimited;
 
       if (auto dm_logger = _get_deep_mind_logger(is_trx_transient)) {
          dm_logger->on_set_account_limits(rlo);
       }
    });
-}
-
-bool resource_limits_manager::set_account_limits( const account_name& account, int64_t ram_bytes, int64_t net_weight, int64_t cpu_weight, bool is_trx_transient) {
-   //const auto& usage = _db.get<resource_usage_object,by_owner>( account );
-   /*
-    * Since we need to delay these until the next resource limiting boundary, these are created in a "pending"
-    * state or adjusted in an existing "pending" state.  The chain controller will collapse "pending" state into
-    * the actual state at the next appropriate boundary.
-    */
-   auto find_or_create_pending_limits = [&]() -> const resource_limits_object& {
-      const auto* pending_limits = _db.find<resource_limits_object, by_owner>( boost::make_tuple(true, account) );
-      if (pending_limits == nullptr) {
-         const auto& limits = _db.get<resource_limits_object, by_owner>( boost::make_tuple(false, account));
-         return _db.create<resource_limits_object>([&](resource_limits_object& pending_limits){
-            pending_limits.owner = limits.owner;
-            pending_limits.ram_bytes = limits.ram_bytes;
-            pending_limits.net_weight = limits.net_weight;
-            pending_limits.cpu_weight = limits.cpu_weight;
-            pending_limits.pending = true;
-         });
-      } else {
-         return *pending_limits;
-      }
-   };
-
-   // update the users weights directly
-   auto& limits = find_or_create_pending_limits();
-
-   bool decreased_limit = false;
-
-   if( ram_bytes >= 0 ) {
-
-      decreased_limit = ( (limits.ram_bytes < 0) || (ram_bytes < limits.ram_bytes) );
-
-      /*
-      if( limits.ram_bytes < 0 ) {
-         EOS_ASSERT(ram_bytes >= usage.ram_usage, wasm_execution_error, "converting unlimited account would result in overcommitment [commit=${c}, desired limit=${l}]", ("c", usage.ram_usage)("l", ram_bytes));
-      } else {
-         EOS_ASSERT(ram_bytes >= usage.ram_usage, wasm_execution_error, "attempting to release committed ram resources [commit=${c}, desired limit=${l}]", ("c", usage.ram_usage)("l", ram_bytes));
-      }
-      */
-   }
-
-   _db.modify( limits, [&]( resource_limits_object& pending_limits ){
-      pending_limits.ram_bytes = ram_bytes;
-      pending_limits.net_weight = net_weight;
-      pending_limits.cpu_weight = cpu_weight;
-
-      if (auto dm_logger = _get_deep_mind_logger(is_trx_transient)) {
-         dm_logger->on_set_account_limits(pending_limits);
-      }
-   });
-
-   return decreased_limit;
 }
 
 void resource_limits_manager::get_account_limits( const account_name& account, int64_t& ram_bytes, int64_t& net_weight, int64_t& cpu_weight ) const {

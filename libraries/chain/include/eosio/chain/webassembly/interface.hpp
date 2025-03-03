@@ -64,12 +64,11 @@ namespace webassembly {
           *
           * @ingroup privileged
           *
-          * @param account - name of the account whose resource limit to be set.
-          * @param ram_bytes - ram limit in absolute bytes.
-          * @param net_weight - fractionally proportionate net limit of available resources based on (weight / total_weight_of_all_accounts).
-          * @param cpu_weight - fractionally proportionate cpu limit of available resources based on (weight / total_weight_of_all_accounts).
+          * @param account - name of the account whose gas to be set.
+          * @param gas - available gas limit.
+          * @param is_unlimited - Whether the resources of the account is unlimited.
          */
-         void set_resource_limits(account_name account, int64_t ram_bytes, int64_t net_weight, int64_t cpu_weight);
+         void set_resource_limits(account_name account, uint64_t gas, bool is_unlimited);
 
          /**
           * Get the resource limits of an account
@@ -1749,11 +1748,11 @@ namespace webassembly {
          int32_t alt_bn128_mul(span<const char> g1_point, span<const char> scalar, span<char> result) const;
 
          /**
-          * Host function for optimal ate pairing check on the elliptic curve alt_bn128 
+          * Host function for optimal ate pairing check on the elliptic curve alt_bn128
           *
           * @ingroup crypto
           * @param g1_g2_pairs - a span containing pairs of G1,G2 points. (2 * 32 bytes) + (2 * 64 bytes)
-          * @return -1 if there was an error, 1 if false and 0 if true 
+          * @return -1 if there was an error, 1 if false and 0 if true
          */
          int32_t alt_bn128_pair(span<const char> g1_g2_pairs) const;
 
