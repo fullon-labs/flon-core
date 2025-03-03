@@ -82,15 +82,12 @@ namespace eosio { namespace chain {
          void add_transaction_usage( transaction_gas_usage& trx_gas_usage, bool is_trx_transient = false );
          void calc_and_check_transaction_gas_usage( transaction_gas_usage& trx_gas_usage, uint64_t gas_limit);
 
-         void add_pending_ram_usage( const account_name account, int64_t ram_delta, bool is_trx_transient = false );
          void add_ram_usage( const account_name account, int64_t ram_delta, bool is_trx_transient = false );
-         void verify_account_ram_usage( const account_name accunt )const;
 
          void set_account_limits( const account_name& account, uint64_t gas, bool is_unlimited, bool is_trx_transient);
 
-         void get_account_limits( const account_name& account, int64_t& ram_bytes, int64_t& net_weight, int64_t& cpu_weight) const;
+         void get_account_limits( const account_name& account, uint64_t& gas, bool& is_unlimited ) const;
          uint64_t get_account_gas( const account_name& account) const;
-         void get_account_gas_limits( const account_name& account, uint64_t& gas, bool& is_unlimited) const;
 
          bool is_unlimited_cpu( const account_name& account ) const;
 

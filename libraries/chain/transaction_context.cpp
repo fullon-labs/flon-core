@@ -178,7 +178,7 @@ namespace eosio::chain {
 
          uint64_t gas_limit = 0;
          bool is_unlimited = false;
-         rl.get_account_gas_limits(bill_to_account, gas_limit, is_unlimited);
+         rl.get_account_limits(bill_to_account, gas_limit, is_unlimited);
          if (!is_unlimited) {
             // Fail early if current gas usage is already greater than the calculated limit
             rl.calc_and_check_transaction_gas_usage( trace->gas_usage, gas_limit);
@@ -370,11 +370,7 @@ namespace eosio::chain {
 
       auto& rl = control.get_mutable_resource_limits_manager();
       for( auto a : ram_deltas ) {
-         // apply ram delta
-         // rl.add_ram_usage(account, ram_delta)
-            // check if ram_delta > 0 { ram_delta + ram_usage not overflow; calc ram_gas by ram_delta; validate gas - ram_gas  }
-            // check if ram_delta < 0 { new_delta = -ram_delta; ram_usage >= ram_usage, calc ram_gas by new_delta; validate gas + ram_gas}
-         // rl.verify_account_ram_usage( a );
+         rl.add_ram_usage(a.first, a.second);
       }
 
       // Calculate the new highest network usage and CPU time that all of the billed accounts can afford to be billed
@@ -510,7 +506,7 @@ namespace eosio::chain {
          auto& rl = control.get_mutable_resource_limits_manager();
          uint64_t gas_limit = 0;
          bool is_unlimited = false;
-         rl.get_account_gas_limits(bill_to_account, gas_limit, is_unlimited);
+         rl.get_account_limits(bill_to_account, gas_limit, is_unlimited);
          if (!is_unlimited) {
             rl.calc_and_check_transaction_gas_usage( trace->gas_usage, gas_limit);
          }
@@ -611,7 +607,7 @@ namespace eosio::chain {
    }
 
    void transaction_context::add_ram_usage( account_name account, int64_t ram_delta ) {
-      auto& rl = control.get_mutable_resource_limits_manager();
+      // auto& rl = control.get_mutable_resource_limits_manager();
       auto itr = ram_deltas.find(account);
       if (itr == ram_deltas.end()) {
          std::tie(itr, std::ignore) = ram_deltas.emplace(account, ram_delta);

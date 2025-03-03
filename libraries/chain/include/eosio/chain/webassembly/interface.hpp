@@ -66,7 +66,7 @@ namespace webassembly {
           *
           * @param account - name of the account whose gas to be set.
           * @param gas - available gas limit.
-          * @param is_unlimited - Whether the resources of the account is unlimited.
+          * @param is_unlimited - Whether the account has unlimited resources.
          */
          void set_resource_limits(account_name account, uint64_t gas, bool is_unlimited);
 
@@ -76,11 +76,10 @@ namespace webassembly {
           * @ingroup privileged
           *
           * @param account - name of the account whose resource limit to get.
-          * @param[out] ram_bytes - output to hold retrieved ram limit in absolute bytes.
-          * @param[out] net_weight - output to hold net weight.
-          * @param[out] cpu_weight - output to hold cpu weight.
+          * @param[out] gas - output to hold retrieved available gas limit.
+          * @param[out] is_unlimited - output to hold retrieved whether the account has unlimited resources.
          */
-         void get_resource_limits(account_name account, legacy_ptr<int64_t, 8> ram_bytes, legacy_ptr<int64_t, 8> net_weight, legacy_ptr<int64_t, 8> cpu_weight) const;
+         void get_resource_limits(account_name account, legacy_ptr<uint64_t, 8> gas, legacy_ptr<bool, 1> is_unlimited) const;
 
           /**
            * Get the current wasm limits configuration.
