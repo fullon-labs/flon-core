@@ -27,7 +27,7 @@ namespace res_utils {
                   std::string("Overflow when ") + description);
    }
 
-   void calc_transaction_gas_usage(  transaction_gas_usage& trx_gas_usage, uint64_t gas_limit,
+   uint64_t calc_transaction_gas_usage(  transaction_gas_usage& trx_gas_usage, uint64_t gas_limit,
       const resource_limits_config_object& config );
 
    template<typename Int, typename CalcInt>
@@ -258,9 +258,11 @@ void resource_limits_manager::add_transaction_usage(transaction_gas_usage& trx_g
    const auto& cpu_usage = trx_gas_usage.cpu_usage;
    const auto& net_usage = trx_gas_usage.net_usage;
 
+   uint64_t gas_usage = 0;
    auto acc_limits = res_utils::get_account_limits(_db, trx_gas_usage.payer);
    if (!acc_limits.is_unlimited) {
-      res_utils::calc_transaction_gas_usage(trx_gas_usage, acc_limits.gas, config);
+      gas_usage = res_utils::calc_transaction_gas_usage(trx_gas_usage, acc_limits.gas, config);
+      assert(acc_limits.gas >= gas_usage); // Is guaranteed by the function called above
    }
    // TODO: add gas_usage to trace.gas_usage
 
@@ -286,6 +288,16 @@ void resource_limits_manager::add_transaction_usage(transaction_gas_usage& trx_g
       }
    });
 
+   if (gas_usage > 0) {
+      _db.modify( acc_limits, [&]( resource_limits_object& rlo ){
+         rlo.gas -= gas_usage;
+
+         if (auto dm_logger = _get_deep_mind_logger(is_trx_transient)) {
+            dm_logger->on_set_account_limits(rlo);
+         }
+      });
+   }
+
    // account for this transaction in the block and do not exceed those limits either
    EOS_ASSERT( std::numeric_limits<uint64_t>::max() - state.pending_cpu_usage >= cpu_usage,
             rate_limiting_state_inconsistent,
@@ -302,39 +314,33 @@ void resource_limits_manager::add_transaction_usage(transaction_gas_usage& trx_g
    EOS_ASSERT( state.pending_net_usage <= config.net_limit_parameters.max, block_resource_exhausted, "Block has insufficient net resources" );
 }
 
-void res_utils::calc_transaction_gas_usage(  transaction_gas_usage& trx_gas_usage, uint64_t gas_limit,
+uint64_t res_utils::calc_transaction_gas_usage(  transaction_gas_usage& trx_gas_usage, uint64_t gas_limit,
                                  const resource_limits_config_object& config )
 {
    const auto& cpu_usage = trx_gas_usage.cpu_usage;
    const auto& net_usage = trx_gas_usage.net_usage;
-   // EOS_ASSERT( cpu_usage >= 0, resource_limit_exception, "cpu usage is negative" );
-   // EOS_ASSERT( net_usage >= 0, resource_limit_exception, "net usage is negative" );
 
    uint64_t cpu_gas = res_utils::convert_cpu_to_gas(config, cpu_usage);
    uint64_t net_gas = res_utils::convert_net_to_gas(config, net_usage);
-   assert(cpu_gas >= 0);
-   assert(net_gas >= 0);
-   EOS_ASSERT( (uint128_t)cpu_gas + (uint128_t)net_gas < (uint128_t)std::numeric_limits<uint64_t>::max(),
-               rate_limiting_state_inconsistent,
-               "Overflow when calculating gas by cpu and net usage!");
 
-   // TODO: check limit account, should add is_unlimited_account?
-   // if (gas_limit >= 0) {
-      uint64_t gas_usage = cpu_gas + net_gas;
-      EOS_ASSERT( gas_usage >= 0 && gas_usage <= gas_limit,
-                  tx_gas_usage_exceeded,
-                  "authorizing account '${n}' has insufficient gas for cpu usage ${cpu_usage} and net usage ${net_usage} of this transaction ,"
-                  "needs gas ${gas_usage} (cpu gas ${cpu_gas} and net gas ${net_gas}), but has available gas ${gas}",
-                  ("n", trx_gas_usage.payer)
-                  ("cpu_usage", cpu_usage)
-                  ("net_usage", net_usage)
-                  ("gas_usage", gas_usage)
-                  ("cpu_gas", cpu_gas)
-                  ("net_gas", net_gas)
-                  ("gas", gas_limit) );
-   // }
+   res_utils::verify_add(cpu_gas, net_gas, "adding cpu gas and net gas of transaction");
+
+   uint64_t gas_usage = cpu_gas + net_gas;
+   EOS_ASSERT( gas_usage >= 0 && gas_usage <= gas_limit,
+               tx_gas_usage_exceeded,
+               "authorizing account '${n}' has insufficient gas for cpu usage ${cpu_usage} and net usage ${net_usage} of this transaction ,"
+               "needs gas ${gas_usage} (cpu gas ${cpu_gas} and net gas ${net_gas}), but has available gas ${gas}",
+               ("n", trx_gas_usage.payer)
+               ("cpu_usage", cpu_usage)
+               ("net_usage", net_usage)
+               ("gas_usage", gas_usage)
+               ("cpu_gas", cpu_gas)
+               ("net_gas", net_gas)
+               ("gas", gas_limit) );
+
    trx_gas_usage.cpu_gas = cpu_gas;
    trx_gas_usage.net_gas = net_gas;
+   return gas_usage;
 }
 
 void resource_limits_manager::calc_and_check_transaction_gas_usage( transaction_gas_usage& trx_gas_usage, uint64_t gas_limit) {
@@ -403,7 +409,16 @@ void resource_limits_manager::add_ram_usage( const account_name account, int64_t
          res_utils::verify_add(gas, ram_gas, "adding ram gas");
          gas += ram_gas;
       }
-      // TODO: modify acc_limits, gas
+
+      if (acc_limits.gas != gas) {
+         _db.modify( acc_limits, [&]( resource_limits_object& rlo ){
+            rlo.gas -= gas;
+
+            if (auto dm_logger = _get_deep_mind_logger(is_trx_transient)) {
+               dm_logger->on_set_account_limits(rlo);
+            }
+         });
+      }
    }
 
    // modify ram_usage
@@ -414,6 +429,7 @@ void resource_limits_manager::add_ram_usage( const account_name account, int64_t
          dm_logger->on_ram_event(account, u.ram_usage, ram_delta);
       }
    });
+
 }
 
 void resource_limits_manager::verify_account_ram_usage( const account_name account )const {
@@ -432,6 +448,17 @@ int64_t resource_limits_manager::get_account_ram_usage( const account_name& name
    return _db.get<resource_usage_object,by_owner>( name ).ram_usage;
 }
 
+void resource_limits_manager::set_account_gas( const account_name& account, uint64_t gas, bool is_trx_transient) {
+   // TODO: no pending
+   const auto& limits = _db.get<resource_limits_object, by_owner>( boost::make_tuple(false, account));
+   _db.modify( limits, [&]( resource_limits_object& rlo ){
+      rlo.gas = gas;
+
+      if (auto dm_logger = _get_deep_mind_logger(is_trx_transient)) {
+         dm_logger->on_set_account_limits(rlo);
+      }
+   });
+}
 
 bool resource_limits_manager::set_account_limits( const account_name& account, int64_t ram_bytes, int64_t net_weight, int64_t cpu_weight, bool is_trx_transient) {
    //const auto& usage = _db.get<resource_usage_object,by_owner>( account );
