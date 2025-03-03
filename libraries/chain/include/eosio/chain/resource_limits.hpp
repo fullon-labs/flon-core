@@ -83,6 +83,7 @@ namespace eosio { namespace chain {
          void calc_and_check_transaction_gas_usage( transaction_gas_usage& trx_gas_usage, uint64_t gas_limit);
 
          void add_pending_ram_usage( const account_name account, int64_t ram_delta, bool is_trx_transient = false );
+         void add_ram_usage( const account_name account, int64_t ram_delta, bool is_trx_transient = false );
          void verify_account_ram_usage( const account_name accunt )const;
 
          /// set_account_limits returns true if new ram_bytes limit is more restrictive than the previously set one
@@ -116,10 +117,10 @@ namespace eosio { namespace chain {
 
          int64_t get_account_ram_usage( const account_name& name ) const;
 
-         uint64_t calc_gas_by_cpu(uint64_t gas);
-         uint64_t calc_gas_by_net(uint64_t gas);
-         uint64_t calc_cpu_limit_by_gas(uint64_t gas);
-         uint64_t calc_net_limit_by_gas(uint64_t gas);
+         uint64_t convert_cpu_to_gas(uint64_t gas);
+         uint64_t convert_net_to_gas(uint64_t gas);
+         uint64_t convert_gas_to_cpu(uint64_t gas);
+         uint64_t convert_gas_to_net(uint64_t gas);
       private:
          chainbase::database&         _db;
          std::function<deep_mind_handler*(bool is_trx_transient)> _get_deep_mind_logger;

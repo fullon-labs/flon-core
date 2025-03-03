@@ -386,12 +386,11 @@ namespace eosio { namespace chain {
       FC_DECLARE_DERIVED_EXCEPTION( ro_trx_vm_oc_compile_permanent_failure, resource_exhausted_exception,
                                     3080010, "Read-only transaction eos-vm-oc compile permanent failure" )
 
-
-      FC_DECLARE_DERIVED_EXCEPTION( tx_gas_usage_exceeded, resource_exhausted_exception,
-         3081001, "Transaction exceeded the current gas usage limit imposed on the transaction" )
-
       FC_DECLARE_DERIVED_EXCEPTION( leeway_deadline_exception, deadline_exception,
                                     3081001, "Transaction reached the deadline set due to leeway on account CPU limits" )
+
+      FC_DECLARE_DERIVED_EXCEPTION( tx_gas_usage_exceeded, resource_exhausted_exception,
+                                    3082001, "Transaction exceeded the current gas usage limit imposed on the transaction" )
 
    FC_DECLARE_DERIVED_EXCEPTION( authorization_exception, chain_exception,
                                  3090000, "Authorization exception" )
@@ -677,4 +676,10 @@ namespace eosio { namespace chain {
                                  3260000, "Finalizer exception" )
       FC_DECLARE_DERIVED_EXCEPTION( finalizer_safety_exception, finalizer_exception,
                                     3260001, "Finalizer safety file exception" )
+
+   FC_DECLARE_DERIVED_EXCEPTION( calculation_exception, chain_exception,
+                                 3300000, "Calculation exception" )
+
+      FC_DECLARE_DERIVED_EXCEPTION( calc_overflow_exception, calculation_exception,
+                                    3300001, "Calculation overflow" )
 } } // eosio::chain

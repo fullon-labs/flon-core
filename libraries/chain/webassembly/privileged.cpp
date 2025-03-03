@@ -31,9 +31,10 @@ namespace eosio { namespace chain { namespace webassembly {
       EOS_ASSERT(ram_bytes >= -1, wasm_execution_error, "invalid value for ram resource limit expected [-1,INT64_MAX]");
       EOS_ASSERT(net_weight >= -1, wasm_execution_error, "invalid value for net resource weight expected [-1,INT64_MAX]");
       EOS_ASSERT(cpu_weight >= -1, wasm_execution_error, "invalid value for cpu resource weight expected [-1,INT64_MAX]");
-      if( context.control.get_mutable_resource_limits_manager().set_account_limits(account, ram_bytes, net_weight, cpu_weight, context.trx_context.is_transient()) ) {
-         context.trx_context.validate_ram_usage.insert( account );
-      }
+      // TODO: validate ?
+      // if( context.control.get_mutable_resource_limits_manager().set_account_limits(account, ram_bytes, net_weight, cpu_weight, context.trx_context.is_transient()) ) {
+      //    context.trx_context.validate_ram_usage.insert( account );
+      // }
    }
 
    void interface::get_resource_limits( account_name account, legacy_ptr<int64_t> ram_bytes, legacy_ptr<int64_t> net_weight, legacy_ptr<int64_t> cpu_weight ) const {
@@ -233,7 +234,7 @@ namespace eosio { namespace chain { namespace webassembly {
               gprops.configuration = cfg;
       });
    }
-   
+
    uint32_t interface::get_parameters_packed( span<const char> packed_parameter_ids, span<char> packed_parameters) const{
       fc::datastream<const char*> ds_ids( packed_parameter_ids.data(), packed_parameter_ids.size() );
 
@@ -241,14 +242,14 @@ namespace eosio { namespace chain { namespace webassembly {
       std::vector<fc::unsigned_int> ids;
       fc::raw::unpack(ds_ids, ids);
       const config_range config_range(cfg, std::move(ids), {context.control});
-      
+
       auto size = fc::raw::pack_size( config_range );
       if( packed_parameters.size() == 0 ) return size;
 
       EOS_ASSERT(size <= packed_parameters.size(),
                  chain::config_parse_error,
                  "get_parameters_packed: buffer size is smaller than ${size}", ("size", size));
-      
+
       fc::datastream<char*> ds( packed_parameters.data(), size );
       fc::raw::pack( ds, config_range );
       return size;
@@ -262,7 +263,7 @@ namespace eosio { namespace chain { namespace webassembly {
       config_range config_range(cfg, {context.control});
 
       fc::raw::unpack(ds, config_range);
-      
+
       config_range.config.validate();
       context.db.modify( context.control.get_global_properties(),
          [&]( auto& gprops ) {

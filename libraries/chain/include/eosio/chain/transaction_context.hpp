@@ -199,21 +199,23 @@ namespace eosio::chain {
 
       /// Fields:
       public:
+         typedef chainbase::database::session session;
 
-         controller&                                 control;
-         const packed_transaction&                   packed_trx;
-         const transaction_id_type&                  id;
-         std::optional<chainbase::database::session> undo_session;
-         transaction_trace_ptr                       trace;
-         fc::time_point                              start;
+         controller&                      control;
+         const packed_transaction&        packed_trx;
+         const transaction_id_type&       id;
+         std::optional<session>           undo_session;
+         transaction_trace_ptr            trace;
+         fc::time_point                   start;
 
-         fc::time_point                published;
+         fc::time_point                   published;
 
-         action_digests_t              executed_action_receipts;
+         action_digests_t                 executed_action_receipts;
          // flat_set<account_name>        bill_to_accounts;
          // TODO: rename to payer, reference to trace->gas_usage.payer
-         account_name                  bill_to_account;
-         flat_set<account_name>        validate_ram_usage;
+         account_name                     bill_to_account;
+         // flat_set<account_name>           validate_ram_usage;
+         flat_map<account_name, int64_t>  ram_deltas;
 
          /// the maximum number of virtual CPU instructions of the transaction that can be safely billed to the billable accounts
          uint64_t                      initial_max_billable_cpu = 0;

@@ -21,54 +21,95 @@ static_assert( config::rate_limiting_precision > 0, "config::rate_limiting_preci
 
 namespace res_utils {
 
+   void verify_add(uint64_t a, uint64_t b, const char* description) {
+      EOS_ASSERT( std::numeric_limits<uint64_t>::max() - a >= b,
+                  rate_limiting_state_inconsistent,
+                  std::string("Overflow when ") + description);
+   }
+
    void calc_transaction_gas_usage(  transaction_gas_usage& trx_gas_usage, uint64_t gas_limit,
       const resource_limits_config_object& config );
 
-   uint64_t calc_gas_by_cpu(const resource_limits_config_object& config,  uint64_t value) {
+   template<typename Int, typename CalcInt>
+   Int multiply_decimal(Int a, Int b, Int precision, const char* description = nullptr) {
+      if (precision == 0) return 0;
+
+      // static_assert(std::is_unsigned<UInt>::value);
+      // static_assert(std::is_unsigned<CalcInt>::value);
+      static_assert(sizeof(CalcInt) > sizeof(Int));
+      CalcInt tmp = a * b / precision;
+      EOS_ASSERT( tmp >= (CalcInt)std::numeric_limits<Int>::min() && tmp <= (CalcInt)std::numeric_limits<Int>::max(),
+                  calc_overflow_exception,
+                  std::string("Overflow when ") + (description ? description : ""));
+      return tmp;
+   }
+
+   uint64_t convert_cpu_to_gas(const resource_limits_config_object& config,  uint64_t value) {
       uint128_t gas = 0;
       if (value != 0) {
          gas = (uint128_t)value * config.gas_per_cpu_us / config::gas_rate_precision;
-         EOS_ASSERT( gas < (uint128_t)std::numeric_limits<uint64_t>::max() &&
-                     gas >= (uint128_t)std::numeric_limits<uint64_t>::min(),
-                     rate_limiting_state_inconsistent,
-                     "Overflow when calculate gas by cpu usage!");
+         EOS_ASSERT( gas < (uint128_t)std::numeric_limits<uint64_t>::max(),
+                     calc_overflow_exception,
+                     "Overflow when converting cpu to gas");
       }
       return gas;
    }
-   uint64_t calc_gas_by_net(const resource_limits_config_object& config, uint64_t value) {
+   uint64_t convert_net_to_gas(const resource_limits_config_object& config, uint64_t value) {
       uint128_t gas = 0;
       if (value != 0) {
          gas = (uint128_t)value * config.gas_per_net_bytes / config::gas_rate_precision;
-         EOS_ASSERT( gas < (uint128_t)std::numeric_limits<uint64_t>::max() &&
-                     gas >= (uint128_t)std::numeric_limits<uint64_t>::min(),
-                     rate_limiting_state_inconsistent,
-                     "Overflow when calculate gas by cpu usage!");
+         EOS_ASSERT( gas < (uint128_t)std::numeric_limits<uint64_t>::max(),
+                     calc_overflow_exception,
+                     "Overflow when converting cpu to gas!");
       }
       return gas;
    }
 
-   uint64_t calc_cpu_limit_by_gas(const resource_limits_config_object& config, uint64_t gas) {
+   uint64_t convert_ram_to_gas(const resource_limits_config_object& config, uint64_t value) {
+      uint128_t gas = 0;
+      if (value != 0) {
+         gas = (uint128_t)value * config.gas_per_ram_bytes / config::gas_rate_precision;
+         EOS_ASSERT( gas <= (uint128_t)std::numeric_limits<uint64_t>::max(),
+                     calc_overflow_exception,
+                     "Overflow when converting cpu to gas!");
+      }
+      return gas;
+   }
+
+   uint64_t convert_gas_to_cpu(const resource_limits_config_object& config, uint64_t gas) {
       if (config.gas_per_cpu_us == 0 || gas == 0) {
          return 0;
       }
 
       uint128_t cpu = (uint128_t)gas * config::gas_rate_precision / config.gas_per_cpu_us;
       EOS_ASSERT( cpu < (uint128_t)std::numeric_limits<uint64_t>::max(),
-               rate_limiting_state_inconsistent,
-               "Overflow when calculating cpu limit by gas!");
+               calc_overflow_exception,
+               "Overflow when converting gas to cpu!");
       return cpu;
    }
 
-   uint64_t calc_net_limit_by_gas(const resource_limits_config_object& config, uint64_t gas) {
+   uint64_t convert_gas_to_net(const resource_limits_config_object& config, uint64_t gas) {
       if (config.gas_per_net_bytes == 0 || gas == 0) {
          return 0;
       }
 
       uint128_t net = (uint128_t)gas * config::gas_rate_precision / config.gas_per_net_bytes;
       EOS_ASSERT( net < (uint128_t)std::numeric_limits<uint64_t>::max(),
-               rate_limiting_state_inconsistent,
-               "Overflow when calculating net limit by gas!");
+               calc_overflow_exception,
+               "Overflow when converting gas to net!");
       return net;
+   }
+
+   uint64_t convert_gas_to_ram(const resource_limits_config_object& config, uint64_t gas) {
+      if (config.gas_per_net_bytes == 0 || gas == 0) {
+         return 0;
+      }
+
+      uint128_t ram = (uint128_t)gas * config::gas_rate_precision / config.gas_per_ram_bytes;
+      EOS_ASSERT( ram < (uint128_t)std::numeric_limits<uint64_t>::max(),
+               calc_overflow_exception,
+               "Overflow when converting gas to ram!");
+      return ram;
    }
 
    const resource_limits_object& get_account_limits( const chainbase::database& _db, const account_name& account ) {
@@ -269,8 +310,8 @@ void res_utils::calc_transaction_gas_usage(  transaction_gas_usage& trx_gas_usag
    // EOS_ASSERT( cpu_usage >= 0, resource_limit_exception, "cpu usage is negative" );
    // EOS_ASSERT( net_usage >= 0, resource_limit_exception, "net usage is negative" );
 
-   uint64_t cpu_gas = res_utils::calc_gas_by_cpu(config, cpu_usage);
-   uint64_t net_gas = res_utils::calc_gas_by_net(config, net_usage);
+   uint64_t cpu_gas = res_utils::convert_cpu_to_gas(config, cpu_usage);
+   uint64_t net_gas = res_utils::convert_net_to_gas(config, net_usage);
    assert(cpu_gas >= 0);
    assert(net_gas >= 0);
    EOS_ASSERT( (uint128_t)cpu_gas + (uint128_t)net_gas < (uint128_t)std::numeric_limits<uint64_t>::max(),
@@ -313,6 +354,59 @@ void resource_limits_manager::add_pending_ram_usage( const account_name account,
    EOS_ASSERT(ram_delta >= 0 || usage.ram_usage >= (uint64_t)(-ram_delta), transaction_exception,
               "Ram usage delta would underflow UINT64_MAX");
 
+   _db.modify( usage, [&]( auto& u ) {
+      u.ram_usage += ram_delta;
+
+      if (auto dm_logger = _get_deep_mind_logger(is_trx_transient)) {
+         dm_logger->on_ram_event(account, u.ram_usage, ram_delta);
+      }
+   });
+}
+
+
+void resource_limits_manager::add_ram_usage( const account_name account, int64_t ram_delta, bool is_trx_transient ) {
+   if (ram_delta == 0) {
+      return;
+   }
+
+   const auto& usage  = _db.get<resource_usage_object,by_owner>( account );
+   if (ram_delta > 0) {
+      res_utils::verify_add(usage.ram_usage, (uint64_t)ram_delta, "adding delta to ram usage");
+   } else { // ram_delta < 0
+      EOS_ASSERT( usage.ram_usage >= (uint64_t)(-ram_delta), transaction_exception,
+                 "Ram usage insufficent when substracting delta");
+   }
+
+   const auto& config = _db.get<resource_limits_config_object>();
+   auto acc_limits = res_utils::get_account_limits(_db, account);
+
+   if (!acc_limits.is_unlimited) {
+      uint64_t gas = acc_limits.gas;
+      if (ram_delta > 0) {
+         auto ram_gas = res_utils::convert_ram_to_gas(config, ram_delta);
+         // if (ram_gas > acc_limits.gas ) {
+         //    // TODO: convert_core_asset_to_gas
+         // }
+
+         // calc ram_gas by ram_delta
+         // TODO: if (gas < ram_delta) more_gas = ram_delta - gas; coin = calc_coin_by_gas()
+         // CHECK( gas >= ram_delta)
+         EOS_ASSERT( gas >= ram_gas, ram_usage_exceeded,
+                     "account ${account} has insufficient gas;"
+                     " uses ram ${ram} bytes, needs ${ram_gas} gas, has gas ${gas} and core asset ${asset}",
+                     ("account", account)("ram", ram_gas)("ram_gas", ram_gas)
+                     ("gas",gas)("asset", "0")
+         );
+         // TODO: show core asset in error msg
+      } else { // ram_delta < 0
+         auto ram_gas = res_utils::convert_ram_to_gas(config, (uint64_t)(-ram_delta));
+         res_utils::verify_add(gas, ram_gas, "adding ram gas");
+         gas += ram_gas;
+      }
+      // TODO: modify acc_limits, gas
+   }
+
+   // modify ram_usage
    _db.modify( usage, [&]( auto& u ) {
       u.ram_usage += ram_delta;
 
@@ -651,34 +745,34 @@ uint64_t resource_limits_manager::get_block_net_limit() const {
 uint64_t resource_limits_manager::get_account_cpu_limit( const account_name& name) const {
    const auto& config = _db.get<resource_limits_config_object>();
    const auto& rlo = res_utils::get_account_limits(_db, name);
-   return res_utils::calc_cpu_limit_by_gas(config, rlo.gas);
+   return res_utils::convert_gas_to_cpu(config, rlo.gas);
 }
 
 uint64_t resource_limits_manager::get_account_net_limit( const account_name& name) const {
    const auto& config = _db.get<resource_limits_config_object>();
    const auto& rlo = res_utils::get_account_limits(_db, name);
-   return res_utils::calc_net_limit_by_gas(config, rlo.gas);
+   return res_utils::convert_gas_to_net(config, rlo.gas);
 }
 
-uint64_t resource_limits_manager::calc_gas_by_cpu(uint64_t cpu) {
+uint64_t resource_limits_manager::convert_cpu_to_gas(uint64_t cpu) {
    const auto& config = _db.get<resource_limits_config_object>();
-   return res_utils::calc_gas_by_cpu(config, cpu);
+   return res_utils::convert_cpu_to_gas(config, cpu);
 
 }
-uint64_t resource_limits_manager::calc_gas_by_net(uint64_t net) {
+uint64_t resource_limits_manager::convert_net_to_gas(uint64_t net) {
    const auto& config = _db.get<resource_limits_config_object>();
-   return res_utils::calc_gas_by_net(config, net);
+   return res_utils::convert_net_to_gas(config, net);
 
 }
 
-uint64_t resource_limits_manager::calc_cpu_limit_by_gas(uint64_t gas) {
+uint64_t resource_limits_manager::convert_gas_to_cpu(uint64_t gas) {
    const auto& config = _db.get<resource_limits_config_object>();
-   return res_utils::calc_cpu_limit_by_gas(config, gas);
+   return res_utils::convert_gas_to_cpu(config, gas);
 }
 
-uint64_t resource_limits_manager::calc_net_limit_by_gas(uint64_t gas) {
+uint64_t resource_limits_manager::convert_gas_to_net(uint64_t gas) {
    const auto& config = _db.get<resource_limits_config_object>();
-   return res_utils::calc_net_limit_by_gas(config, gas);
+   return res_utils::convert_gas_to_net(config, gas);
 }
 
 } } } /// eosio::chain::resource_limits

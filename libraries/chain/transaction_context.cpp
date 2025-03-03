@@ -188,7 +188,7 @@ namespace eosio::chain {
                // auto gas_limit = rl.get_account_gas(bill_to_account);
                rl.calc_and_check_transaction_gas_usage( trace->gas_usage, gas_limit);
                uint64_t available_gas = gas_limit - trace->gas_usage.cpu_gas - trace->gas_usage.net_gas;
-               uint64_t account_cpu_limit = rl.calc_cpu_limit_by_gas(available_gas);
+               uint64_t account_cpu_limit = rl.convert_gas_to_cpu(available_gas);
                assert(account_cpu_limit >= 0); // TODO: check account_cpu_limit >= 0
                // TODO: account_cpu_limit + leeway.count() < objective_duration_limit.count();
 
@@ -369,8 +369,12 @@ namespace eosio::chain {
       }
 
       auto& rl = control.get_mutable_resource_limits_manager();
-      for( auto a : validate_ram_usage ) {
-         rl.verify_account_ram_usage( a );
+      for( auto a : ram_deltas ) {
+         // apply ram delta
+         // rl.add_ram_usage(account, ram_delta)
+            // check if ram_delta > 0 { ram_delta + ram_usage not overflow; calc ram_gas by ram_delta; validate gas - ram_gas  }
+            // check if ram_delta < 0 { new_delta = -ram_delta; ram_usage >= ram_usage, calc ram_gas by new_delta; validate gas + ram_gas}
+         // rl.verify_account_ram_usage( a );
       }
 
       // Calculate the new highest network usage and CPU time that all of the billed accounts can afford to be billed
@@ -608,10 +612,14 @@ namespace eosio::chain {
 
    void transaction_context::add_ram_usage( account_name account, int64_t ram_delta ) {
       auto& rl = control.get_mutable_resource_limits_manager();
-      rl.add_pending_ram_usage( account, ram_delta, is_transient() );
-      if( ram_delta > 0 ) {
-         validate_ram_usage.insert( account );
+      auto itr = ram_deltas.find(account);
+      if (itr == ram_deltas.end()) {
+         std::tie(itr, std::ignore) = ram_deltas.emplace(account, ram_delta);
+      } else {
+         // TODO: check overflow
+         itr->second += ram_delta;
       }
+      // TODO: check_ram_delta(itr->second)
    }
 
    uint32_t transaction_context::update_billed_cpu_time( fc::time_point now ) {
@@ -670,7 +678,7 @@ namespace eosio::chain {
          // TODO: when is_cpu_only is false, should deduct gas of other resources
       // }
 
-      // return rl.calc_cpu_limit_by_gas(gas);
+      // return rl.convert_gas_to_cpu(gas);
       // if( cpu_limit >= 0 ) {
       //       account_cpu_limit = std::min( account_cpu_limit, cpu_limit );
       //       greylisted_cpu |= cpu_was_greylisted;
