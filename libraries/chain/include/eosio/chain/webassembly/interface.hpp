@@ -64,7 +64,7 @@ namespace webassembly {
           *
           * @ingroup privileged
           *
-          * @param account - name of the account whose gas to be set.
+          * @param account - name of the account whose resource limit to be set.
           * @param gas - available gas limit.
           * @param is_unlimited - Whether the account has unlimited resources.
          */

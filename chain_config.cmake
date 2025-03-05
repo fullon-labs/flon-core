@@ -5,6 +5,10 @@ set( PROJECT_NAME                   fullon      )
 set( SYSTEM_ACCOUNT_NAME            flonian     )
 set( SYSTEM_ACCOUNT_PREFIX          flon        )
 
+## config core symbol
+set( CORE_SYMBOL_NAME               FLON        )
+set( CORE_SYMBOL_PRECISION          6           )
+
 ## config program name
 set( CLI_CLIENT_EXECUTABLE_NAME     fucli       )
 set( NODE_EXECUTABLE_NAME           funod       )

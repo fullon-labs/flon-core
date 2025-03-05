@@ -136,17 +136,22 @@ endif()
 
 include(utils)
 
-if ("${CORE_SYMBOL_NAME}" STREQUAL "")
-  set( CORE_SYMBOL_NAME "SYS" )
+string(TOUPPER ${CORE_SYMBOL_NAME} CORE_SYMBOL_NAME_UPPER)
+if (NOT CORE_SYMBOL_NAME STREQUAL CORE_SYMBOL_NAME_UPPER )
+  message(FATAL_ERROR "CORE_SYMBOL_NAME ${CORE_SYMBOL_NAME} must be upper case")
 endif()
-string(TOUPPER ${CORE_SYMBOL_NAME} CORE_SYMBOL_NAME)
 
 string(LENGTH ${CORE_SYMBOL_NAME} CORE_SYMBOL_NAME_LENGTH)
 if (CORE_SYMBOL_NAME_LENGTH GREATER 7)
   message(FATAL_ERROR "CORE_SYMBOL_NAME length must be between 1 and 7 characters")
 endif()
 
+if (CORE_SYMBOL_PRECISION GREATER 18)
+  message(FATAL_ERROR "CORE_SYMBOL_NAME length must less or equal 18")
+endif()
+
 message( STATUS "Using '${CORE_SYMBOL_NAME}' as CORE symbol name" )
+message( STATUS "Using '${CORE_SYMBOL_PRECISION}' as CORE symbol precision" )
 
 if ("${SYSTEM_ROOT_KEY}" STREQUAL "")
    set(SYSTEM_ROOT_KEY "${PUBLIC_KEY_LEGACY_PREFIX}6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV")

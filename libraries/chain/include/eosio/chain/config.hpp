@@ -2,6 +2,7 @@
 #include <eosio/chain/wasm_interface.hpp>
 #include <fc/time.hpp>
 #include <fc/utility.hpp>
+#include <eosio/chain/symbol.hpp>
 
 namespace eosio { namespace chain { namespace config {
 
@@ -38,6 +39,10 @@ extern name eosio_code_name;      //{ "eosio.code"_n };
 extern name token_account_name;
 extern name msig_account_name;
 extern name wrap_account_name;
+extern name gas_account_name;
+
+extern symbol core_symbol;
+extern symbol_code core_symbol_code;
 
 const static int      block_interval_ms = 500;
 const static int      block_interval_us = block_interval_ms*1000;
