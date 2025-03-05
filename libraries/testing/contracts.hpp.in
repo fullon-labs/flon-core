@@ -15,6 +15,7 @@ namespace eosio {
       struct contracts {
          // Contracts in `libraries/testing/contracts' directory
          MAKE_EMBD_WASM_ABI(eosio_bios)
+         MAKE_EMBD_WASM_ABI(sys_boot)
 
          MAKE_EMBD_WASM_ABI(before_producer_authority_eosio_bios)
          MAKE_EMBD_WASM_ABI(before_preactivate_eosio_bios)
