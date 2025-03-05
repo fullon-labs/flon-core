@@ -115,7 +115,7 @@ namespace res_utils {
    const resource_limits_object& get_account_limits( const chainbase::database& _db, const account_name& account ) {
       return _db.get<resource_limits_object,by_owner>( boost::make_tuple( false, account ) );
    }
-}
+} // namespace res_utils
 
 static uint64_t update_elastic_limit(uint64_t current_limit, uint64_t average_usage, const elastic_limit_parameters& params) {
    uint64_t result = current_limit;
@@ -572,6 +572,47 @@ uint64_t resource_limits_manager::convert_gas_to_cpu(uint64_t gas) {
 uint64_t resource_limits_manager::convert_gas_to_net(uint64_t gas) {
    const auto& config = _db.get<resource_limits_config_object>();
    return res_utils::convert_gas_to_net(config, gas);
+}
+
+token_account_data token_account_data::unpack_from(const key_value_object& obj) {
+   fc::datastream<const char*> ds(obj.value.data(), obj.value.size());
+   token_account_data ret;
+   fc::raw::unpack(ds, ret.balance);
+   ds.read(ret.remaining_data.data(), ret.remaining_data.size());
+   return ret;
+}
+
+void token_account_data::pack_to(key_value_object& obj) {
+   //TODO: process payer??
+   size_t sz = fc::raw::pack_size( balance ) + remaining_data.size();
+   obj.value.resize_and_fill( sz, [&](char* data, std::size_t size) {
+      fc::datastream<char*> ds( data, size );
+      fc::raw::pack( ds, balance );
+      ds.write(remaining_data.data(), remaining_data.size());
+   });
+}
+
+core_asset_assessor_ptr core_asset_assessor::create(chainbase::database& db, const account_name& account) {
+   const auto* t_id = db.find<chain::table_id_object, chain::by_code_scope_table>(boost::make_tuple( config::token_account_name, account, "accounts"_n ));
+   if (!t_id) return nullptr;
+
+   const auto &idx = db.get_index<key_value_index, by_scope_primary>();
+   // // TODO: config::core_symbol
+   static const symbol core_symbol = symbol(4, "FLON");
+   static const symbol_code core_symbol_code = core_symbol.to_symbol_code();
+
+   auto itr = idx.find(boost::make_tuple( t_id->id, core_symbol_code.value ));
+   if (itr == idx.end()) return nullptr;
+   const key_value_object& obj = *itr;
+
+   return std::make_shared<core_asset_assessor>(obj, token_account_data::unpack_from(obj));
+}
+
+void core_asset_assessor::save(chainbase::database& db) {
+   db.modify(table_obj, [&](auto& obj) {
+      acct_data.pack_to(obj);
+      // TODO: dmlog
+   });
 }
 
 } } } /// eosio::chain::resource_limits

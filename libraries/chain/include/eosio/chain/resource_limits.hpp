@@ -8,6 +8,9 @@
 #include <chainbase/chainbase.hpp>
 #include <set>
 
+#include <eosio/chain/contract_table_objects.hpp>
+#include <eosio/chain/asset.hpp>
+#include <eosio/chain/core_symbol.hpp>
 namespace eosio { namespace chain {
 
    class deep_mind_handler;
@@ -122,6 +125,32 @@ namespace eosio { namespace chain {
          chainbase::database&         _db;
          std::function<deep_mind_handler*(bool is_trx_transient)> _get_deep_mind_logger;
    };
+
+
+   struct core_asset_assessor;
+   using core_asset_assessor_ptr = std::shared_ptr<core_asset_assessor>;
+   struct token_account_data {
+      asset                   balance;
+      vector<char>            remaining_data;
+
+      static token_account_data unpack_from(const key_value_object& obj);
+
+      void pack_to(key_value_object& obj);
+   };
+
+   struct core_asset_assessor {
+      const key_value_object&    table_obj;
+      token_account_data         acct_data;
+
+      core_asset_assessor( const key_value_object& table_obj, token_account_data acct_data)
+      :table_obj(table_obj), acct_data(acct_data) {}
+
+      static core_asset_assessor_ptr create(chainbase::database& db, const account_name& account);
+
+      void save(chainbase::database& db);
+
+   };
+
 } } } /// eosio::chain
 
 FC_REFLECT( eosio::chain::resource_limits::account_resource_limit, (used)(available)(max)(last_usage_update_time)(current_used) )
