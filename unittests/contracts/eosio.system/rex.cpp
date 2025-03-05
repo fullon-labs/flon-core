@@ -433,8 +433,9 @@ void system_contract::update_resource_limits( const name& from, const name& rece
    }
 
    int64_t ram_bytes = 0, net = 0, cpu = 0;
-   get_resource_limits( receiver, ram_bytes, net, cpu );
-   set_resource_limits( receiver, ram_bytes, net + delta_net, cpu + delta_cpu );
+   // TODO: fix me
+   // get_resource_limits( receiver, ram_bytes, net, cpu );
+   // set_resource_limits( receiver, ram_bytes, net + delta_net, cpu + delta_cpu );
 }
 
 void system_contract::check_voting_requirement( const name& owner, const char* error_msg )const
