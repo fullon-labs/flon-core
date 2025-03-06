@@ -189,11 +189,12 @@ namespace eosio::chain {
             if( !explicit_billed_cpu_time ) {
                // Calculate the highest network usage and CPU time that billed account(payer) can afford to be billed
                uint64_t gas_limit = reserved_gas + convertible_gas;
-               EOS_ASSERT( reserved_gas + convertible_gas > trace->gas_usage.cpu_gas + trace->gas_usage.net_gas,
+               uint64_t used_gas = trace->gas_usage.cpu_gas + trace->gas_usage.net_gas;
+               EOS_ASSERT( gas_limit > used_gas,
                   tx_gas_usage_exceeded,
                   "authorizing account '${n}' has insufficient gas for cpu to execute this transaction",
                   ("n", trace->gas_usage.payer));
-               uint64_t available_gas = (reserved_gas + convertible_gas) - (trace->gas_usage.cpu_gas + trace->gas_usage.net_gas);
+               uint64_t available_gas = gas_limit - used_gas;
                uint64_t account_cpu_limit = rl.convert_gas_to_cpu(available_gas);
 
                // Possibly limit deadline if the duration accounts can be billed for (+ a subjective leeway) does not exceed current delta
