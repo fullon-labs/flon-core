@@ -141,10 +141,32 @@ namespace res_utils {
       return convert_core_asset_to_gas(core_asset.get_amount());
    }
 
-   const resource_limits_object& get_account_limits( const chainbase::database& _db, const account_name& account ) {
-      return _db.get<resource_limits_object,by_owner>( boost::make_tuple( false, account ) );
+   const resource_limits_object& get_account_limits( const chainbase::database& db, const account_name& account ) {
+      return db.get<resource_limits_object,by_owner>( boost::make_tuple( false, account ) );
+   }
+
+   void set_account_reserved_gas(chainbase::database& db, const resource_limits_object& acc_limits, uint64_t gas, deep_mind_handler* dm_logger) {
+      if (acc_limits.gas == gas) return;
+
+      db.modify( acc_limits, [&]( resource_limits_object& rlo ){
+         rlo.gas = gas;
+         if (dm_logger) {
+            dm_logger->on_set_account_limits(rlo);
+         }
+      });
    }
 } // namespace res_utils
+
+struct core_gas_accessor;
+using core_gas_accessor_ptr = std::shared_ptr<core_gas_accessor>;
+struct core_gas_accessor {
+   core_asset_account_ptr sys_gas_account;
+   core_asset_account_ptr payer_gas_account;
+   uint64_t convertible_gas   = 0;
+
+   static core_gas_accessor_ptr create(chainbase::database& db, const account_name& payer);
+   void pay_gas(chainbase::database& db, uint64_t gas);
+};
 
 static uint64_t update_elastic_limit(uint64_t current_limit, uint64_t average_usage, const elastic_limit_parameters& params) {
    uint64_t result = current_limit;
@@ -274,23 +296,16 @@ void resource_limits_manager::add_transaction_usage(transaction_gas_usage& trx_g
    uint64_t used_gas = 0;
    auto acc_limits = res_utils::get_account_limits(_db, trx_gas_usage.payer);
    if (!acc_limits.is_unlimited) {
-      core_asset_assessor_ptr sys_gas_account;
-      core_asset_assessor_ptr payer_gas_account;
+      core_gas_accessor_ptr cgs;
+
+      uint64_t reserved_gas      = acc_limits.gas;
+      uint64_t convertible_gas   = 0;
 
       used_gas = res_utils::calc_transaction_gas_usage(trx_gas_usage, config);
-      uint64_t convertible_gas = 0;
-      if ( used_gas > 0 && used_gas > acc_limits.gas ) {
-         // uint64_t payed_gas = used_gas - acc_limits.gas;
 
-         payer_gas_account = core_asset_assessor::create(_db, trx_gas_usage.payer);
-         if (payer_gas_account && payer_gas_account->balance().get_amount() > 0) {
-            sys_gas_account = core_asset_assessor::create(_db, config::gas_account_name);
-            if (sys_gas_account ) {
-               convertible_gas = res_utils::convert_core_asset_to_gas(payer_gas_account->balance());
-            }
-            // else core asset account of system gas not exists,
-            // can not transfer core asset of converted_gas to system gas account
-         }
+      if ( used_gas > reserved_gas ) {
+         cgs = core_gas_accessor::create(_db, trx_gas_usage.payer);
+         convertible_gas = cgs->convertible_gas;
       }
 
       res_utils::verify_add(acc_limits.gas, convertible_gas, "adding gas limit with reserved gas and convertible gas");
@@ -307,48 +322,23 @@ void resource_limits_manager::add_transaction_usage(transaction_gas_usage& trx_g
          ("cpu_gas", trx_gas_usage.cpu_gas)
          ("net_gas", trx_gas_usage.net_gas)
          ("gas", gas_limit)
-         ("reserved_gas", acc_limits.gas)
+         ("reserved_gas", reserved_gas)
          ("convertible_gas", convertible_gas)
       );
-      if ( used_gas > acc_limits.gas ) {
-         assert( payer_gas_account && sys_gas_account && convertible_gas > 0 );
-         auto quant = res_utils::convert_gas_to_core_asset(used_gas - acc_limits.gas);
-         // transfer core asset of converted_gas from payer to system gas account
-         res_utils::verify_sub_core_asset(payer_gas_account->balance(), quant, "substracting core asset of converted gas from payer account");
-         res_utils::verify_add_core_asset(sys_gas_account->balance(), quant, "adding core asset of converted gas to system gas account");
-         payer_gas_account->balance() -= quant;
-         sys_gas_account->balance() -= quant;
-         payer_gas_account->save(_db);
-         sys_gas_account->save(_db);
+      if ( used_gas > reserved_gas ) {
+         assert(cgs);
+         cgs->pay_gas(_db, used_gas - reserved_gas);
+         reserved_gas = 0; // reserved_gas must be used up.
+      } else {// used_gas <= reserved_gas
+         reserved_gas -= used_gas;
       }
-      if (used_gas > 0 && acc_limits.gas > 0) {
-         _db.modify( acc_limits, [&]( resource_limits_object& rlo ){
-            if (used_gas > acc_limits.gas) {
-               // the gas(used_gas - acc_limits.gas) was pay below with converted gas from core asset of payer account
-               acc_limits.gas = 0;
-            } else {
-               rlo.gas -= used_gas;
-            }
 
-            if (auto dm_logger = _get_deep_mind_logger(is_trx_transient)) {
-               dm_logger->on_set_account_limits(rlo);
-            }
-         });
-
-      }
+      res_utils::set_account_reserved_gas(_db, acc_limits, reserved_gas, _get_deep_mind_logger(is_trx_transient));
    }
    // TODO: add used_gas to trace.used_gas
 
-   // TODO: check limit account, should add is_unlimited_account?
-
-   EOS_ASSERT( std::numeric_limits<uint64_t>::max() - usage.cpu_usage >= cpu_usage,
-               rate_limiting_state_inconsistent,
-               "Overflow when adding cpu usage!");
-   EOS_ASSERT( std::numeric_limits<uint64_t>::max() - usage.net_usage >= net_usage,
-               rate_limiting_state_inconsistent,
-               "Overflow when adding net usage!");
-
-   // TODO: should modify account res usage?
+   res_utils::verify_add(usage.cpu_usage, cpu_usage, "adding cpu usage");
+   res_utils::verify_add(usage.net_usage, net_usage, "adding net usage");
 
    _db.modify( usage, [&]( auto& bu ){
       //  bu.net_usage.add( net_usage, time_slot, config.account_net_usage_average_window );
@@ -433,37 +423,46 @@ void resource_limits_manager::add_ram_usage( const account_name account, int64_t
    auto acc_limits = res_utils::get_account_limits(_db, account);
 
    if (!acc_limits.is_unlimited) {
-      uint64_t gas = acc_limits.gas;
       if (ram_delta > 0) {
-         auto ram_gas = res_utils::convert_ram_to_gas(config, ram_delta);
-         // if (ram_gas > acc_limits.gas ) {
-         //    // TODO: convert_core_asset_to_gas
-         // }
+         auto used_gas = res_utils::convert_ram_to_gas(config, ram_delta);
 
-         // calc ram_gas by ram_delta
-         // TODO: if (gas < ram_delta) more_gas = ram_delta - gas; coin = calc_coin_by_gas()
-         // CHECK( gas >= ram_delta)
-         EOS_ASSERT( gas >= ram_gas, ram_usage_exceeded,
-                     "account ${account} has insufficient gas;"
-                     " uses ram ${ram} bytes, needs ${ram_gas} gas, has gas ${gas} and core asset ${asset}",
-                     ("account", account)("ram", ram_gas)("ram_gas", ram_gas)
-                     ("gas",gas)("asset", "0")
+         core_gas_accessor_ptr cgs;
+
+         uint64_t reserved_gas      = acc_limits.gas;
+         uint64_t convertible_gas   = 0;
+
+         if ( used_gas > reserved_gas ) {
+            cgs = core_gas_accessor::create(_db, account);
+            convertible_gas = cgs->convertible_gas;
+         }
+
+         res_utils::verify_add(reserved_gas, convertible_gas, "adding gas limit with reserved gas and convertible gas");
+         uint64_t gas_limit = reserved_gas + convertible_gas;
+         // verify transaction gas
+         EOS_ASSERT( used_gas <= gas_limit,
+            tx_gas_usage_exceeded,
+            "authorizing account '${n}' has insufficient gas for ram usage, "
+            "needs gas ${used_gas} , but has available gas ${gas}",
+            ("n", account)
+            ("ram_usage", ram_delta)
+            ("used_gas", used_gas)
+            ("gas", gas_limit)
+            ("reserved_gas", reserved_gas)
+            ("convertible_gas", convertible_gas)
          );
-         // TODO: show core asset in error msg
+
+         if ( used_gas > reserved_gas ) {
+            assert(cgs);
+            cgs->pay_gas(_db, used_gas - reserved_gas);
+            reserved_gas = 0; // reserved_gas must be used up.
+         } else {// used_gas <= reserved_gas
+            reserved_gas -= used_gas;
+         }
+         res_utils::set_account_reserved_gas(_db, acc_limits, reserved_gas, _get_deep_mind_logger(is_trx_transient));
       } else { // ram_delta < 0
          auto ram_gas = res_utils::convert_ram_to_gas(config, (uint64_t)(-ram_delta));
-         res_utils::verify_add(gas, ram_gas, "adding ram gas");
-         gas += ram_gas;
-      }
-
-      if (acc_limits.gas != gas) {
-         _db.modify( acc_limits, [&]( resource_limits_object& rlo ){
-            rlo.gas -= gas;
-
-            if (auto dm_logger = _get_deep_mind_logger(is_trx_transient)) {
-               dm_logger->on_set_account_limits(rlo);
-            }
-         });
+         res_utils::verify_add(acc_limits.gas, ram_gas, "adding ram gas");
+         res_utils::set_account_reserved_gas(_db, acc_limits, acc_limits.gas + ram_gas, _get_deep_mind_logger(is_trx_transient));
       }
    }
 
@@ -503,9 +502,9 @@ void resource_limits_manager::get_account_limits( const account_name& account, u
 }
 
 uint64_t resource_limits_manager::get_account_convertible_gas( const account_name& account ) const {
-   auto payer_gas_account = core_asset_assessor::create(_db, account);
+   auto payer_gas_account = core_asset_account::create(_db, account);
    if (payer_gas_account && payer_gas_account->balance().get_amount() > 0) {
-      auto sys_gas_account = core_asset_assessor::create(_db, config::gas_account_name);
+      auto sys_gas_account = core_asset_account::create(_db, config::gas_account_name);
       if (sys_gas_account) {
          return res_utils::convert_core_asset_to_gas(payer_gas_account->balance());
       }
@@ -682,7 +681,7 @@ void token_account_data::pack_to(key_value_object& obj) {
    });
 }
 
-core_asset_assessor_ptr core_asset_assessor::create(chainbase::database& db, const account_name& account) {
+core_asset_account_ptr core_asset_account::create(chainbase::database& db, const account_name& account) {
    const auto* t_id = db.find<chain::table_id_object, chain::by_code_scope_table>(boost::make_tuple( config::token_account_name, account, "accounts"_n ));
    if (!t_id) return nullptr;
 
@@ -695,14 +694,44 @@ core_asset_assessor_ptr core_asset_assessor::create(chainbase::database& db, con
    if (itr == idx.end()) return nullptr;
    const key_value_object& obj = *itr;
 
-   return std::make_shared<core_asset_assessor>(obj, token_account_data::unpack_from(obj));
+   return std::make_shared<core_asset_account>(obj, token_account_data::unpack_from(obj));
 }
 
-void core_asset_assessor::save(chainbase::database& db) {
+void core_asset_account::save(chainbase::database& db) {
    db.modify(table_obj, [&](auto& obj) {
       acct_data.pack_to(obj);
       // TODO: dmlog
    });
+}
+
+core_gas_accessor_ptr core_gas_accessor::create(chainbase::database& db, const account_name& payer) {
+
+   core_asset_account_ptr sys_gas_account;
+   core_asset_account_ptr payer_gas_account;
+   uint64_t convertible_gas   = 0;
+   payer_gas_account = core_asset_account::create(db, payer);
+   convertible_gas = res_utils::convert_core_asset_to_gas(payer_gas_account->balance());
+   if (payer_gas_account && convertible_gas > 0) {
+      sys_gas_account = core_asset_account::create(db, config::gas_account_name);
+      if (sys_gas_account ) {
+         return std::make_shared<core_gas_accessor>(sys_gas_account, payer_gas_account, convertible_gas);
+      }
+      // else core asset account of system gas not exists,
+      // can not transfer core asset of converted_gas to system gas account
+   }
+   return nullptr;
+}
+
+void core_gas_accessor::pay_gas(chainbase::database& db, uint64_t gas) {
+   assert( payer_gas_account && sys_gas_account && convertible_gas > 0 );
+   auto quant = res_utils::convert_gas_to_core_asset(gas);
+   // transfer core asset of converted_gas from payer to system gas account
+   res_utils::verify_sub_core_asset(payer_gas_account->balance(), quant, "substracting core asset of converted gas from payer account");
+   res_utils::verify_add_core_asset(sys_gas_account->balance(), quant, "adding core asset of converted gas to system gas account");
+   payer_gas_account->balance() -= quant;
+   sys_gas_account->balance() -= quant;
+   payer_gas_account->save(db);
+   sys_gas_account->save(db);
 }
 
 } } } /// eosio::chain::resource_limits

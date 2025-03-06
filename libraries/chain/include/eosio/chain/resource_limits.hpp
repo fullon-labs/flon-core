@@ -130,8 +130,8 @@ namespace eosio { namespace chain {
    };
 
 
-   struct core_asset_assessor;
-   using core_asset_assessor_ptr = std::shared_ptr<core_asset_assessor>;
+   struct core_asset_account;
+   using core_asset_account_ptr = std::shared_ptr<core_asset_account>;
    struct token_account_data {
       asset                   balance;
       vector<char>            remaining_data;
@@ -141,14 +141,14 @@ namespace eosio { namespace chain {
       void pack_to(key_value_object& obj);
    };
 
-   struct core_asset_assessor {
+   struct core_asset_account {
       const key_value_object&    table_obj;
       token_account_data         acct_data;
 
-      core_asset_assessor( const key_value_object& table_obj, token_account_data acct_data)
+      core_asset_account( const key_value_object& table_obj, token_account_data acct_data)
       :table_obj(table_obj), acct_data(acct_data) {}
 
-      static core_asset_assessor_ptr create(chainbase::database& db, const account_name& account);
+      static core_asset_account_ptr create(chainbase::database& db, const account_name& account);
 
       void save(chainbase::database& db);
 
