@@ -682,4 +682,6 @@ namespace eosio { namespace chain {
 
       FC_DECLARE_DERIVED_EXCEPTION( calc_overflow_exception, calculation_exception,
                                     3300001, "Calculation overflow" )
+      FC_DECLARE_DERIVED_EXCEPTION( substraction_insufficent_exception, calculation_exception,
+                                    3300001, "Substraction insufficent" )
 } } // eosio::chain

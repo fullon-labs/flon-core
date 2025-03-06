@@ -83,13 +83,16 @@ namespace eosio { namespace chain {
 
          // void update_account_usage( const flat_set<account_name>& accounts, uint32_t ordinal );
          void add_transaction_usage( transaction_gas_usage& trx_gas_usage, bool is_trx_transient = false );
-         void calc_and_check_transaction_gas_usage( transaction_gas_usage& trx_gas_usage, uint64_t gas_limit);
+         void calc_transaction_gas_usage( transaction_gas_usage& trx_gas_usage);
+         void verify_transaction_gas_usage( transaction_gas_usage& trx_gas_usage, uint64_t reserved_gas, uint64_t convertible_gas);
 
          void add_ram_usage( const account_name account, int64_t ram_delta, bool is_trx_transient = false );
 
          void set_account_limits( const account_name& account, uint64_t gas, bool is_unlimited, bool is_trx_transient);
 
          void get_account_limits( const account_name& account, uint64_t& gas, bool& is_unlimited ) const;
+         uint64_t get_account_convertible_gas( const account_name& account ) const;
+         uint64_t get_account_gas_max( const account_name& account, uint64_t reserved_gas ) const;
          uint64_t get_account_gas( const account_name& account) const;
 
          bool is_unlimited_cpu( const account_name& account ) const;
@@ -148,6 +151,13 @@ namespace eosio { namespace chain {
       static core_asset_assessor_ptr create(chainbase::database& db, const account_name& account);
 
       void save(chainbase::database& db);
+
+      inline const asset& balance() const {
+         return acct_data.balance;
+      }
+      inline asset& balance() {
+         return acct_data.balance;
+      }
 
    };
 

@@ -165,7 +165,8 @@ namespace eosio::chain {
 
       // add net usage
       if (initial_net_usage > 0) {
-         net_usage += initial_net_usage; // alias of trace->gas_usage.net_usage
+         // net_usage is reference of trace->gas_usage.net_usage
+         net_usage += initial_net_usage;
       }
 
       if ( !is_read_only() && !control.skip_trx_checks() ) {
@@ -176,27 +177,24 @@ namespace eosio::chain {
          check_net_limit();
          check_cpu_limit(now, false);
 
-         uint64_t gas_limit = 0;
+         uint64_t reserved_gas = 0;
          bool is_unlimited = false;
-         rl.get_account_limits(bill_to_account, gas_limit, is_unlimited);
+         rl.get_account_limits(bill_to_account, reserved_gas, is_unlimited);
          if (!is_unlimited) {
-            // Fail early if current gas usage is already greater than the calculated limit
-            rl.calc_and_check_transaction_gas_usage( trace->gas_usage, gas_limit);
+            auto convertible_gas = rl.get_account_convertible_gas(bill_to_account);
+            // the trace->gas_usage.cpu_usage and trace->gas_usage.net_usage have been set above
+            rl.calc_transaction_gas_usage( trace->gas_usage);
+            rl.verify_transaction_gas_usage(trace->gas_usage, reserved_gas, convertible_gas);
 
             if( !explicit_billed_cpu_time ) {
                // Calculate the highest network usage and CPU time that billed account(payer) can afford to be billed
-               // auto gas_limit = rl.get_account_gas(bill_to_account);
-               rl.calc_and_check_transaction_gas_usage( trace->gas_usage, gas_limit);
-               uint64_t available_gas = gas_limit - trace->gas_usage.cpu_gas - trace->gas_usage.net_gas;
-               uint64_t account_cpu_limit = rl.convert_gas_to_cpu(available_gas);
-               assert(account_cpu_limit >= 0); // TODO: check account_cpu_limit >= 0
-               // TODO: account_cpu_limit + leeway.count() < objective_duration_limit.count();
-
-               // TODO: min_transaction_cpu
-               EOS_ASSERT( account_cpu_limit > 0,
+               uint64_t gas_limit = reserved_gas + convertible_gas;
+               EOS_ASSERT( reserved_gas + convertible_gas > trace->gas_usage.cpu_gas + trace->gas_usage.net_gas,
                   tx_gas_usage_exceeded,
                   "authorizing account '${n}' has insufficient gas for cpu to execute this transaction",
                   ("n", trace->gas_usage.payer));
+               uint64_t available_gas = (reserved_gas + convertible_gas) - (trace->gas_usage.cpu_gas + trace->gas_usage.net_gas);
+               uint64_t account_cpu_limit = rl.convert_gas_to_cpu(available_gas);
 
                // Possibly limit deadline if the duration accounts can be billed for (+ a subjective leeway) does not exceed current delta
                if( account_cpu_limit < (uint64_t)objective_duration_limit.count() ) {
@@ -207,12 +205,14 @@ namespace eosio::chain {
                }
 
                if( subjective_cpu_bill_us > 0) {
-
                   // TODO: min_transaction_cpu
                   EOS_ASSERT( account_cpu_limit > (uint64_t)subjective_cpu_bill_us,
                      tx_gas_usage_exceeded,
-                     "authorizing account '${n}' has insufficient gas for cpu to execute this transaction",
-                     ("n", trace->gas_usage.payer));
+                     "authorizing account '${n}' has insufficient gas for cpu to execute this transaction"
+                     " with a subjective cpu of (${subjective} us",
+                     ("n", trace->gas_usage.payer)
+                     ("subjective", subjective_cpu_bill_us)
+                  );
 
                   account_cpu_limit = account_cpu_limit - (uint64_t)subjective_cpu_bill_us;
                   if( account_cpu_limit < (uint64_t)objective_duration_limit.count() ) {
@@ -397,17 +397,13 @@ namespace eosio::chain {
       // }
 
       net_usage = ((net_usage + 7)/8)*8; // Round up to nearest multiple of word size (8 bytes)
-
       check_net_limit();
 
       auto now = fc::time_point::now();
       trace->elapsed = now - start;
-
       update_billed_cpu_time( now );
-
       check_cpu_limit(now, true);
 
-      validate_transaction_usage();
       // validate_cpu_usage_to_bill( billed_cpu_time_us, account_cpu_limit, true, subjective_cpu_bill_us );
 
       trace->gas_usage.cpu_usage = static_cast<uint64_t>(billed_cpu_time_us);
@@ -504,11 +500,13 @@ namespace eosio::chain {
    void transaction_context::validate_transaction_usage() const {
       if (!control.skip_trx_checks()) {
          auto& rl = control.get_mutable_resource_limits_manager();
-         uint64_t gas_limit = 0;
+         uint64_t reserved_gas = 0;
          bool is_unlimited = false;
-         rl.get_account_limits(bill_to_account, gas_limit, is_unlimited);
+         rl.get_account_limits(bill_to_account, reserved_gas, is_unlimited);
          if (!is_unlimited) {
-            rl.calc_and_check_transaction_gas_usage( trace->gas_usage, gas_limit);
+            auto convertible_gas = rl.get_account_convertible_gas(bill_to_account);
+            rl.calc_transaction_gas_usage( trace->gas_usage);
+            rl.verify_transaction_gas_usage(trace->gas_usage, reserved_gas, convertible_gas);
          }
       }
    }
