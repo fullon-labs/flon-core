@@ -95,9 +95,8 @@ namespace eosio { namespace chain {
          uint64_t get_account_gas_max( const account_name& account, uint64_t reserved_gas ) const;
          uint64_t get_account_gas( const account_name& account) const;
 
-         bool is_unlimited_cpu( const account_name& account ) const;
+         bool is_account_unlimited( const account_name& account ) const;
 
-         void process_account_limit_updates();
          void process_block_usage( uint32_t block_num );
 
          // accessors

@@ -3311,8 +3311,6 @@ struct controller_impl {
       try {
          auto& bb = std::get<building_block>(pending->_block_stage);
 
-         // Update resource limits:
-         resource_limits.process_account_limit_updates();
          const auto& chain_config = db.get<global_property_object>().configuration;
          resource_limits.set_block_parameters(
             { EOS_PERCENT(chain_config.max_block_cpu_usage, chain_config.target_block_cpu_usage_pct),

@@ -481,8 +481,6 @@ datastream<ST>& operator<<(datastream<ST>& ds, const history_serial_wrapper_stat
 
 template <typename ST>
 datastream<ST>& operator<<(datastream<ST>& ds, const history_serial_wrapper_stateless<eosio::chain::resource_limits::resource_limits_object>& obj) {
-   EOS_ASSERT(!obj.obj.pending, eosio::chain::plugin_exception,
-              "accepted_block sent while resource_limits_object in pending state");
    fc::raw::pack(ds, fc::unsigned_int(0));
    fc::raw::pack(ds, as_type<uint64_t>(obj.obj.owner.to_uint64_t()));
    fc::raw::pack(ds, as_type<int64_t>(obj.obj.net_weight));
@@ -507,7 +505,6 @@ datastream<ST>& operator<<(datastream<ST>& ds, const history_serial_wrapper<eosi
    fc::raw::pack(ds, as_type<uint64_t>(obj.obj.net_usage));
    fc::raw::pack(ds, as_type<uint64_t>(obj.obj.cpu_usage));
    fc::raw::pack(ds, as_type<uint64_t>(obj.obj.ram_usage));
-   fc::raw::pack(ds, as_type<uint64_t>(obj.obj.gas_usage));
    return ds;
 }
 

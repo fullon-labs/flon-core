@@ -142,7 +142,7 @@ namespace res_utils {
    }
 
    const resource_limits_object& get_account_limits( const chainbase::database& db, const account_name& account ) {
-      return db.get<resource_limits_object,by_owner>( boost::make_tuple( false, account ) );
+      return db.get<resource_limits_object,by_owner>( account );
    }
 
    void set_account_reserved_gas(chainbase::database& db, const resource_limits_object& acc_limits, uint64_t gas, deep_mind_handler* dm_logger) {
@@ -484,7 +484,7 @@ int64_t resource_limits_manager::get_account_ram_usage( const account_name& name
 void resource_limits_manager::set_account_limits( const account_name& account, uint64_t gas, bool is_unlimited, bool is_trx_transient) {
 
    // TODO: no pending
-   const auto& limits = _db.get<resource_limits_object, by_owner>( boost::make_tuple(false, account));
+   const auto& limits = _db.get<resource_limits_object, by_owner>( account );
    _db.modify( limits, [&]( resource_limits_object& rlo ){
       rlo.gas = gas;
       rlo.is_unlimited = is_unlimited;
@@ -522,57 +522,12 @@ uint64_t resource_limits_manager::get_account_gas( const account_name& account) 
    return res_utils::get_account_limits(_db, account).gas;
 }
 
-bool resource_limits_manager::is_unlimited_cpu( const account_name& account ) const {
-   const auto* buo = _db.find<resource_limits_object,by_owner>( boost::make_tuple(false, account) );
+bool resource_limits_manager::is_account_unlimited( const account_name& account ) const {
+   const auto* buo = _db.find<resource_limits_object,by_owner>( account);
    if (buo) {
       return buo->cpu_weight == -1;
    }
    return false;
-}
-
-void resource_limits_manager::process_account_limit_updates() {
-   auto& multi_index = _db.get_mutable_index<resource_limits_index>();
-   auto& by_owner_index = multi_index.indices().get<by_owner>();
-
-   // convenience local lambda to reduce clutter
-   auto update_state_and_value = [](uint64_t &total, int64_t &value, int64_t pending_value, const char* debug_which) -> void {
-      if (value > 0) {
-         EOS_ASSERT(total >= static_cast<uint64_t>(value), rate_limiting_state_inconsistent, "underflow when reverting old value to ${which}", ("which", debug_which));
-         total -= value;
-      }
-
-      if (pending_value > 0) {
-         EOS_ASSERT(UINT64_MAX - total >= static_cast<uint64_t>(pending_value), rate_limiting_state_inconsistent, "overflow when applying new value to ${which}", ("which", debug_which));
-         total += pending_value;
-      }
-
-      value = pending_value;
-   };
-
-   const auto& state = _db.get<resource_limits_state_object>();
-   _db.modify(state, [&](resource_limits_state_object& rso){
-      while(!by_owner_index.empty()) {
-         const auto& itr = by_owner_index.lower_bound(boost::make_tuple(true));
-         if (itr == by_owner_index.end() || itr->pending!= true) {
-            break;
-         }
-
-         const auto& actual_entry = _db.get<resource_limits_object, by_owner>(boost::make_tuple(false, itr->owner));
-         _db.modify(actual_entry, [&](resource_limits_object& rlo){
-            update_state_and_value(rso.total_ram_bytes,  rlo.ram_bytes,  itr->ram_bytes, "ram_bytes");
-            update_state_and_value(rso.total_cpu_weight, rlo.cpu_weight, itr->cpu_weight, "cpu_weight");
-            update_state_and_value(rso.total_net_weight, rlo.net_weight, itr->net_weight, "net_weight");
-         });
-
-         multi_index.remove(*itr);
-      }
-
-      // process_account_limit_updates is called by controller::finish_block,
-      // where transaction specific logging is not possible
-      if (auto dm_logger = _get_deep_mind_logger(false)) {
-         dm_logger->on_update_resource_limits_state(state);
-      }
-   });
 }
 
 void resource_limits_manager::process_block_usage(uint32_t block_num) {
