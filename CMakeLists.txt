@@ -57,7 +57,7 @@ option(ENABLE_OC "Enable eosvm-oc on supported platforms" ON)
 if(ENABLE_OC AND CMAKE_SIZEOF_VOID_P EQUAL 8 AND NOT WIN32)
    if("${CMAKE_SYSTEM_NAME}" STREQUAL "Linux" AND "${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "x86_64")
       list(APPEND flon_WASM_RUNTIMES eos-vm-oc)
-      # EOS VM OC requires LLVM, but move the check up here to a central location so that the flonTester.cmakes
+      # EOS VM OC requires LLVM, but move the check up here to a central location so that the ProjectTester.cmakes
       # can be created with the exact version found
       find_package(LLVM REQUIRED CONFIG)
       if(LLVM_VERSION_MAJOR VERSION_LESS 7 OR LLVM_VERSION_MAJOR VERSION_GREATER_EQUAL 12)
@@ -118,7 +118,7 @@ if(ENABLE_WEXTRA)
 endif()
 
 
-option(flon_ENABLE_DEVELOPER_OPTIONS "enable developer options for fullon" OFF)
+option(FLON_ENABLE_DEVELOPER_OPTIONS "enable developer options for fullon" OFF)
 
 # based on http://www.delorie.com/gnu/docs/gdb/gdb_70.html
 # uncomment this line to tell GDB about macros (slows compile times)
