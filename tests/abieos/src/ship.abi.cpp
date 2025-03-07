@@ -591,7 +591,10 @@ extern const char* const state_history_plugin_abi = R"({
                 { "type": "elastic_limit_parameters", "name": "cpu_limit_parameters" },
                 { "type": "elastic_limit_parameters", "name": "net_limit_parameters" },
                 { "type": "uint32", "name": "account_cpu_usage_average_window" },
-                { "type": "uint32", "name": "account_net_usage_average_window" }
+                { "type": "uint32", "name": "account_net_usage_average_window" },
+                { "type": "uint32", "name": "gas_per_cpu_ms" },
+                { "type": "uint32", "name": "gas_per_net_kb" },
+                { "type": "uint32", "name": "gas_per_ram_kb" }
             ]
         },
         {

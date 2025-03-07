@@ -552,6 +552,9 @@ operator<<(datastream<ST>& ds, const history_serial_wrapper<eosio::chain::resour
    fc::raw::pack(ds, make_history_serial_wrapper(obj.db, as_type<eosio::chain::resource_limits::elastic_limit_parameters>(obj.obj.net_limit_parameters)));
    fc::raw::pack(ds, as_type<uint32_t>(obj.obj.account_cpu_usage_average_window));
    fc::raw::pack(ds, as_type<uint32_t>(obj.obj.account_net_usage_average_window));
+   fc::raw::pack(ds, as_type<uint32_t>(obj.obj.gas_per_cpu_ms));
+   fc::raw::pack(ds, as_type<uint32_t>(obj.obj.gas_per_net_kb));
+   fc::raw::pack(ds, as_type<uint32_t>(obj.obj.gas_per_ram_kb));
    return ds;
 };
 

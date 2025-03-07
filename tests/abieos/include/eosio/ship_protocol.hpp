@@ -824,10 +824,14 @@ namespace eosio { namespace ship_protocol {
       elastic_limit_parameters net_limit_parameters             = {};
       uint32_t                 account_cpu_usage_average_window = {};
       uint32_t                 account_net_usage_average_window = {};
+      uint32_t                 gas_per_cpu_ms                   = {};
+      uint32_t                 gas_per_net_kb                   = {};
+      uint32_t                 gas_per_ram_kb                   = {};
    };
 
    EOSIO_REFLECT(resource_limits_config_v0, cpu_limit_parameters, net_limit_parameters,
-                 account_cpu_usage_average_window, account_net_usage_average_window)
+                 account_cpu_usage_average_window, account_net_usage_average_window,
+                 gas_per_cpu_ms, gas_per_net_kb , gas_per_ram_kb)
 
    using resource_limits_config = std::variant<resource_limits_config_v0>;
 

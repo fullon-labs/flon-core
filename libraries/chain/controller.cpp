@@ -2533,7 +2533,7 @@ struct controller_impl {
       });
 
       genesis.initial_configuration.validate();
-      db.create<global_property_object>([&genesis,&chain_id=this->chain_id](auto& gpo ){
+      const auto& gpo = db.create<global_property_object>([&genesis,&chain_id=this->chain_id](auto& gpo ){
          gpo.configuration = genesis.initial_configuration;
          // TODO: Update this when genesis protocol features are enabled.
          gpo.wasm_configuration = genesis_state::default_initial_wasm_configuration;
@@ -2550,7 +2550,7 @@ struct controller_impl {
       db.create<dynamic_global_property_object>([](auto&){});
 
       authorization.initialize_database();
-      resource_limits.initialize_database();
+      resource_limits.initialize_database(gpo.configuration);
 
       authority system_auth(genesis.initial_key);
       create_native_account( genesis.initial_timestamp, config::system_account_name, system_auth, system_auth, true );
@@ -3312,7 +3312,7 @@ struct controller_impl {
          auto& bb = std::get<building_block>(pending->_block_stage);
 
          const auto& chain_config = db.get<global_property_object>().configuration;
-         resource_limits.set_block_parameters(
+         resource_limits.set_block_parameters( chain_config,
             { EOS_PERCENT(chain_config.max_block_cpu_usage, chain_config.target_block_cpu_usage_pct),
               chain_config.max_block_cpu_usage,
               config::block_cpu_usage_average_window_ms / config::block_interval_ms,

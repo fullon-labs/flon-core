@@ -255,9 +255,9 @@ namespace eosio { namespace chain { namespace resource_limits {
 
       uint32_t account_cpu_usage_average_window = config::account_cpu_usage_average_window_ms / config::block_interval_ms;
       uint32_t account_net_usage_average_window = config::account_net_usage_average_window_ms / config::block_interval_ms;
-      uint32_t gas_per_ram_bytes = config::default_gas_per_ram_kb;
-      uint32_t gas_per_cpu_us = config::default_gas_per_cpu_ms;
-      uint32_t gas_per_net_bytes = config::default_gas_per_net_kb;
+      uint32_t gas_per_cpu_ms = config::default_gas_per_cpu_ms;
+      uint32_t gas_per_net_kb = config::default_gas_per_net_kb;
+      uint32_t gas_per_ram_kb = config::default_gas_per_ram_kb;
    };
 
    using resource_limits_config_index = chainbase::shared_multi_index_container<
@@ -333,5 +333,5 @@ FC_REFLECT(eosio::chain::resource_limits::usage_accumulator, (last_ordinal)(valu
 
 FC_REFLECT(eosio::chain::resource_limits::resource_limits_object, (owner)(net_weight)(cpu_weight)(ram_bytes)(gas)(is_unlimited))
 FC_REFLECT(eosio::chain::resource_limits::resource_usage_object,  (owner)(net_usage)(cpu_usage)(ram_usage))
-FC_REFLECT(eosio::chain::resource_limits::resource_limits_config_object, (cpu_limit_parameters)(net_limit_parameters)(account_cpu_usage_average_window)(account_net_usage_average_window)(gas_per_ram_bytes)(gas_per_cpu_us)(gas_per_net_bytes))
+FC_REFLECT(eosio::chain::resource_limits::resource_limits_config_object, (cpu_limit_parameters)(net_limit_parameters)(account_cpu_usage_average_window)(account_net_usage_average_window)(gas_per_cpu_ms)(gas_per_net_kb)(gas_per_ram_kb))
 FC_REFLECT(eosio::chain::resource_limits::resource_limits_state_object, (average_block_net_usage)(average_block_cpu_usage)(pending_net_usage)(pending_cpu_usage)(total_net_weight)(total_cpu_weight)(total_ram_bytes)(virtual_net_limit)(virtual_cpu_limit))

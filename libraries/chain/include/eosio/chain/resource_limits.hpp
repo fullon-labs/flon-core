@@ -1,7 +1,7 @@
 #pragma once
 #include <eosio/chain/exceptions.hpp>
 #include <eosio/chain/types.hpp>
-#include <eosio/chain/config.hpp>
+#include <eosio/chain/chain_config.hpp>
 #include <eosio/chain/trace.hpp>
 #include <eosio/chain/snapshot.hpp>
 #include <eosio/chain/block_timestamp.hpp>
@@ -73,13 +73,13 @@ namespace eosio { namespace chain {
          }
 
          void add_indices();
-         void initialize_database();
+         void initialize_database(const chain_config& cfg);
          size_t expected_snapshot_row_count() const;
          void add_to_snapshot( const snapshot_writer_ptr& snapshot, snapshot_written_row_counter& row_counter ) const;
          void read_from_snapshot( const snapshot_reader_ptr& snapshot, std::atomic_size_t& read_row_count, boost::asio::io_context& ctx );
 
          void initialize_account( const account_name& account, bool is_trx_transient );
-         void set_block_parameters( const elastic_limit_parameters& cpu_limit_parameters, const elastic_limit_parameters& net_limit_parameters );
+         void set_block_parameters( const chain_config& cfg, const elastic_limit_parameters& cpu_limit_parameters, const elastic_limit_parameters& net_limit_parameters );
 
          // void update_account_usage( const flat_set<account_name>& accounts, uint32_t ordinal );
          void add_transaction_usage( transaction_gas_usage& trx_gas_usage, bool is_trx_transient = false );

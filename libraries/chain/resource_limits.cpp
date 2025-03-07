@@ -59,7 +59,7 @@ namespace res_utils {
    uint64_t convert_cpu_to_gas(const resource_limits_config_object& config,  uint64_t value) {
       uint128_t gas = 0;
       if (value != 0) {
-         gas = (uint128_t)value * config.gas_per_cpu_us / config::gas_rate_precision;
+         gas = (uint128_t)value * config.gas_per_cpu_ms / config::gas_rate_precision;
          EOS_ASSERT( gas < (uint128_t)std::numeric_limits<uint64_t>::max(),
                      calc_overflow_exception,
                      "Overflow when converting cpu to gas");
@@ -69,7 +69,7 @@ namespace res_utils {
    uint64_t convert_net_to_gas(const resource_limits_config_object& config, uint64_t value) {
       uint128_t gas = 0;
       if (value != 0) {
-         gas = (uint128_t)value * config.gas_per_net_bytes / config::gas_rate_precision;
+         gas = (uint128_t)value * config.gas_per_net_kb / config::gas_rate_precision;
          EOS_ASSERT( gas < (uint128_t)std::numeric_limits<uint64_t>::max(),
                      calc_overflow_exception,
                      "Overflow when converting cpu to gas!");
@@ -80,7 +80,7 @@ namespace res_utils {
    uint64_t convert_ram_to_gas(const resource_limits_config_object& config, uint64_t value) {
       uint128_t gas = 0;
       if (value != 0) {
-         gas = (uint128_t)value * config.gas_per_ram_bytes / config::gas_rate_precision;
+         gas = (uint128_t)value * config.gas_per_ram_kb / config::gas_rate_precision;
          EOS_ASSERT( gas <= (uint128_t)std::numeric_limits<uint64_t>::max(),
                      calc_overflow_exception,
                      "Overflow when converting cpu to gas!");
@@ -89,11 +89,11 @@ namespace res_utils {
    }
 
    uint64_t convert_gas_to_cpu(const resource_limits_config_object& config, uint64_t gas) {
-      if (config.gas_per_cpu_us == 0 || gas == 0) {
+      if (config.gas_per_cpu_ms == 0 || gas == 0) {
          return 0;
       }
 
-      uint128_t cpu = (uint128_t)gas * config::gas_rate_precision / config.gas_per_cpu_us;
+      uint128_t cpu = (uint128_t)gas * config::gas_rate_precision / config.gas_per_cpu_ms;
       EOS_ASSERT( cpu < (uint128_t)std::numeric_limits<uint64_t>::max(),
                calc_overflow_exception,
                "Overflow when converting gas to cpu!");
@@ -101,11 +101,11 @@ namespace res_utils {
    }
 
    uint64_t convert_gas_to_net(const resource_limits_config_object& config, uint64_t gas) {
-      if (config.gas_per_net_bytes == 0 || gas == 0) {
+      if (config.gas_per_net_kb == 0 || gas == 0) {
          return 0;
       }
 
-      uint128_t net = (uint128_t)gas * config::gas_rate_precision / config.gas_per_net_bytes;
+      uint128_t net = (uint128_t)gas * config::gas_rate_precision / config.gas_per_net_kb;
       EOS_ASSERT( net < (uint128_t)std::numeric_limits<uint64_t>::max(),
                calc_overflow_exception,
                "Overflow when converting gas to net!");
@@ -113,11 +113,11 @@ namespace res_utils {
    }
 
    uint64_t convert_gas_to_ram(const resource_limits_config_object& config, uint64_t gas) {
-      if (config.gas_per_net_bytes == 0 || gas == 0) {
+      if (config.gas_per_net_kb == 0 || gas == 0) {
          return 0;
       }
 
-      uint128_t ram = (uint128_t)gas * config::gas_rate_precision / config.gas_per_ram_bytes;
+      uint128_t ram = (uint128_t)gas * config::gas_rate_precision / config.gas_per_ram_kb;
       EOS_ASSERT( ram < (uint128_t)std::numeric_limits<uint64_t>::max(),
                calc_overflow_exception,
                "Overflow when converting gas to ram!");
@@ -201,9 +201,12 @@ void resource_limits_manager::add_indices() {
    resource_index_set::add_indices(_db);
 }
 
-void resource_limits_manager::initialize_database() {
-   const auto& config = _db.create<resource_limits_config_object>([](resource_limits_config_object& config){
+void resource_limits_manager::initialize_database(const chain_config& cfg) {
+   const auto& config = _db.create<resource_limits_config_object>([&cfg](resource_limits_config_object& c){
       // see default settings in the declaration
+      c.gas_per_cpu_ms = cfg.gas_per_cpu_ms;
+      c.gas_per_net_kb = cfg.gas_per_net_kb;
+      c.gas_per_ram_kb = cfg.gas_per_ram_kb;
    });
 
    const auto& state = _db.create<resource_limits_state_object>([&config](resource_limits_state_object& state){
@@ -212,6 +215,7 @@ void resource_limits_manager::initialize_database() {
       // start the chain off in a way that it is "congested" aka slow-start
       state.virtual_cpu_limit = config.cpu_limit_parameters.max;
       state.virtual_net_limit = config.net_limit_parameters.max;
+
    });
 
    // At startup, no transaction specific logging is possible
@@ -266,7 +270,7 @@ void resource_limits_manager::initialize_account(const account_name& account, bo
    }
 }
 
-void resource_limits_manager::set_block_parameters(const elastic_limit_parameters& cpu_limit_parameters, const elastic_limit_parameters& net_limit_parameters ) {
+void resource_limits_manager::set_block_parameters(const chain_config& cfg, const elastic_limit_parameters& cpu_limit_parameters, const elastic_limit_parameters& net_limit_parameters ) {
    cpu_limit_parameters.validate();
    net_limit_parameters.validate();
    const auto& config = _db.get<resource_limits_config_object>();
@@ -275,6 +279,9 @@ void resource_limits_manager::set_block_parameters(const elastic_limit_parameter
    _db.modify(config, [&](resource_limits_config_object& c){
       c.cpu_limit_parameters = cpu_limit_parameters;
       c.net_limit_parameters = net_limit_parameters;
+      c.gas_per_cpu_ms = cfg.gas_per_cpu_ms;
+      c.gas_per_net_kb = cfg.gas_per_net_kb;
+      c.gas_per_ram_kb = cfg.gas_per_ram_kb;
 
       // set_block_parameters is called by controller::finish_block,
       // where transaction specific logging is not possible
@@ -341,8 +348,6 @@ void resource_limits_manager::add_transaction_usage(transaction_gas_usage& trx_g
    res_utils::verify_add(usage.net_usage, net_usage, "adding net usage");
 
    _db.modify( usage, [&]( auto& bu ){
-      //  bu.net_usage.add( net_usage, time_slot, config.account_net_usage_average_window );
-
       bu.net_usage += net_usage;
       bu.cpu_usage += net_usage;
 
