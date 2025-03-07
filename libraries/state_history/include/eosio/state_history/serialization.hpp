@@ -349,6 +349,9 @@ datastream<ST>& operator<<(datastream<ST>& ds, const history_serial_wrapper_stat
    fc::raw::pack(ds, as_type<uint32_t>(obj.obj.max_inline_action_size));
    fc::raw::pack(ds, as_type<uint16_t>(obj.obj.max_inline_action_depth));
    fc::raw::pack(ds, as_type<uint16_t>(obj.obj.max_authority_depth));
+   fc::raw::pack(ds, as_type<uint32_t>(obj.obj.gas_per_cpu_ms));
+   fc::raw::pack(ds, as_type<uint32_t>(obj.obj.gas_per_net_kb));
+   fc::raw::pack(ds, as_type<uint32_t>(obj.obj.gas_per_ram_kb));
    fc::raw::pack(ds, as_type<uint32_t>(obj.obj.max_action_return_value_size));
    return ds;
 }

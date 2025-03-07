@@ -590,6 +590,10 @@ namespace eosio { namespace ship_protocol {
       uint32_t max_inline_action_size              = {};
       uint16_t max_inline_action_depth             = {};
       uint16_t max_authority_depth                 = {};
+      uint16_t gas_per_cpu_ms                      = {};
+      uint16_t gas_per_net_kb                      = {};
+      uint16_t gas_per_ram_kb                      = {};
+
    };
 
    EOSIO_REFLECT(chain_config_v0, max_block_net_usage, target_block_net_usage_pct, max_transaction_net_usage,
@@ -597,8 +601,7 @@ namespace eosio { namespace ship_protocol {
                  context_free_discount_net_usage_den, max_block_cpu_usage, target_block_cpu_usage_pct,
                  max_transaction_cpu_usage, min_transaction_cpu_usage, max_transaction_lifetime,
                  deferred_trx_expiration_window, max_transaction_delay, max_inline_action_size, max_inline_action_depth,
-                 max_authority_depth)
-
+                 max_authority_depth, gas_per_cpu_ms, gas_per_net_kb, gas_per_ram_kb)
    struct chain_config_v1 {
       uint64_t max_block_net_usage                 = {};
       uint32_t target_block_net_usage_pct          = {};
@@ -617,6 +620,9 @@ namespace eosio { namespace ship_protocol {
       uint32_t max_inline_action_size              = {};
       uint16_t max_inline_action_depth             = {};
       uint16_t max_authority_depth                 = {};
+      uint32_t gas_per_cpu_ms                      = {};
+      uint32_t gas_per_net_kb                      = {};
+      uint32_t gas_per_ram_kb                      = {};
       uint32_t max_action_return_value_size        = {};
    };
 
@@ -625,7 +631,7 @@ namespace eosio { namespace ship_protocol {
                context_free_discount_net_usage_den, max_block_cpu_usage, target_block_cpu_usage_pct,
                max_transaction_cpu_usage, min_transaction_cpu_usage, max_transaction_lifetime,
                deferred_trx_expiration_window, max_transaction_delay, max_inline_action_size, max_inline_action_depth,
-               max_authority_depth, max_action_return_value_size)
+               max_authority_depth, gas_per_cpu_ms, gas_per_net_kb, gas_per_ram_kb, max_action_return_value_size)
 
    using chain_config = std::variant<chain_config_v0, chain_config_v1>;
 

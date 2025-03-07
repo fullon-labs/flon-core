@@ -27,7 +27,7 @@ using namespace fc;
 
 static auto get_account_full = [](chain_apis::read_only& plugin,
                                   chain_apis::read_only::get_account_params& params,
-                                  const fc::time_point& deadline) -> chain_apis::read_only::get_account_results {   
+                                  const fc::time_point& deadline) -> chain_apis::read_only::get_account_results {
    auto res =  plugin.get_account(params, deadline)();
    BOOST_REQUIRE(!std::holds_alternative<fc::exception_ptr>(res));
    return std::get<chain_apis::read_only::get_account_results>(std::move(res));
@@ -156,6 +156,9 @@ BOOST_AUTO_TEST_CASE( get_consensus_parameters ) try {
    BOOST_TEST(parms.chain_config.max_inline_action_size == t.control->get_global_properties().configuration.max_inline_action_size);
    BOOST_TEST(parms.chain_config.max_inline_action_depth == t.control->get_global_properties().configuration.max_inline_action_depth);
    BOOST_TEST(parms.chain_config.max_authority_depth == t.control->get_global_properties().configuration.max_authority_depth);
+   BOOST_TEST(parms.chain_config.gas_per_cpu_ms == t.control->get_global_properties().configuration.gas_per_cpu_ms);
+   BOOST_TEST(parms.chain_config.gas_per_net_kb == t.control->get_global_properties().configuration.gas_per_net_kb);
+   BOOST_TEST(parms.chain_config.gas_per_ram_kb == t.control->get_global_properties().configuration.gas_per_ram_kb);
    BOOST_TEST(parms.chain_config.max_action_return_value_size == t.control->get_global_properties().configuration.max_action_return_value_size);
 
    BOOST_TEST(!parms.wasm_config);

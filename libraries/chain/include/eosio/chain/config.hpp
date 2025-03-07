@@ -65,7 +65,6 @@ static const uint32_t maximum_elastic_resource_multiplier  = 1000;
 
 const static uint32_t   rate_limiting_precision        = 1000*1000;
 
-
 const static uint32_t   gas_rate_precision                           = 1000;   // The precision of the gas conversion rate
 
 const static uint32_t   default_gas_per_cpu_ms                       = 10000;  // gas per cpu ms, use gas_rate_precision

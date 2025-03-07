@@ -35,7 +35,10 @@ read -d '' genesis << EOF
     "max_transaction_delay": 3888000,
     "max_inline_action_size": 4096,
     "max_inline_action_depth": 4,
-    "max_authority_depth": 6
+    "max_authority_depth": 6,
+    "gas_per_cpu_ms": 10000,
+    "gas_per_net_kb": 50000,
+    "gas_per_ram_kb": 50000
 }
 EOF
 
