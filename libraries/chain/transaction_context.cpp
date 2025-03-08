@@ -626,57 +626,9 @@ namespace eosio::chain {
       return static_cast<uint32_t>(billed_cpu_time_us);
    }
 
-   // std::tuple<int64_t, int64_t, bool, bool> transaction_context::max_bandwidth_billed_accounts_can_pay( bool force_elastic_limits ) const{
-   //    // Assumes rl.update_account_usage( bill_to_accounts, block_timestamp_type(control.pending_block_time()).slot ) was already called prior
-
-   //    // Calculate the new highest network usage and CPU time that all of the billed accounts can afford to be billed
-   //    auto& rl = control.get_mutable_resource_limits_manager();
-   //    const static int64_t large_number_no_overflow = std::numeric_limits<int64_t>::max()/2;
-   //    int64_t account_net_limit = large_number_no_overflow;
-   //    int64_t account_cpu_limit = large_number_no_overflow;
-   //    bool greylisted_net = false;
-   //    bool greylisted_cpu = false;
-
-   //    uint32_t specified_greylist_limit = control.get_greylist_limit();
-   //    // for( const auto& a : bill_to_accounts ) {
-   //       uint32_t greylist_limit = config::maximum_elastic_resource_multiplier;
-   //       if( !force_elastic_limits && control.is_speculative_block() ) {
-   //          if( control.is_resource_greylisted(bill_to_account) ) {
-   //             greylist_limit = 1;
-   //          } else {
-   //             greylist_limit = specified_greylist_limit;
-   //          }
-   //       }
-   //       auto [net_limit, net_was_greylisted] = rl.get_account_net_limit(bill_to_account, greylist_limit);
-   //       if( net_limit >= 0 ) {
-   //          account_net_limit = std::min( account_net_limit, net_limit );
-   //          greylisted_net |= net_was_greylisted;
-   //       }
-   //       auto [cpu_limit, cpu_was_greylisted] = rl.get_account_cpu_limit(bill_to_account, greylist_limit);
-   //       if( cpu_limit >= 0 ) {
-   //          account_cpu_limit = std::min( account_cpu_limit, cpu_limit );
-   //          greylisted_cpu |= cpu_was_greylisted;
-   //       }
-   //    // }
-
-   //    EOS_ASSERT( (!force_elastic_limits && control.is_speculative_block()) || (!greylisted_cpu && !greylisted_net),
-   //                transaction_exception, "greylisted when not producing block" );
-
-   //    return std::make_tuple(account_net_limit, account_cpu_limit, greylisted_net, greylisted_cpu);
-   // }
-
    int64_t transaction_context::max_cpu_gas_billed_account_can_pay(bool is_cpu_only) {
-      auto& rl = control.get_mutable_resource_limits_manager();
-      uint64_t reserved_gas = 0;
-      bool is_unlimited = false;
-      // TODO: get_account_cpu_limit()??
-      rl.get_account_limits(bill_to_account, reserved_gas, is_unlimited);
-      if (!is_unlimited) {
-         auto gas = rl.get_account_gas_max(bill_to_account, reserved_gas);
-         return rl.convert_gas_to_cpu(gas);
-      } else {
-         return std::numeric_limits<int64_t>::max();
-      }
+      auto& rl = control.get_resource_limits_manager();
+      return rl.get_account_cpu_limit(bill_to_account);
    }
 
    action_trace& transaction_context::get_action_trace( uint32_t action_ordinal ) {
