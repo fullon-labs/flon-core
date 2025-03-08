@@ -666,20 +666,17 @@ namespace eosio::chain {
    // }
 
    int64_t transaction_context::max_cpu_gas_billed_account_can_pay(bool is_cpu_only) {
-      //TODO: max_cpu_gas_billed_account_can_pay
-      // auto& rl = control.get_mutable_resource_limits_manager();
-      // auto gas = rl.get_account_gas(a);
-      // if (!is_cpu_only) {
-         // TODO: when is_cpu_only is false, should deduct gas of other resources
-      // }
-
-      // return rl.convert_gas_to_cpu(gas);
-      // if( cpu_limit >= 0 ) {
-      //       account_cpu_limit = std::min( account_cpu_limit, cpu_limit );
-      //       greylisted_cpu |= cpu_was_greylisted;
-      // }
-      // }
-      return 0;
+      auto& rl = control.get_mutable_resource_limits_manager();
+      uint64_t reserved_gas = 0;
+      bool is_unlimited = false;
+      // TODO: get_account_cpu_limit()??
+      rl.get_account_limits(bill_to_account, reserved_gas, is_unlimited);
+      if (!is_unlimited) {
+         auto gas = rl.get_account_gas_max(bill_to_account, reserved_gas);
+         return rl.convert_gas_to_cpu(gas);
+      } else {
+         return std::numeric_limits<int64_t>::max();
+      }
    }
 
    action_trace& transaction_context::get_action_trace( uint32_t action_ordinal ) {

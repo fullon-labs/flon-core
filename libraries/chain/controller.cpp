@@ -2902,18 +2902,18 @@ struct controller_impl {
       if ( !subjective ) {
          // hard failure logic
 
-         // TODO: validate
          if( !validating ) {
-            // resource_limits.update_account_usage( trx_context.bill_to_account, block_timestamp_type(pending_block_time()).slot );
-
-            // std::tie( std::ignore, account_cpu_limit, std::ignore, std::ignore ) = trx_context.max_bandwidth_billed_accounts_can_pay( true );
+            // make sure that the current scheduled transaction is executed
             int64_t account_cpu_limit = trx_context.max_cpu_gas_billed_account_can_pay(true);
             uint32_t limited_cpu_time_to_bill_us = static_cast<uint32_t>( std::min(
                   std::min( static_cast<int64_t>(cpu_time_to_bill_us), account_cpu_limit ),
                   trx_context.initial_objective_duration_limit.count() ) );
             // TODO: the below assert is ok?
-            // EOS_ASSERT( !explicit_billed_cpu_time || (cpu_time_to_bill_us == limited_cpu_time_to_bill_us),
-            //             transaction_exception, "cpu to bill ${cpu} != limited ${limit}", ("cpu", cpu_time_to_bill_us)("limit", limited_cpu_time_to_bill_us) );
+            if (explicit_billed_cpu_time) {
+               EOS_ASSERT( (cpu_time_to_bill_us == limited_cpu_time_to_bill_us),
+                           transaction_exception, "cpu to bill ${cpu} != limited ${limit}",
+                           ("cpu", cpu_time_to_bill_us)("limit", limited_cpu_time_to_bill_us) );
+            }
             cpu_time_to_bill_us = limited_cpu_time_to_bill_us;
          }
 
