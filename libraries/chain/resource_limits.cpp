@@ -591,7 +591,6 @@ uint64_t resource_limits_manager::get_block_net_limit() const {
 }
 
 uint64_t resource_limits_manager::get_account_cpu_limit( const account_name& name) const {
-
    const auto& rlo = res_utils::get_account_limits(bill_to_account);
    if (!rlo.is_unlimited) {
       auto gas = rl.get_account_gas_max(bill_to_account, reserved_gas);
@@ -602,9 +601,13 @@ uint64_t resource_limits_manager::get_account_cpu_limit( const account_name& nam
 }
 
 uint64_t resource_limits_manager::get_account_net_limit( const account_name& name) const {
-   const auto& config = _db.get<resource_limits_config_object>();
-   const auto& rlo = res_utils::get_account_limits(_db, name);
-   return res_utils::convert_gas_to_net(config, rlo.gas);
+   const auto& rlo = res_utils::get_account_limits(bill_to_account);
+   if (!rlo.is_unlimited) {
+      auto gas = rl.get_account_gas_max(bill_to_account, reserved_gas);
+      return rl.convert_gas_to_cpu(gas);
+   } else {
+      return std::numeric_limits<int64_t>::max();
+   }
 }
 
 uint64_t resource_limits_manager::convert_cpu_to_gas(uint64_t cpu) {
