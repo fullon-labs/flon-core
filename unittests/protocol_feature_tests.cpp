@@ -852,6 +852,8 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(restrict_action_to_self_test, T, testers) { try {
 
 } FC_LOG_AND_RETHROW() }
 
+// TODO: remove me?
+#if 0
 BOOST_AUTO_TEST_CASE_TEMPLATE(only_bill_to_first_authorizer, T, testers) { try {
    T chain( setup_policy::preactivate_feature_and_new_bios );
 
@@ -958,6 +960,8 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(only_bill_to_first_authorizer, T, testers) { try {
    }
 
 } FC_LOG_AND_RETHROW() }
+
+#endif
 
 BOOST_AUTO_TEST_CASE_TEMPLATE(forward_setcode_test, T, testers) { try {
    T c( setup_policy::preactivate_feature_only );

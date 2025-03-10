@@ -754,15 +754,14 @@ BOOST_AUTO_TEST_CASE_TEMPLATE( greylist_limit_tests, T, testers ) { try {
    c.push_action( config::system_account_name, "setalimits"_n, config::system_account_name, fc::mutable_variant_object()
       ("account", user_account)
       ("ram_bytes", -1)
-      ("net_weight", 1)
-      ("cpu_weight", 1)
+      ("gas", 19'999'999)
+      ("is_unlimited", false)
    );
 
    c.push_action( config::system_account_name, "setalimits"_n, config::system_account_name, fc::mutable_variant_object()
       ("account", other_account)
-      ("ram_bytes", -1)
-      ("net_weight", 249'999'999)
-      ("cpu_weight", 249'999'999)
+      ("gas", 249'999'999)
+      ("is_unlimited", false)
    );
 
    // const int64_t reqauth_net_charge = 104;

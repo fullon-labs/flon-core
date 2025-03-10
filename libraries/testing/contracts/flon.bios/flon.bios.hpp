@@ -323,12 +323,12 @@ namespace flonbios {
           * @details Set the resource limits of an account
           *
           * @param account - name of the account whose resource limit to be set
-          * @param ram_bytes - ram limit in absolute bytes
-          * @param net_weight - fractionally proportionate net limit of available resources based on (weight / total_weight_of_all_accounts)
+          * @param gas - available gas in ELON
+          * @param is_unlimited - // Whether the account has unlimited gas to use
           * @param cpu_weight - fractionally proportionate cpu limit of available resources based on (weight / total_weight_of_all_accounts)
           */
          [[eosio::action]]
-         void setalimits( name account, int64_t ram_bytes, int64_t net_weight, int64_t cpu_weight );
+         void setalimits( name account, uint64_t gas, bool is_unlimited );
 
          /**
           * Set a new list of active producers, that is, a new producers' schedule.

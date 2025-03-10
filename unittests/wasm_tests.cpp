@@ -2011,15 +2011,13 @@ BOOST_AUTO_TEST_CASE_TEMPLATE( billed_cpu_test, T, testers ) try {
    // setup account acc with large limits
    chain.push_action( config::system_account_name, "setalimits"_n, config::system_account_name, fc::mutable_variant_object()
          ("account", user)
-         ("ram_bytes", -1)
-         ("net_weight", 19'999'999)
-         ("cpu_weight", 19'999'999)
+         ("gas", 19'999'999)
+         ("is_unlimited", false)
    );
    chain.push_action( config::system_account_name, "setalimits"_n, config::system_account_name, fc::mutable_variant_object()
          ("account", acc)
-         ("ram_bytes", -1)
-         ("net_weight", 9'999)
-         ("cpu_weight", 9'999)
+         ("gas", 19'999'999)
+         ("is_unlimited", false)
    );
 
    chain.produce_block();
@@ -2078,9 +2076,8 @@ BOOST_AUTO_TEST_CASE_TEMPLATE( billed_cpu_test, T, testers ) try {
 
    chain.push_action( config::system_account_name, "setalimits"_n, config::system_account_name, fc::mutable_variant_object()
          ("account", acc)
-         ("ram_bytes", -1)
-         ("net_weight", 75)
-         ("cpu_weight", 75) // ~130ms
+         ("gas", 19'999'999)
+         ("is_unlimited", false)
    );
 
    chain.produce_block();
@@ -2156,9 +2153,8 @@ BOOST_AUTO_TEST_CASE_TEMPLATE( billed_cpu_test, T, testers ) try {
    // Test when cpu limit is 0
    chain.push_action( config::system_account_name, "setalimits"_n, config::system_account_name, fc::mutable_variant_object()
            ("account", acc)
-           ("ram_bytes", -1)
-           ("net_weight", 75)
-           ("cpu_weight", 0)
+           ("gas", 19'999'999)
+           ("is_unlimited", false)
    );
 
    chain.produce_block();
