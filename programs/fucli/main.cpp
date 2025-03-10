@@ -2510,7 +2510,7 @@ void get_account( const string& accountName, const string& coresym, bool json_fo
       std::cout << std::endl;
 
 
-      std::cout << "is resource unlimited: " << res.is_res_unlimited << std::endl
+      std::cout << "is resource unlimited: " << res.is_res_unlimited << std::endl;
 
       auto to_pretty_gas = []( uint64_t gas ) {
          // TODO: to_pretty_gas

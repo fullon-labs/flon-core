@@ -91,7 +91,7 @@ namespace eosio::chain {
       }
    };
 
-   struct transaction_gas_usage {
+   struct transaction_res_usage {
       account_name                               payer;
       uint64_t                                   net_usage = 0;
       uint64_t                                   net_gas = 0;
@@ -106,7 +106,7 @@ namespace eosio::chain {
       std::optional<block_id_type>               producer_block_id;
       std::optional<transaction_receipt_header>  receipt;
       fc::microseconds                           elapsed;
-      transaction_gas_usage                      gas_usage;
+      transaction_res_usage                      gas_usage;
       bool                                       scheduled = false;
       vector<action_trace>                       action_traces;
       std::optional<account_delta>               account_ram_delta;
@@ -144,7 +144,7 @@ FC_REFLECT( eosio::chain::action_trace,
                (receiver)(act)(context_free)(elapsed)(console)(trx_id)(block_num)(block_time)
                (producer_block_id)(account_ram_deltas)(except)(error_code)(return_value) )
 
-FC_REFLECT( eosio::chain::transaction_gas_usage,
+FC_REFLECT( eosio::chain::transaction_res_usage,
    (payer)(net_usage)(net_gas)(cpu_usage)(cpu_gas) )
 
 // @ignore except_ptr

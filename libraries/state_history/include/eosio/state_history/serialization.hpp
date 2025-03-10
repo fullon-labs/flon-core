@@ -641,7 +641,7 @@ datastream<ST>& operator<<(datastream<ST>& ds, const history_context_wrapper_sta
 }
 
 template <typename ST>
-datastream<ST>& operator<<(datastream<ST>& ds, const history_serial_wrapper_stateless<eosio::chain::transaction_gas_usage>& obj) {
+datastream<ST>& operator<<(datastream<ST>& ds, const history_serial_wrapper_stateless<eosio::chain::transaction_res_usage>& obj) {
    fc::raw::pack(ds, fc::unsigned_int(0));
    fc::raw::pack(ds, as_type<uint64_t>(obj.obj.payer.to_uint64_t()));
    fc::raw::pack(ds, as_type<uint64_t>(obj.obj.net_usage));
@@ -670,7 +670,7 @@ datastream<ST>& operator<<(datastream<ST>& ds, const history_context_wrapper_sta
       fc::raw::pack(ds, fc::unsigned_int(0));
    }
    fc::raw::pack(ds, as_type<int64_t>(debug_mode ? trace.elapsed.count() : 0));
-   fc::raw::pack(ds, as_type<eosio::chain::transaction_gas_usage>(trace.gas_usage));
+   fc::raw::pack(ds, as_type<eosio::chain::transaction_res_usage>(trace.gas_usage));
    fc::raw::pack(ds, as_type<bool>(trace.scheduled));
    history_context_serialize_container(ds, debug_mode, as_type<std::vector<eosio::chain::action_trace>>(trace.action_traces));
 
