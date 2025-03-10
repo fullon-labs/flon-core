@@ -42,86 +42,61 @@ namespace res_utils {
 
    uint64_t calc_transaction_gas_usage(  transaction_gas_usage& trx_gas_usage, const resource_limits_config_object& config );
 
+
    template<typename Int, typename CalcInt>
    Int multiply_decimal(Int a, Int b, Int precision, const char* description = nullptr) {
-      if (precision == 0) return 0;
+      if (a == 0 ||  b == 0 || precision == 0) return 0;
 
-      // static_assert(std::is_unsigned<UInt>::value);
-      // static_assert(std::is_unsigned<CalcInt>::value);
       static_assert(sizeof(CalcInt) > sizeof(Int));
       CalcInt tmp = a * b / precision;
       EOS_ASSERT( tmp >= (CalcInt)std::numeric_limits<Int>::min() && tmp <= (CalcInt)std::numeric_limits<Int>::max(),
                   calc_overflow_exception,
-                  std::string("Overflow when ") + (description ? description : ""));
+                  std::string("multiply_decimal overflow when ") + (description ? description : ""));
       return tmp;
    }
 
+   template<typename Int, typename CalcInt>
+   Int multiply_decimal_ceil(Int a, Int b, Int precision, const char* description = nullptr) {
+      if (a == 0 || b == 0 || precision == 0) return 0;
+
+      static_assert(sizeof(CalcInt) > sizeof(Int));
+      CalcInt tmp = 10 * a * b / precision;
+      EOS_ASSERT( tmp >= (CalcInt)std::numeric_limits<Int>::min() && tmp <= (CalcInt)std::numeric_limits<Int>::max(),
+                  calc_overflow_exception,
+                  std::string("multiply_decimal_ceil overflow when ") + (description ? description : ""));
+      return (tmp + 9) / 10; // ceil
+   }
+
+   #define MULTIPLY_DECIMAL_U64        multiply_decimal<uint64_t, uint128_t>
+   #define MULTIPLY_DECIMAL_CEIL_U64   multiply_decimal_ceil<uint64_t, uint128_t>
+
    uint64_t convert_cpu_to_gas(const resource_limits_config_object& config,  uint64_t value) {
-      uint128_t gas = 0;
-      if (value != 0) {
-         gas = (uint128_t)value * config.gas_per_cpu_ms / config::gas_rate_precision;
-         EOS_ASSERT( gas < (uint128_t)std::numeric_limits<uint64_t>::max(),
-                     calc_overflow_exception,
-                     "Overflow when converting cpu to gas");
-      }
-      return gas;
+      return MULTIPLY_DECIMAL_CEIL_U64(value, (uint64_t)config.gas_per_cpu_ms, (uint64_t)config::gas_rate_precision,
+                                       "converting cpu us to gas");
    }
    uint64_t convert_net_to_gas(const resource_limits_config_object& config, uint64_t value) {
-      uint128_t gas = 0;
-      if (value != 0) {
-         gas = (uint128_t)value * config.gas_per_net_kb / config::gas_rate_precision;
-         EOS_ASSERT( gas < (uint128_t)std::numeric_limits<uint64_t>::max(),
-                     calc_overflow_exception,
-                     "Overflow when converting cpu to gas!");
-      }
-      return gas;
+      return MULTIPLY_DECIMAL_CEIL_U64(value, config.gas_per_net_kb, config::gas_rate_precision,
+                                       "converting net bytes to gas");
    }
 
    uint64_t convert_ram_to_gas(const resource_limits_config_object& config, uint64_t value) {
-      uint128_t gas = 0;
-      if (value != 0) {
-         gas = (uint128_t)value * config.gas_per_ram_kb / config::gas_rate_precision;
-         EOS_ASSERT( gas <= (uint128_t)std::numeric_limits<uint64_t>::max(),
-                     calc_overflow_exception,
-                     "Overflow when converting cpu to gas!");
-      }
-      return gas;
+      return MULTIPLY_DECIMAL_CEIL_U64(value, config.gas_per_ram_kb, config::gas_rate_precision,
+                                       "converting ram bytes to gas");
    }
 
    uint64_t convert_gas_to_cpu(const resource_limits_config_object& config, uint64_t gas) {
-      if (config.gas_per_cpu_ms == 0 || gas == 0) {
-         return 0;
-      }
-
-      uint128_t cpu = (uint128_t)gas * config::gas_rate_precision / config.gas_per_cpu_ms;
-      EOS_ASSERT( cpu < (uint128_t)std::numeric_limits<uint64_t>::max(),
-               calc_overflow_exception,
-               "Overflow when converting gas to cpu!");
-      return cpu;
+      return MULTIPLY_DECIMAL_U64(gas, config.gas_per_cpu_ms, config::gas_rate_precision,
+         "converting gas to cpu us");
    }
 
    uint64_t convert_gas_to_net(const resource_limits_config_object& config, uint64_t gas) {
-      if (config.gas_per_net_kb == 0 || gas == 0) {
-         return 0;
-      }
-
-      uint128_t net = (uint128_t)gas * config::gas_rate_precision / config.gas_per_net_kb;
-      EOS_ASSERT( net < (uint128_t)std::numeric_limits<uint64_t>::max(),
-               calc_overflow_exception,
-               "Overflow when converting gas to net!");
-      return net;
+      return MULTIPLY_DECIMAL_U64(gas, config.gas_per_net_kb, config::gas_rate_precision,
+         "converting gas to net bytes");
    }
 
    uint64_t convert_gas_to_ram(const resource_limits_config_object& config, uint64_t gas) {
-      if (config.gas_per_net_kb == 0 || gas == 0) {
-         return 0;
-      }
-
-      uint128_t ram = (uint128_t)gas * config::gas_rate_precision / config.gas_per_ram_kb;
-      EOS_ASSERT( ram < (uint128_t)std::numeric_limits<uint64_t>::max(),
-               calc_overflow_exception,
-               "Overflow when converting gas to ram!");
-      return ram;
+      return MULTIPLY_DECIMAL_U64(gas, config.gas_per_ram_kb, config::gas_rate_precision,
+         "converting gas to ram bytes");
    }
 
    asset convert_gas_to_core_asset(uint64_t gas) {
