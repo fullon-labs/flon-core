@@ -117,7 +117,7 @@ template<>
 string convert_to_string(const float128_t& source, const string& key_type, const string& encode_type, const string& desc);
 
 class read_write;
-   
+
 class api_base {
 public:
    static constexpr uint32_t max_return_items = 1000;
@@ -136,7 +136,7 @@ protected:
    template<class API, class Result>
    static void send_transaction_gen(API& api, send_transaction_params_t params, chain::plugin_interface::next_function<Result> next);
 };
-   
+
 class read_only : public api_base {
    const controller& db;
    const std::optional<account_query_db>& aqdb;
@@ -146,7 +146,7 @@ class read_only : public api_base {
    bool  shorten_abi_errors = true;
    const trx_finality_status_processing* trx_finality_status_proc;
    friend class api_base;
-   
+
 public:
    static const string KEYi64;
 
@@ -272,6 +272,10 @@ public:
       fc::time_point             created;
 
       std::optional<asset>       core_liquid_balance;
+
+      bool                       is_res_unlimited = true;
+      uint64_t                   gas_reserved = 0;
+      uint64_t                   gas_max = 0;
 
       int64_t                    ram_quota  = 0;
       int64_t                    net_weight = 0;
@@ -442,7 +446,7 @@ public:
    };
 
    using get_table_rows_return_t = std::function<chain::t_or_exception<get_table_rows_result>()>;
-   
+
    get_table_rows_return_t get_table_rows( const get_table_rows_params& params, const fc::time_point& deadline )const;
 
    struct get_table_by_scope_params {
@@ -609,9 +613,9 @@ public:
          std::string next_key;
          vector<std::pair<vector<char>, name>> rows;
       };
-      
+
       http_params_t http_params { p.table, shorten_abi_errors, p.json, p.show_payer && *p.show_payer, false  };
-         
+
       const auto& d = db.db();
 
       name scope{ convert_to_type<uint64_t>(p.scope, "scope") };
@@ -701,7 +705,7 @@ public:
          abi_serializer abis;
          abis.set_abi(std::move(abi), abi_serializer::create_yield_function(abi_serializer_max_time));
          auto table_type = abis.get_table_type(p.table);
-         
+
          for (auto& row : p.rows) {
             fc::variant data_var;
             if( p.json ) {
@@ -716,7 +720,7 @@ public:
                result.rows.emplace_back(fc::mutable_variant_object("data", std::move(data_var))("payer", row.second));
             } else {
                result.rows.emplace_back(std::move(data_var));
-            }            
+            }
          }
          result.more = p.more;
          result.next_key = p.next_key;
@@ -741,9 +745,9 @@ public:
          std::string next_key;
          vector<std::pair<vector<char>, name>> rows;
       };
-      
+
       http_params_t http_params { p.table, shorten_abi_errors, p.json, p.show_payer && *p.show_payer, false  };
-         
+
       const auto& d = db.db();
 
       uint64_t scope = convert_to_type<uint64_t>(p.scope, "scope");
@@ -804,7 +808,7 @@ public:
             walk_table_row_range( lower, upper );
          }
       }
-      
+
       // not enforcing the deadline for that second processing part (the serialization), as it is not taking place
       // on the main thread, but in the http thread pool.
       return [p = std::move(http_params), abi=std::move(abi), abi_serializer_max_time=abi_serializer_max_time]() mutable ->
@@ -813,7 +817,7 @@ public:
          abi_serializer abis;
          abis.set_abi(std::move(abi), abi_serializer::create_yield_function(abi_serializer_max_time));
          auto table_type = abis.get_table_type(p.table);
-         
+
          for (auto& row : p.rows) {
             fc::variant data_var;
             if( p.json ) {
@@ -828,7 +832,7 @@ public:
                result.rows.emplace_back(fc::mutable_variant_object("data", std::move(data_var))("payer", row.second));
             } else {
                result.rows.emplace_back(std::move(data_var));
-            }            
+            }
          }
          result.more = p.more;
          result.next_key = p.next_key;
@@ -857,7 +861,7 @@ class read_write : public api_base {
    const fc::microseconds http_max_response_time;
    const bool api_accept_transactions;
    friend class api_base;
-   
+
 public:
    read_write(controller& db, std::optional<trx_retry_db>& trx_retry,
               const fc::microseconds& abi_serializer_max_time, const fc::microseconds& http_max_response_time,
@@ -1083,7 +1087,7 @@ FC_REFLECT( eosio::chain_apis::read_only::get_scheduled_transactions_result, (tr
 FC_REFLECT( eosio::chain_apis::read_only::account_resource_info, (used)(available)(max)(last_usage_update_time)(current_used) )
 FC_REFLECT( eosio::chain_apis::read_only::get_account_results,
             (account_name)(head_block_num)(head_block_time)(privileged)(last_code_update)(created)
-            (core_liquid_balance)(ram_quota)(net_weight)(cpu_weight)(net_limit)(cpu_limit)(ram_usage)(permissions)
+            (core_liquid_balance)(is_res_unlimited)(gas_reserved)(gas_max)(ram_quota)(net_weight)(cpu_weight)(net_limit)(cpu_limit)(ram_usage)(permissions)
             (total_resources)(self_delegated_bandwidth)(refund_request)(voter_info)(rex_info)
             (subjective_cpu_bill_limit) (eosio_any_linked_actions) )
 // @swap code_hash

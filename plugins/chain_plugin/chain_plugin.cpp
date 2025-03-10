@@ -2452,18 +2452,9 @@ read_only::get_account_return_t read_only::get_account( const get_account_params
    result.last_code_update = accnt_metadata_obj.last_code_update;
    result.created          = accnt_obj.creation_date;
 
-   // TODO: get account gas limit
-   // TODO: get account is_unlimited
-   // uint32_t greylist_limit = db.is_resource_greylisted(result.account_name) ? 1 : config::maximum_elastic_resource_multiplier;
-   // const block_timestamp_type current_usage_time (db.head().block_time());
-   // result.net_limit.set( rm.get_account_net_limit( result.account_name, greylist_limit, current_usage_time).first );
-   // if ( result.net_limit.last_usage_update_time && (result.net_limit.last_usage_update_time->slot == 0) ) {   // account has no action yet
-   //    result.net_limit.last_usage_update_time = accnt_obj.creation_date;
-   // }
-   // result.cpu_limit.set( rm.get_account_cpu_limit( result.account_name, greylist_limit, current_usage_time).first );
-   // if ( result.cpu_limit.last_usage_update_time && (result.cpu_limit.last_usage_update_time->slot == 0) ) {   // account has no action yet
-   //    result.cpu_limit.last_usage_update_time = accnt_obj.creation_date;
-   // }
+   rm.get_account_limits(result.account_name, result.gas_reserved, result.is_res_unlimited);
+   result.gas_max = rm.get_account_gas_max(result.account_name, result.gas_reserved);
+   // TODO: get account gas max, include gas_reserved and convertible_gas
    result.ram_usage = rm.get_account_ram_usage( result.account_name );
 
    eosio::chain::resource_limits::account_resource_limit subjective_cpu_bill_limit;

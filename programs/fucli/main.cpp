@@ -2509,6 +2509,17 @@ void get_account( const string& accountName, const string& coresym, bool json_fo
 
       std::cout << std::endl;
 
+
+      std::cout << "is resource unlimited: " << res.is_res_unlimited << std::endl
+
+      auto to_pretty_gas = []( uint64_t gas ) {
+         // TODO: to_pretty_gas
+         return std::to_string(gas);
+      };
+
+      std::cout << "gas: " << std::endl
+                << indent << "reserved: " << std::setw(15) << to_pretty_gas(res.gas_reserved) << "  max: " << std::setw(15) << to_pretty_gas(res.gas_max) << std::endl << std::endl;
+
       auto to_pretty_net = []( int64_t nbytes, uint8_t width_for_units = 5 ) {
          if(nbytes == -1) {
              // special case. Treat it as unlimited
@@ -2538,8 +2549,6 @@ void get_account( const string& accountName, const string& coresym, bool json_fo
          ss << unit;
          return ss.str();
       };
-
-
 
       std::cout << "memory: " << std::endl
                 << indent << "quota: " << std::setw(15) << to_pretty_net(res.ram_quota) << "  used: " << std::setw(15) << to_pretty_net(res.ram_usage) << std::endl << std::endl;
