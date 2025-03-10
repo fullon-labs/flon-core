@@ -565,43 +565,43 @@ uint64_t resource_limits_manager::get_block_net_limit() const {
    return config.net_limit_parameters.max - state.pending_net_usage;
 }
 
-uint64_t resource_limits_manager::get_account_cpu_limit( const account_name& name) const {
-   const auto& rlo = res_utils::get_account_limits(bill_to_account);
+uint64_t resource_limits_manager::get_account_cpu_limit( const account_name& account) const {
+   const auto& rlo = res_utils::get_account_limits(_db, account);
    if (!rlo.is_unlimited) {
-      auto gas = rl.get_account_gas_max(bill_to_account, reserved_gas);
-      return rl.convert_gas_to_cpu(gas);
+      auto gas = get_account_gas_max(account, rlo.gas);
+      return convert_gas_to_cpu(gas);
    } else {
       return std::numeric_limits<int64_t>::max();
    }
 }
 
-uint64_t resource_limits_manager::get_account_net_limit( const account_name& name) const {
-   const auto& rlo = res_utils::get_account_limits(bill_to_account);
+uint64_t resource_limits_manager::get_account_net_limit( const account_name& account) const {
+   const auto& rlo = res_utils::get_account_limits(_db, account);
    if (!rlo.is_unlimited) {
-      auto gas = rl.get_account_gas_max(bill_to_account, reserved_gas);
-      return rl.convert_gas_to_cpu(gas);
+      auto gas = get_account_gas_max(account, rlo.gas);
+      return convert_gas_to_cpu(gas);
    } else {
       return std::numeric_limits<int64_t>::max();
    }
 }
 
-uint64_t resource_limits_manager::convert_cpu_to_gas(uint64_t cpu) {
+uint64_t resource_limits_manager::convert_cpu_to_gas(uint64_t cpu) const {
    const auto& config = _db.get<resource_limits_config_object>();
    return res_utils::convert_cpu_to_gas(config, cpu);
 
 }
-uint64_t resource_limits_manager::convert_net_to_gas(uint64_t net) {
+uint64_t resource_limits_manager::convert_net_to_gas(uint64_t net) const {
    const auto& config = _db.get<resource_limits_config_object>();
    return res_utils::convert_net_to_gas(config, net);
 
 }
 
-uint64_t resource_limits_manager::convert_gas_to_cpu(uint64_t gas) {
+uint64_t resource_limits_manager::convert_gas_to_cpu(uint64_t gas) const {
    const auto& config = _db.get<resource_limits_config_object>();
    return res_utils::convert_gas_to_cpu(config, gas);
 }
 
-uint64_t resource_limits_manager::convert_gas_to_net(uint64_t gas) {
+uint64_t resource_limits_manager::convert_gas_to_net(uint64_t gas) const {
    const auto& config = _db.get<resource_limits_config_object>();
    return res_utils::convert_gas_to_net(config, gas);
 }

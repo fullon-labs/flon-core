@@ -109,16 +109,16 @@ namespace eosio { namespace chain {
          uint64_t get_block_cpu_limit() const;
          uint64_t get_block_net_limit() const;
 
-         uint64_t get_account_cpu_limit( const account_name& name) const;
-         uint64_t get_account_net_limit( const account_name& name) const;
+         uint64_t get_account_cpu_limit( const account_name& account) const;
+         uint64_t get_account_net_limit( const account_name& account) const;
 
 
-         int64_t get_account_ram_usage( const account_name& name ) const;
+         int64_t get_account_ram_usage( const account_name& account ) const;
 
-         uint64_t convert_cpu_to_gas(uint64_t gas);
-         uint64_t convert_net_to_gas(uint64_t gas);
-         uint64_t convert_gas_to_cpu(uint64_t gas);
-         uint64_t convert_gas_to_net(uint64_t gas);
+         uint64_t convert_cpu_to_gas(uint64_t gas) const ;
+         uint64_t convert_net_to_gas(uint64_t gas) const ;
+         uint64_t convert_gas_to_cpu(uint64_t gas) const ;
+         uint64_t convert_gas_to_net(uint64_t gas) const ;
       private:
          chainbase::database&         _db;
          std::function<deep_mind_handler*(bool is_trx_transient)> _get_deep_mind_logger;
