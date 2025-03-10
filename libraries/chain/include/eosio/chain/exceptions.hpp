@@ -389,8 +389,11 @@ namespace eosio { namespace chain {
       FC_DECLARE_DERIVED_EXCEPTION( leeway_deadline_exception, deadline_exception,
                                     3081001, "Transaction reached the deadline set due to leeway on account CPU limits" )
 
+      FC_DECLARE_DERIVED_EXCEPTION( tx_gas_exception, resource_exhausted_exception,
+                                    3082001, "Gas exception" )
       FC_DECLARE_DERIVED_EXCEPTION( tx_gas_usage_exceeded, resource_exhausted_exception,
-                                    3082001, "Transaction exceeded the current gas usage limit imposed on the transaction" )
+                                    3082002, "Transaction exceeded the current gas usage limit imposed on the transaction" )
+
 
    FC_DECLARE_DERIVED_EXCEPTION( authorization_exception, chain_exception,
                                  3090000, "Authorization exception" )

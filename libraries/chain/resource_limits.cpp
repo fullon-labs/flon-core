@@ -615,7 +615,7 @@ token_account_data token_account_data::unpack_from(const key_value_object& obj) 
 }
 
 void token_account_data::pack_to(key_value_object& obj) {
-   //TODO: process payer??
+   // Should not process the payer of ram
    size_t sz = fc::raw::pack_size( balance ) + remaining_data.size();
    obj.value.resize_and_fill( sz, [&](char* data, std::size_t size) {
       fc::datastream<char*> ds( data, size );
@@ -629,15 +629,19 @@ core_asset_account_ptr core_asset_account::create(chainbase::database& db, const
    if (!t_id) return nullptr;
 
    const auto &idx = db.get_index<key_value_index, by_scope_primary>();
-   // // TODO: config::core_symbol
-   static const symbol core_symbol = symbol(4, "FLON");
-   static const symbol_code core_symbol_code = core_symbol.to_symbol_code();
 
-   auto itr = idx.find(boost::make_tuple( t_id->id, core_symbol_code.value ));
+   auto itr = idx.find(boost::make_tuple( t_id->id, config::core_symbol_code.value ));
    if (itr == idx.end()) return nullptr;
-   const key_value_object& obj = *itr;
 
-   return std::make_shared<core_asset_account>(obj, token_account_data::unpack_from(obj));
+   const key_value_object& obj = *itr;
+   auto data = token_account_data::unpack_from(obj);
+   EOS_ASSERT( data.balance.get_symbol() == config::core_symbol,
+               tx_gas_exception,
+               "precision of core symbol ${sym} in token contract mismatch with config ${cfg_sym}",
+               ("sym", data.balance.get_symbol())("cfg_sym", config::core_symbol)
+   );
+
+   return std::make_shared<core_asset_account>(obj, std::move(data));
 }
 
 void core_asset_account::save(chainbase::database& db) {
