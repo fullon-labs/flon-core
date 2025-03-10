@@ -489,6 +489,8 @@ datastream<ST>& operator<<(datastream<ST>& ds, const history_serial_wrapper_stat
    fc::raw::pack(ds, as_type<int64_t>(obj.obj.net_weight));
    fc::raw::pack(ds, as_type<int64_t>(obj.obj.cpu_weight));
    fc::raw::pack(ds, as_type<int64_t>(obj.obj.ram_bytes));
+   fc::raw::pack(ds, as_type<uint64_t>(obj.obj.gas));
+   fc::raw::pack(ds, as_type<int64_t>(obj.obj.is_unlimited));
    return ds;
 }
 

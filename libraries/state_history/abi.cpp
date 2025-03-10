@@ -541,7 +541,9 @@ extern const char* const state_history_plugin_abi = R"({
                 { "type": "name", "name": "owner" },
                 { "type": "int64", "name": "net_weight" },
                 { "type": "int64", "name": "cpu_weight" },
-                { "type": "int64", "name": "ram_bytes" }
+                { "type": "int64", "name": "ram_bytes" },
+                { "type": "uint64", "name": "gas" },
+                { "type": "bool", "name": "is_unlimited" }
             ]
         },
         {
