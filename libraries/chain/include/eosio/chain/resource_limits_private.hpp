@@ -201,11 +201,12 @@ namespace eosio { namespace chain { namespace resource_limits {
       id_type id;
       account_name owner; //< owner should not be changed within a chainbase modifier lambda
 
+      // TODO: remove  net_weight, cpu_weight, net_weight
       int64_t net_weight      = -1;
       int64_t cpu_weight      = -1;
       int64_t ram_bytes       = -1;
-      uint64_t gas            = 0;
-      bool    is_unlimited    = true;
+      uint64_t gas               = 0;     // reserved gas limit of account, if exceeding, FLON tokens will be converted into gas to cover the remaining usage
+      bool     is_unlimited      = true;  // Whether the account has unlimited gas to use
 
    };
 
