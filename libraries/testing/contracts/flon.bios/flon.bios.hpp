@@ -17,7 +17,7 @@
  *
  * This repository contains examples of these privileged contracts that are useful when deploying,
  * managing, and/or using an EOSIO blockchain. They are provided for reference purposes:
- * - eosio.bios
+ * - flon.bios
  * - eosio.system
  * - eosio.msig
  * - eosio.wrap
@@ -26,7 +26,7 @@
  * - eosio.token
  */
 
-namespace eosiobios {
+namespace flonbios {
 
    using eosio::action_wrapper;
    using eosio::check;
@@ -152,15 +152,15 @@ namespace eosiobios {
    };
 
    /**
-    * @defgroup eosiobios eosio.bios
-    * @ingroup eosiocontracts
+    * @defgroup flonbios flon.bios
+    * @ingroup floncontracts
     *
-    * eosio.bios is a minimalistic system contract that only supplies the actions that are absolutely
+    * flon.bios is a minimalistic system contract that only supplies the actions that are absolutely
     * critical to bootstrap a chain and nothing more.
     *
     * @{
     */
-   class [[eosio::contract("eosio.bios")]] bios : public eosio::contract {
+   class [[eosio::contract("flon.bios")]] bios : public eosio::contract {
       public:
          using contract::contract;
          /**
@@ -428,5 +428,5 @@ namespace eosiobios {
          using activate_action = action_wrapper<"activate"_n, &bios::activate>;
          using reqactivated_action = action_wrapper<"reqactivated"_n, &bios::reqactivated>;
    };
-   /** @}*/ // end of @defgroup eosiobios eosio.bios
-} /// namespace eosiobios
+   /** @}*/ // end of @defgroup flonbios flon.bios
+} /// namespace flonbios

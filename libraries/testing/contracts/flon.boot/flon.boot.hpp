@@ -3,7 +3,7 @@
 #include <eosio/crypto.hpp>
 #include <eosio/eosio.hpp>
 
-namespace eosioboot {
+namespace flonboot {
 
    using eosio::action_wrapper;
    using eosio::check;
@@ -75,16 +75,16 @@ namespace eosioboot {
    };
 
    /**
-    * @defgroup eosioboot eosio.boot
+    * @defgroup flonboot flon.boot
     * @ingroup eosiocontracts
     *
-    * eosio.boot is a extremely minimalistic system contract that only supports the native actions and an
+    * flon.boot is a extremely minimalistic system contract that only supports the native actions and an
     * activate action that allows activating desired protocol features prior to deploying a system contract
     * with more features such as eosio.bios or eosio.system.
     *
     * @{
     */
-   class [[eosio::contract("sys.boot")]] boot : public eosio::contract {
+   class [[eosio::contract("flon.boot")]] boot : public eosio::contract {
       public:
          using contract::contract;
          /**
@@ -256,5 +256,5 @@ namespace eosioboot {
          using activate_action = action_wrapper<"activate"_n, &boot::activate>;
          using reqactivated_action = action_wrapper<"reqactivated"_n, &boot::reqactivated>;
    };
-   /** @}*/ // end of @defgroup eosioboot eosio.boot
-} /// namespace eosioboot
+   /** @}*/ // end of @defgroup flonboot flon.boot
+} /// namespace flonboot

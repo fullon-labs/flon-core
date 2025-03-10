@@ -383,10 +383,10 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(action_receipt_tests, T, validating_testers) { try
       BOOST_CHECK_EQUAL( m.begin()->second, base_test_auth_seq_num + 4 );
    } );
 
-   chain.set_code( config::system_account_name, contracts::eosio_bios_wasm() );
+   chain.set_code( config::system_account_name, contracts::flon_bios_wasm() );
 
-   chain.set_code( "test"_n, contracts::eosio_bios_wasm() );
-   chain.set_abi( "test"_n, contracts::eosio_bios_abi() );
+   chain.set_code( "test"_n, contracts::flon_bios_wasm() );
+   chain.set_abi( "test"_n, contracts::flon_bios_abi() );
 	chain.set_code( "test"_n, test_contracts::payloadless_wasm() );
 
    call_doit_and_check( "test"_n, "test"_n, [&]( const transaction_trace_ptr& res ) {

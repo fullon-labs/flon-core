@@ -177,7 +177,7 @@ void activate_protocol_features_set_bios_contract(appbase::scoped_app& app, chai
    // Wait for next block
    std::this_thread::sleep_for( std::chrono::milliseconds(config::block_interval_ms) );
 
-   auto r = set_code(app, chain_plug->chain(), config::system_account_name, testing::contracts::eosio_bios_wasm());
+   auto r = set_code(app, chain_plug->chain(), config::system_account_name, testing::contracts::flon_bios_wasm());
    BOOST_CHECK(r->receipt && r->receipt->status == transaction_receipt_header::executed);
 }
 
