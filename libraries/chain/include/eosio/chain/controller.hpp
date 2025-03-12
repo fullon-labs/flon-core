@@ -10,6 +10,8 @@
 #include <eosio/chain/webassembly/eos-vm-oc/config.hpp>
 #include <eosio/chain/finality/vote_message.hpp>
 #include <eosio/chain/finality/finalizer.hpp>
+#include <eosio/chain/abi_serializer.hpp>
+#include <eosio/chain/account_object.hpp>
 
 #include <chainbase/pinnable_mapped_file.hpp>
 
@@ -221,7 +223,7 @@ namespace eosio::chain {
          boost::asio::io_context& get_thread_pool();
 
          const chainbase::database& db()const;
-
+         const vector<transaction_receipt>&     get_pending_trx_receipts()const;
          const account_object&                 get_account( account_name n )const;
          const global_property_object&         get_global_properties()const;
          const dynamic_global_property_object& get_dynamic_global_properties()const;
@@ -436,6 +438,31 @@ namespace eosio::chain {
 
          const apply_handler* find_apply_handler( account_name contract, scope_name scope, action_name act )const;
          wasm_interface& get_wasm_interface();
+
+
+
+         
+         std::optional<abi_serializer> get_abi_serializer( account_name n, const abi_serializer::yield_function_t& yield )const {
+            if( n.good() ) {
+               try {
+                  const auto& a = get_account( n );
+                  abi_def abi;
+                  if( abi_serializer::to_abi( a.abi, abi ))
+                     return abi_serializer( abi, yield );
+               } FC_CAPTURE_AND_LOG((n))
+            }
+            return std::optional<abi_serializer>();
+         }
+
+         template<typename T>
+         fc::variant to_variant_with_abi( const T& obj, const abi_serializer::yield_function_t& yield ) {
+            fc::variant pretty_output;
+            abi_serializer::to_variant( obj, pretty_output,
+                                        [&]( account_name n ){ return get_abi_serializer( n, yield ); }, yield );
+            return pretty_output;
+         }
+
+
 
       static chain_id_type extract_chain_id(snapshot_reader& snapshot);
 

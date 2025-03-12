@@ -55,6 +55,7 @@ namespace eosio {
       if (name == "trace_api") return api_category::trace_api;
       if (name == "prometheus") return api_category::prometheus;
       if (name == "test_control") return api_category::test_control;
+      if (name == "history_ro") return api_category::history_ro;
       return api_category::unknown;
    }
 
@@ -71,6 +72,7 @@ namespace eosio {
       if (category == api_category::prometheus) return "prometheus";
       if (category == api_category::test_control) return "test_control";
       if (category == api_category::node) return "node";
+      if (category == api_category::history_ro) return "history_ro";
       // It's a programming error when the control flow reaches this point, 
       // please make sure all the category names are returned from above statements.
       assert(false && "No correspding category name for the category value");
@@ -93,6 +95,12 @@ namespace eosio {
       if (api_category_set({api_category::producer_ro, api_category::producer_rw, api_category::snapshot})
               .contains(category))
          return "eosio::producer_api_plugin";
+
+      if (api_category_set({api_category::history_ro})
+         .contains(category))
+         return "eosio::history_api_plugin";
+
+
       // It's a programming error when the control flow reaches this point, 
       // please make sure all the plugin names are returned from above statements.
       assert(false && "No correspding plugin for the category value");
@@ -170,6 +178,7 @@ namespace eosio {
             };
             return handler;
          }
+
 
          /**
           * Make an internal_url_handler that will run the url_handler directly
