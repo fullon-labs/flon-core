@@ -23,4 +23,4 @@ _fullon_complete()
     COMPREPLY=($(compgen -W "${words}" -- "${COMP_WORDS[${COMP_CWORD}]}"))
 }
 
-complete -F _fullon_complete fullon-util
+complete -F _fullon_complete @UTIL_EXECUTABLE_NAME@

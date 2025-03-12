@@ -273,12 +273,12 @@ else()
    # The `make package` installation of symlinks happens via the `postinst` script installed in cmake.package via the line below
 endif()
 
-configure_file(${CMAKE_SOURCE_DIR}/libraries/cli11/bash-completion/completions/fullon-util
-               ${CMAKE_BINARY_DIR}/programs/fullon-util/bash-completion/completions/fullon-util COPYONLY)
+configure_file(${CMAKE_SOURCE_DIR}/libraries/cli11/bash-completion/completions/util.in
+               ${CMAKE_BINARY_DIR}/programs/util/bash-completion/completions/${UTIL_EXECUTABLE_NAME} @ONLY)
 configure_file(${CMAKE_SOURCE_DIR}/libraries/cli11/bash-completion/completions/client.in
                ${CMAKE_BINARY_DIR}/programs/client/bash-completion/completions/${CLI_CLIENT_EXECUTABLE_NAME} @ONLY)
 
-install(FILES libraries/cli11/bash-completion/completions/fullon-util DESTINATION ${CMAKE_INSTALL_FULL_DATAROOTDIR}/bash-completion/completions COMPONENT base)
+install(FILES ${CMAKE_BINARY_DIR}/programs/util/bash-completion/completions/${UTIL_EXECUTABLE_NAME} DESTINATION ${CMAKE_INSTALL_FULL_DATAROOTDIR}/bash-completion/completions COMPONENT base)
 install(FILES ${CMAKE_BINARY_DIR}/programs/client/bash-completion/completions/${CLI_CLIENT_EXECUTABLE_NAME} DESTINATION ${CMAKE_INSTALL_FULL_DATAROOTDIR}/bash-completion/completions COMPONENT base)
 
 # Add the boost submodule we used to build to our install package, so headers can be found for libtester

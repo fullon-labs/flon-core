@@ -64,7 +64,7 @@ class Utils:
 
     SysAccount=str("flon")
     TokenAccount=str("flon.token")
-    SpringClientPath=str(testBinPath / "fullon-util")
+    SpringClientPath=str(testBinPath / "flon-util")
 
     EosWalletName="fowal"
     EosWalletPath=str(testBinPath / EosWalletName)

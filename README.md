@@ -217,8 +217,8 @@ sudo make install
 ```
 
 ## Bash Autocomplete
-`focli` and `fullon-util` offer a substantial amount of functionality. Consider using bash's autocompletion support which makes it easier to discover all their various options.
+`focli` and `flon-util` offer a substantial amount of functionality. Consider using bash's autocompletion support which makes it easier to discover all their various options.
 
 For our provided `.deb` packages simply install Ubuntu's `bash-completion` package: `apt-get install bash-completion` (you may need to log out/in after installing).
 
-If building from source install the `build/programs/client/bash-completion/completions/focli` and `build/programs/fullon-util/bash-completion/completions/flon-util` files to your bash-completion directory. Refer to [bash-completion's documentation](https://github.com/scop/bash-completion#faq) on the possible install locations.
+If building from source install the `build/programs/client/bash-completion/completions/focli` and `build/programs/util/bash-completion/completions/flon-util` files to your bash-completion directory. Refer to [bash-completion's documentation](https://github.com/scop/bash-completion#faq) on the possible install locations.

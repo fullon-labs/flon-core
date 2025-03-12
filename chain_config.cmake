@@ -10,7 +10,7 @@ set( PROGRAM_ROOT_NAME              flon        )
 set( CLI_CLIENT_EXECUTABLE_NAME     focli       )
 set( NODE_EXECUTABLE_NAME           fonod       )
 set( KEY_STORE_EXECUTABLE_NAME      fowal       )
-set( FULLON_UTIL_EXECUTABLE_NAME    flon-util   )
+set( UTIL_EXECUTABLE_NAME    flon-util   )
 
 ## config crypto keys
 set( PUBLIC_KEY_LEGACY_PREFIX       FU          )

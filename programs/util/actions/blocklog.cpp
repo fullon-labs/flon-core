@@ -35,7 +35,7 @@ struct report_time {
 
    void report() {
       const auto duration = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - _start).count() / 1000;
-      ilog("fullon-util - ${desc} took ${t} msec", ("desc", _desc)("t", duration));
+      ilog("util program - ${desc} took ${t} msec", ("desc", _desc)("t", duration));
    }
 
    const std::chrono::high_resolution_clock::time_point _start;
@@ -169,7 +169,7 @@ int blocklog_actions::do_genesis() {
    std::filesystem::path bld = opt->blocks_dir;
 
    auto context = block_log::extract_chain_context(opt->blocks_dir,opt->blocks_dir);
-   
+
    if (!context) {
       std::cerr << "No blocks log found at '" << opt->blocks_dir.c_str() << "'." << std::endl;
       return -1;
@@ -179,7 +179,7 @@ int blocklog_actions::do_genesis() {
       std::cerr << "Block log at '" << opt->blocks_dir.c_str()
                   << "' does not contain a genesis state, it only has the chain-id." << std::endl;
       return -1;
-   } 
+   }
 
    const genesis_state& gs = std::get<genesis_state>(*context);
 
