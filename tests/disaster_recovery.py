@@ -54,10 +54,10 @@ try:
 
     Print("Stand up cluster")
     # test expects split network to advance with single producer
-    extrafunodArgs=" --production-pause-vote-timeout-ms 0 "
+    extraNodeArgs=" --production-pause-vote-timeout-ms 0 "
     # For now do not load system contract as it does not support setfinalizer
     if cluster.launch(pnodes=pnodes, totalNodes=total_nodes, totalProducers=pnodes, delay=delay, loadSystemContract=False,
-                      activateIF=True, extrafunodArgs=extrafunodArgs) is False:
+                      activateIF=True, extraNodeArgs=extraNodeArgs) is False:
         errorExit("Failed to stand up eos cluster.")
 
     assert cluster.biosNode.getInfo(exitOnError=True)["head_block_producer"] != "eosio", "launch should have waited for production to change"

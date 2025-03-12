@@ -1,6 +1,6 @@
 # eosjs ![npm](https://img.shields.io/npm/dw/eosjs.svg)
 
-Javascript API for integration with EOSIO-based blockchains using [EOSIO RPC API](https://developers.eos.io/eosio-funod/reference).
+Javascript API for integration with EOSIO-based blockchains using [EOSIO RPC API](https://developers.eos.io/eosio-fonod/reference).
 
 Documentation can be found [here](https://eosio.github.io/eosjs)
 

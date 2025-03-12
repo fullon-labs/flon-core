@@ -7,7 +7,7 @@ from TestHarness import Cluster, TestHelper, Utils, WalletMgr
 ###############################################################
 # p2p_multiple_listen_test
 #
-# Test funod ability to listen on multiple ports for p2p
+# Test node ability to listen on multiple ports for p2p
 #
 ###############################################################
 
@@ -44,7 +44,7 @@ try:
         '4': '--agent-name node-04 --p2p-peer-address localhost:9876 --plugin eosio::net_api_plugin',
     }
     if cluster.launch(pnodes=pnodes, totalNodes=total_nodes, topo='line', delay=delay, activateIF=activateIF,
-                      specificExtrafunodArgs=specificArgs) is False:
+                      specificExtraNodeArgs=specificArgs) is False:
         errorExit("Failed to stand up eos cluster.")
 
     # Be sure all nodes start out connected   (bios node omitted from diagram for brevity)

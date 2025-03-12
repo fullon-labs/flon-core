@@ -7,8 +7,8 @@ from TestHarness import Cluster, TestHelper, Utils, WalletMgr
 ###############################################################
 # auto_bp_peering_test
 #
-# This test sets up  a cluster with 21 producers funod, each funod is configured with only one producer and only connects to the bios node.
-# Moreover, each producer funod is also configured with a list of p2p-auto-bp-peer so that each one can automatically establish p2p connections to
+# This test sets up  a cluster with 21 producers node, each node is configured with only one producer and only connects to the bios node.
+# Moreover, each producer node is also configured with a list of p2p-auto-bp-peer so that each one can automatically establish p2p connections to
 # their downstream two neighbors based on producer schedule on the chain and tear down the connections which are no longer in the scheduling neighborhood.
 #
 ###############################################################
@@ -72,12 +72,12 @@ peer_names["localhost:9776"] = "bios"
 
 testSuccessful = False
 try:
-    specificfunodArgs = {}
+    specificNodeArgs = {}
     for nodeId in range(0, producerNodes):
-        specificfunodArgs[nodeId] = auto_bp_peer_args
+        specificNodeArgs[nodeId] = auto_bp_peer_args
 
-    specificfunodArgs[5] = specificfunodArgs[5] + ' --p2p-server-address ext-ip0:9999'
-    specificfunodArgs[10] = specificfunodArgs[10] + ' --p2p-server-address ""'
+    specificNodeArgs[5] = specificNodeArgs[5] + ' --p2p-server-address ext-ip0:9999'
+    specificNodeArgs[10] = specificNodeArgs[10] + ' --p2p-server-address ""'
 
     TestHelper.printSystemInfo("BEGIN")
     cluster.launch(
@@ -87,8 +87,8 @@ try:
         totalProducers=producerNodes,
         activateIF=activateIF,
         topo="./tests/auto_bp_peering_test_shape.json",
-        extrafunodArgs=" --plugin eosio::net_api_plugin ",
-        specificExtrafunodArgs=specificfunodArgs,
+        extraNodeArgs=" --plugin eosio::net_api_plugin ",
+        specificExtraNodeArgs=specificNodeArgs,
     )
 
     # wait until produceru is seen by every node

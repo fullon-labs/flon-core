@@ -12,7 +12,7 @@ from TestHarness import Node, TestHelper, Utils
 ###############################################################
 # p2p_no_listen_test
 #
-# Test funod disabling p2p
+# Test node disabling p2p
 #
 ###############################################################
 
@@ -29,7 +29,7 @@ try:
     TestHelper.printSystemInfo("BEGIN")
 
     cmd = [
-        Utils.EosServerPath,
+        Utils.NodeServerPath,
         '-e',
         '-p',
         'eosio',

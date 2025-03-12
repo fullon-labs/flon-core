@@ -59,8 +59,8 @@ try:
 
     Print("Stand up cluster")
     if cluster.launch(pnodes=pnodes, totalNodes=total_nodes, topo=topo, delay=delay, activateIF=True,
-                      extrafunodArgs=" --http-max-response-time-ms 990000 --disable-subjective-api-billing false ",
-                      specificExtrafunodArgs=specificArgs ) is False:
+                      extraNodeArgs=" --http-max-response-time-ms 990000 --disable-subjective-api-billing false ",
+                      specificExtraNodeArgs=specificArgs ) is False:
        errorExit("Failed to stand up eos cluster.")
 
     Print ("Wait for Cluster stabilization")

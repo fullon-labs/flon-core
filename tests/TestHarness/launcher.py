@@ -68,7 +68,7 @@ class nodeDefinition:
             type(self).p2p_port_generator = self.create_p2p_port_generator()
         if self.http_port_generator is None:
             type(self).http_port_generator = self.create_http_port_generator()
-    
+
     def set_host(self, is_bios=False):
         self.p2p_port = self.p2p_bios_port() if is_bios else next(self.p2p_port_generator)
         self.http_port = self.http_bios_port() if is_bios else next(self.http_port_generator)
@@ -102,7 +102,7 @@ class nodeDefinition:
         if not self._dot_label:
             self._dot_label = self.mk_dot_label()
         return self._dot_label
-    
+
     def mk_dot_label(self):
         node_name = self.name + '\nprod='
         if len(self.producers) > 0:
@@ -154,10 +154,10 @@ class cluster_generator:
 
     def parseArgs(self, args):
         '''Configure argument parser and use it on the passed in list of strings.
-        
+
         arguments:
         args -- list of arguments (may be sys.argv[1:] or synthetic list)
-        
+
         returns -- argparse.Namespace object with parsed results
         '''
         def comma_separated(string):
@@ -176,7 +176,7 @@ class cluster_generator:
         parser.add_argument('--data-dir', type=Path, help='name of subdirectory under base-dir where node data will be written', default=Path('var') / 'lib')
         parser.add_argument('-c', '--config', type=Path, help='configuration file name relative to config-dir', default='config.ini')
         parser.add_argument('-v', '--version', action='version', version='%(prog)s 1.0')
-        
+
         cfg = parser.add_argument_group(title='optional and config file arguments')
         cfg.add_argument('-f', '--force', action='store_true', help='force overwrite of existing configuration files and erase blockchain', default=False)
         cfg.add_argument('-n', '--nodes', dest='total_nodes', type=int, help='total number of nodes to configure and launch', default=1)
@@ -207,7 +207,7 @@ class cluster_generator:
         cfg.add_argument('--max-transaction-cpu-usage', type=int, help='the "max-transaction-cpu-usage" value to use in the genesis.json file', default=None)
         cfg.add_argument('--logging-level', type=fc_log_level, help='Provide the "level" value to use in the logging.json file')
         cfg.add_argument('--logging-level-map', type=json.loads, help='JSON string of a logging level dictionary to use in the logging.json file for specific nodes, matching based on node number. Ex: {"bios":"off","00":"info"}')
-        cfg.add_argument('--is-funod-v2', action='store_true', help='Toggles old funod compatibility', default=False)
+        cfg.add_argument('--is-node-v2', action='store_true', help='Toggles old node compatibility', default=False)
         cfg.add_argument('--signature-provider', action='store_true', help='add signature provider (BLS key pair) for non-producers', default=False)
         r = parser.parse_args(args)
         if r.launch != 'none' and r.topology_filename:
@@ -331,7 +331,7 @@ class cluster_generator:
                 self.write_logging_config_file(node)
                 self.write_genesis_file(node, genesis)
                 node.data_dir_name.mkdir(parents=True, exist_ok=True)
-        
+
         self.write_dot_file()
 
         if self.args.topology_filename:
@@ -501,7 +501,7 @@ class cluster_generator:
         if instance.index in self.args.spcfc_inst_nums:
             eosdcmd = [f"{getattr(self.args, f'spcfc_inst_{Utils.EosServerName}es')[self.args.spcfc_inst_nums.index(instance.index)]}"]
         else:
-            eosdcmd = [Utils.EosServerPath]
+            eosdcmd = [Utils.NodeServerPath]
 
         a = lambda l, e: l.append(e) or l
 
@@ -542,7 +542,7 @@ class cluster_generator:
                 specificList = shlex.split(specifics[1:-1])
             else:
                 specificList = shlex.split(specifics)
-            # Allow specific funod args to override existing args up to this point.
+            # Allow specific node args to override existing args up to this point.
             # Consider moving specific arg handling to the end to allow overriding all args.
             repeatable = [
                 # appbase
@@ -581,7 +581,7 @@ class cluster_generator:
 
         # Always enable a history query plugin on the bios node
         if is_bios:
-            if self.args.is_funod_v2:
+            if self.args.is_node_v2:
                 a(a(eosdcmd, '--plugin'), 'eosio::history_api_plugin')
                 a(a(eosdcmd, '--filter-on'), '"*"')
             else:

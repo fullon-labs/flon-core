@@ -28,7 +28,7 @@ struct catalog_type {
    }
 
    prometheus::Registry registry;
-   // funod
+   // node
    prometheus::Family<prometheus::Info>& info;
    prometheus::Info info_details;
    // http plugin
@@ -114,76 +114,76 @@ struct catalog_type {
 
 
    catalog_type()
-       : info(family<prometheus::Info>("funod", "static information about the server"))
-       , http_request_counts(family<Counter>("funod_http_requests_total", "number of HTTP requests"))
-       , failed_p2p_connections(build<Counter>("funod_p2p_failed_connections", "total number of failed out-going p2p connections"))
-       , dropped_trxs_total(build<Counter>("funod_p2p_dropped_trxs_total", "total number of dropped transactions by net plugin"))
+       : info(family<prometheus::Info>("node", "static information about the server"))
+       , http_request_counts(family<Counter>("node_http_requests_total", "number of HTTP requests"))
+       , failed_p2p_connections(build<Counter>("node_p2p_failed_connections", "total number of failed out-going p2p connections"))
+       , dropped_trxs_total(build<Counter>("node_p2p_dropped_trxs_total", "total number of dropped transactions by net plugin"))
        , p2p_metrics{
-              .num_peers{build<Gauge>("funod_p2p_peers", "current number of connected outgoing peers")}
-            , .num_clients{build<Gauge>("funod_p2p_clients", "current number of connected incoming clients")}
-            , .addr{family<Gauge>("funod_p2p_addr", "ipv6 address")}
-            , .port{family<Gauge>("funod_p2p_port", "port")}
-            , .connection_number{family<Gauge>("funod_p2p_connection_number", "monatomic increasing connection number")}
-            , .accepting_blocks{family<Gauge>("funod_p2p_accepting_blocks", "accepting blocks on connection")}
-            , .last_received_block{family<Gauge>("funod_p2p_last_received_block", "last received block on connection")}
-            , .first_available_block{family<Gauge>("funod_p2p_first_available_block", "first block available from connection")}
-            , .last_available_block{family<Gauge>("funod_p2p_last_available_block", "last block available from connection")}
-            , .unique_first_block_count{family<Gauge>("funod_p2p_unique_first_block_count", "number of blocks first received from any connection on this connection")}
-            , .latency{family<Gauge>("funod_p2p_latency", "last calculated latency with connection")}
-            , .bytes_received{family<Gauge>("funod_p2p_bytes_received", "total bytes received on connection")}
-            , .last_bytes_received{family<Gauge>("funod_p2p_last_bytes_received", "last time anything received from peer")}
-            , .bytes_sent{family<Gauge>("funod_p2p_bytes_sent", "total bytes sent to peer")}
-            , .last_bytes_sent{family<Gauge>("funod_p2p_last_bytes_sent", "last time anything sent to peer")}
-            , .block_sync_bytes_received{family<Gauge>("funod_p2p_block_sync_bytes_received", "bytes of blocks received during syncing")}
-            , .block_sync_bytes_sent{family<Gauge>("funod_p2p_block_sync_bytes_sent", "bytes of blocks sent during syncing")}
-            , .block_sync_throttling{family<Gauge>("funod_p2p_block_sync_throttling", "is block sync throttling currently active")}
-            , .connection_start_time{family<Gauge>("funod_p2p_connection_start_time", "time of last connection to peer")}
-            , .peer_addr{family<Gauge>("funod_p2p_peer_addr", "peer address")}
+              .num_peers{build<Gauge>("node_p2p_peers", "current number of connected outgoing peers")}
+            , .num_clients{build<Gauge>("node_p2p_clients", "current number of connected incoming clients")}
+            , .addr{family<Gauge>("node_p2p_addr", "ipv6 address")}
+            , .port{family<Gauge>("node_p2p_port", "port")}
+            , .connection_number{family<Gauge>("node_p2p_connection_number", "monatomic increasing connection number")}
+            , .accepting_blocks{family<Gauge>("node_p2p_accepting_blocks", "accepting blocks on connection")}
+            , .last_received_block{family<Gauge>("node_p2p_last_received_block", "last received block on connection")}
+            , .first_available_block{family<Gauge>("node_p2p_first_available_block", "first block available from connection")}
+            , .last_available_block{family<Gauge>("node_p2p_last_available_block", "last block available from connection")}
+            , .unique_first_block_count{family<Gauge>("node_p2p_unique_first_block_count", "number of blocks first received from any connection on this connection")}
+            , .latency{family<Gauge>("node_p2p_latency", "last calculated latency with connection")}
+            , .bytes_received{family<Gauge>("node_p2p_bytes_received", "total bytes received on connection")}
+            , .last_bytes_received{family<Gauge>("node_p2p_last_bytes_received", "last time anything received from peer")}
+            , .bytes_sent{family<Gauge>("node_p2p_bytes_sent", "total bytes sent to peer")}
+            , .last_bytes_sent{family<Gauge>("node_p2p_last_bytes_sent", "last time anything sent to peer")}
+            , .block_sync_bytes_received{family<Gauge>("node_p2p_block_sync_bytes_received", "bytes of blocks received during syncing")}
+            , .block_sync_bytes_sent{family<Gauge>("node_p2p_block_sync_bytes_sent", "bytes of blocks sent during syncing")}
+            , .block_sync_throttling{family<Gauge>("node_p2p_block_sync_throttling", "is block sync throttling currently active")}
+            , .connection_start_time{family<Gauge>("node_p2p_connection_start_time", "time of last connection to peer")}
+            , .peer_addr{family<Gauge>("node_p2p_peer_addr", "peer address")}
          }
-       , cpu_usage_us(family<Counter>("funod_cpu_usage_us_total", "total cpu usage in microseconds for blocks"))
-       , net_usage_us(family<Counter>("funod_net_usage_us_total", "total net usage in microseconds for blocks"))
-       , last_irreversible(build<Gauge>("funod_last_irreversible", "last irreversible block number"))
-       , head_block_num(build<Gauge>("funod_head_block_num", "head block number"))
-       , unapplied_transactions_total(build<Counter>("funod_unapplied_transactions_total",
+       , cpu_usage_us(family<Counter>("node_cpu_usage_us_total", "total cpu usage in microseconds for blocks"))
+       , net_usage_us(family<Counter>("node_net_usage_us_total", "total net usage in microseconds for blocks"))
+       , last_irreversible(build<Gauge>("node_last_irreversible", "last irreversible block number"))
+       , head_block_num(build<Gauge>("node_head_block_num", "head block number"))
+       , unapplied_transactions_total(build<Counter>("node_unapplied_transactions_total",
                                                      "total number of unapplied transactions from produced blocks"))
        , subjective_bill_account_size_total(build<Counter>(
-             "funod_subjective_bill_account_size_total", "total number of subjective bill account size from produced blocks"))
+             "node_subjective_bill_account_size_total", "total number of subjective bill account size from produced blocks"))
        , scheduled_trxs_total(
-             build<Counter>("funod_scheduled_trxs_total", "total number of scheduled transactions from produced blocks"))
-       , trxs_produced_total(build<Counter>("funod_trxs_produced_total", "number of transactions produced"))
+             build<Counter>("node_scheduled_trxs_total", "total number of scheduled transactions from produced blocks"))
+       , trxs_produced_total(build<Counter>("node_trxs_produced_total", "number of transactions produced"))
        , cpu_usage_us_produced_block(cpu_usage_us.Add({{"block_type", "produced"}}))
-       , total_elapsed_time_us_produced_block(build<Counter>("funod_produced_elapsed_us_total", "total produced blocks elapsed time"))
-       , total_time_us_produced_block(build<Counter>("funod_produced_us_total", "total produced blocks total time"))
+       , total_elapsed_time_us_produced_block(build<Counter>("node_produced_elapsed_us_total", "total produced blocks elapsed time"))
+       , total_time_us_produced_block(build<Counter>("node_produced_us_total", "total produced blocks total time"))
        , net_usage_us_produced_block(net_usage_us.Add({{"block_type", "produced"}}))
-       , produced_metrics{ .num_blocks_created{build<Counter>("funod_blocks_produced", "number of blocks produced")}
-                         , .current_block_num{build<Gauge>("funod_block_num", "current block number")}
-                         , .block_total_time_us_block{build<Counter>("funod_total_time_us_produced_block", "total time for produced block")}
-                         , .block_idle_time_us_block{build<Counter>("funod_idle_time_us_produced_block", "idle time for produced block")}
-                         , .block_num_success_trx_block{build<Counter>("funod_num_success_trx_produced_block", "number of successful transactions in produced block")}
-                         , .block_success_trx_time_us_block{build<Counter>("funod_success_trx_time_us_produced_block", "time for successful transactions in produced block")}
-                         , .block_num_failed_trx_block{build<Counter>("funod_num_failed_trx_produced_block", "number of failed transactions during produced block")}
-                         , .block_fail_trx_time_us_block{build<Counter>("funod_fail_trx_time_us_produced_block", "time for failed transactions during produced block")}
-                         , .block_num_transient_trx_block{build<Counter>("funod_num_transient_trx_produced_block", "number of transient transactions during produced block")}
-                         , .block_transient_trx_time_us_block{build<Counter>("funod_transient_trx_time_us_produced_block", "time for transient transactions during produced block")}
-                         , .block_other_time_us_block{build<Counter>("funod_other_time_us_produced_block", "all other unaccounted time during produced block")} }
-       , speculative_metrics{ .num_blocks_created{build<Counter>("funod_blocks_speculative_num", "number of speculative blocks created")}
-                            , .current_block_num{build<Gauge>("funod_block_num", "current block number")}
-                            , .block_total_time_us_block{build<Counter>("funod_total_time_us_speculative_block", "total time for speculative block")}
-                            , .block_idle_time_us_block{build<Counter>("funod_idle_time_us_speculative_block", "idle time for speculative block")}
-                            , .block_num_success_trx_block{build<Counter>("funod_num_success_trx_speculative_block", "number of successful transactions in speculative block")}
-                            , .block_success_trx_time_us_block{build<Counter>("funod_success_trx_time_us_speculative_block", "time for successful transactions in speculative block")}
-                            , .block_num_failed_trx_block{build<Counter>("funod_num_failed_trx_speculative_block", "number of failed transactions during speculative block")}
-                            , .block_fail_trx_time_us_block{build<Counter>("funod_fail_trx_time_us_speculative_block", "time for failed transactions during speculative block")}
-                            , .block_num_transient_trx_block{build<Counter>("funod_num_transient_trx_speculative_block", "number of transient transactions during speculative block")}
-                            , .block_transient_trx_time_us_block{build<Counter>("funod_transient_trx_time_us_speculative_block", "time for transient transactions during speculative block")}
-                            , .block_other_time_us_block{build<Counter>("funod_other_time_us_speculative_block", "all other unaccounted time during speculative block")} }
-       , trxs_incoming_total(build<Counter>("funod_trxs_incoming_total", "number of incoming transactions"))
+       , produced_metrics{ .num_blocks_created{build<Counter>("node_blocks_produced", "number of blocks produced")}
+                         , .current_block_num{build<Gauge>("node_block_num", "current block number")}
+                         , .block_total_time_us_block{build<Counter>("node_total_time_us_produced_block", "total time for produced block")}
+                         , .block_idle_time_us_block{build<Counter>("node_idle_time_us_produced_block", "idle time for produced block")}
+                         , .block_num_success_trx_block{build<Counter>("node_num_success_trx_produced_block", "number of successful transactions in produced block")}
+                         , .block_success_trx_time_us_block{build<Counter>("node_success_trx_time_us_produced_block", "time for successful transactions in produced block")}
+                         , .block_num_failed_trx_block{build<Counter>("node_num_failed_trx_produced_block", "number of failed transactions during produced block")}
+                         , .block_fail_trx_time_us_block{build<Counter>("node_fail_trx_time_us_produced_block", "time for failed transactions during produced block")}
+                         , .block_num_transient_trx_block{build<Counter>("node_num_transient_trx_produced_block", "number of transient transactions during produced block")}
+                         , .block_transient_trx_time_us_block{build<Counter>("node_transient_trx_time_us_produced_block", "time for transient transactions during produced block")}
+                         , .block_other_time_us_block{build<Counter>("node_other_time_us_produced_block", "all other unaccounted time during produced block")} }
+       , speculative_metrics{ .num_blocks_created{build<Counter>("node_blocks_speculative_num", "number of speculative blocks created")}
+                            , .current_block_num{build<Gauge>("node_block_num", "current block number")}
+                            , .block_total_time_us_block{build<Counter>("node_total_time_us_speculative_block", "total time for speculative block")}
+                            , .block_idle_time_us_block{build<Counter>("node_idle_time_us_speculative_block", "idle time for speculative block")}
+                            , .block_num_success_trx_block{build<Counter>("node_num_success_trx_speculative_block", "number of successful transactions in speculative block")}
+                            , .block_success_trx_time_us_block{build<Counter>("node_success_trx_time_us_speculative_block", "time for successful transactions in speculative block")}
+                            , .block_num_failed_trx_block{build<Counter>("node_num_failed_trx_speculative_block", "number of failed transactions during speculative block")}
+                            , .block_fail_trx_time_us_block{build<Counter>("node_fail_trx_time_us_speculative_block", "time for failed transactions during speculative block")}
+                            , .block_num_transient_trx_block{build<Counter>("node_num_transient_trx_speculative_block", "number of transient transactions during speculative block")}
+                            , .block_transient_trx_time_us_block{build<Counter>("node_transient_trx_time_us_speculative_block", "time for transient transactions during speculative block")}
+                            , .block_other_time_us_block{build<Counter>("node_other_time_us_speculative_block", "all other unaccounted time during speculative block")} }
+       , trxs_incoming_total(build<Counter>("node_trxs_incoming_total", "number of incoming transactions"))
        , cpu_usage_us_incoming_block(cpu_usage_us.Add({{"block_type", "incoming"}}))
-       , total_elapsed_time_us_incoming_block(build<Counter>("funod_incoming_elapsed_us_total", "total incoming blocks elapsed time"))
-       , total_time_us_incoming_block(build<Counter>("funod_incoming_us_total", "total incoming blocks total time"))
+       , total_elapsed_time_us_incoming_block(build<Counter>("node_incoming_elapsed_us_total", "total incoming blocks elapsed time"))
+       , total_time_us_incoming_block(build<Counter>("node_incoming_us_total", "total incoming blocks total time"))
        , net_usage_us_incoming_block(net_usage_us.Add({{"block_type", "incoming"}}))
-       , latency_us_incoming_block(build<Counter>("funod_incoming_us_block_latency", "total incoming block latency"))
-       , blocks_incoming(build<Counter>("funod_blocks_incoming", "number of incoming blocks"))
+       , latency_us_incoming_block(build<Counter>("node_incoming_us_block_latency", "total incoming block latency"))
+       , blocks_incoming(build<Counter>("node_blocks_incoming", "number of incoming blocks"))
        , bytes_transferred(build<Counter>("exposer_transferred_bytes_total",
                                           "total number of bytes for responses to prometheus scrape requests"))
        , num_scrapes(build<Counter>("exposer_scrapes_total", "total number of prometheus scrape requests received")) {}
@@ -305,7 +305,7 @@ struct catalog_type {
          // Increment is thread safe
          failed_p2p_connections.Increment(1);
       });
-      net.register_increment_dropped_trxs([this]() { 
+      net.register_increment_dropped_trxs([this]() {
          // Increment is thread safe
          dropped_trxs_total.Increment(1);
       });

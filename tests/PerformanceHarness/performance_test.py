@@ -213,7 +213,7 @@ class PerformanceTest:
         for threadCount in range(minThreadCount, maxThreadCount+1):
             print(f"Running {optPlugin.value} thread count optimization check with {threadCount} {optPlugin.value} threads")
 
-            setattr(getattr(clusterConfig.extrafunodArgs, optPlugin.value + 'PluginArgs'), f"{optPlugin.value}Threads", threadCount)
+            setattr(getattr(clusterConfig.extraNodeArgs, optPlugin.value + 'PluginArgs'), f"{optPlugin.value}Threads", threadCount)
 
             binSearchResults = self.performPtbBinarySearch(clusterConfig=clusterConfig, logDirRoot=self.loggingConfig.pluginThreadOptLogsDirPath,
                                                             delReport=True, quiet=False, delPerfLogs=True, saveState=False)
@@ -266,7 +266,7 @@ class PerformanceTest:
         return report
 
     def createReport(self, producerThreadResult: PluginThreadOptResult=None, chainThreadResult: PluginThreadOptResult=None, netThreadResult: PluginThreadOptResult=None,
-                     tpsTestResult: dict=None, funodVers: str="") -> dict:
+                     tpsTestResult: dict=None, nodeVers: str="") -> dict:
         report = {}
         report['perfTestsBegin'] = self.testsStart
         report['perfTestsFinish'] = self.testsFinish
@@ -286,7 +286,7 @@ class PerformanceTest:
 
         report['args'] =  self.prepArgsDict()
         report['env'] = {'system': system(), 'os': os.name, 'release': release(), 'logical_cpu_count': os.cpu_count()}
-        report['funodVersion'] = funodVers
+        report['nodeVersion'] = nodeVers
         return report
 
     def testDirsCleanup(self):
@@ -375,9 +375,9 @@ class PerformanceTest:
             else:
                 optType = PerformanceTest.PluginThreadOptRunType.LOCAL_MAX
             chainResults = self.optimizePluginThreadCount(optPlugin=PerformanceTest.PluginThreadOpt.CHAIN, optType=optType,
-                                                          minThreadCount=self.clusterConfig.extrafunodArgs.chainPluginArgs._chainThreadsfunodDefault)
+                                                          minThreadCount=self.clusterConfig.extraNodeArgs.chainPluginArgs._chainThreadsNodeDefault)
             print(f"Chain Thread Optimization results: {chainResults}")
-            self.clusterConfig.extrafunodArgs.chainPluginArgs.threads = chainResults.recommendedThreadCount
+            self.clusterConfig.extraNodeArgs.chainPluginArgs.threads = chainResults.recommendedThreadCount
 
         netResults = None
         if self.ptConfig.calcNetThreads != "none":
@@ -387,9 +387,9 @@ class PerformanceTest:
             else:
                 optType = PerformanceTest.PluginThreadOptRunType.LOCAL_MAX
             netResults = self.optimizePluginThreadCount(optPlugin=PerformanceTest.PluginThreadOpt.NET, optType=optType,
-                                                        minThreadCount=self.clusterConfig.extrafunodArgs.netPluginArgs._netThreadsfunodDefault)
+                                                        minThreadCount=self.clusterConfig.extraNodeArgs.netPluginArgs._netThreadsNodeDefault)
             print(f"Net Thread Optimization results: {netResults}")
-            self.clusterConfig.extrafunodArgs.netPluginArgs.threads = netResults.recommendedThreadCount
+            self.clusterConfig.extraNodeArgs.netPluginArgs.threads = netResults.recommendedThreadCount
 
         tpsTestResult = None
         if not self.ptConfig.skipTpsTests:
@@ -400,7 +400,7 @@ class PerformanceTest:
 
         self.testsFinish = datetime.utcnow()
 
-        self.report = self.createReport(chainThreadResult=chainResults, netThreadResult=netResults, tpsTestResult=tpsTestResult, funodVers=self.clusterConfig.funodVers)
+        self.report = self.createReport(chainThreadResult=chainResults, netThreadResult=netResults, tpsTestResult=tpsTestResult, nodeVers=self.clusterConfig.nodeVers)
         jsonReport = JsonReportHandler.reportAsJSON(self.report)
 
         if not self.ptConfig.quiet:

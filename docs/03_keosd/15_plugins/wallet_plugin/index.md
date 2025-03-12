@@ -12,7 +12,7 @@ The `wallet_plugin` adds access to wallet functionality from a node.
 plugin = eosio::wallet_plugin
 
 # command-line
-funod ... --plugin eosio::wallet_plugin
+fonod ... --plugin eosio::wallet_plugin
 ```
 
 ## Options
@@ -23,8 +23,8 @@ None
 
 * `http_plugin`
 
-[//]: # ( THIS IS A COMMENT LINK BELOW IS BROKEN )  
-[//]: # ( `http_plugin` ../http_plugin.md )  
+[//]: # ( THIS IS A COMMENT LINK BELOW IS BROKEN )
+[//]: # ( `http_plugin` ../http_plugin.md )
 
 ### Load Dependency Examples
 
@@ -36,6 +36,6 @@ plugin = eosio::http_plugin
 [options]
 
 # command-line
-funod ... --plugin eosio::wallet_plugin [options]  \
+fonod ... --plugin eosio::wallet_plugin [options]  \
            --plugin eosio::http_plugin [options]
 ```

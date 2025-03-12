@@ -44,9 +44,9 @@ try:
     # For now do not load system contract as it does not support setfinalizer
     # separate_prod_fin_test_shape.json defines 2 producer nodes each has 1
     # producer and 3 non-producer nodes
-    specificExtrafunodArgs={}
-    specificExtrafunodArgs[total_nodes-1]="--vote-threads 0 "
-    specificExtrafunodArgs[total_nodes-2]="--vote-threads 0 "
+    specificExtraNodeArgs={}
+    specificExtraNodeArgs[total_nodes-1]="--vote-threads 0 "
+    specificExtraNodeArgs[total_nodes-2]="--vote-threads 0 "
     if cluster.launch(pnodes=pnodes, totalNodes=total_nodes, totalProducers=pnodes,
                       topo="./tests/separate_prod_fin_test_shape.json", delay=delay,
                       activateIF=True, signatureProviderForNonProducer=True) is False:

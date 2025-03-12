@@ -1,0 +1,16 @@
+/**
+ * \warning This file is machine generated. DO NOT EDIT.  See config.hpp.in for changes.
+ */
+#pragma once
+
+#ifndef CONFIG_HPP_IN
+#define CONFIG_HPP_IN
+
+#include <string>
+
+namespace eosio { namespace node { namespace config {
+  const std::string program_root_name    = "${PROGRAM_ROOT_NAME}";
+  const std::string node_executable_name = "${NODE_EXECUTABLE_NAME}";
+}}}
+
+#endif // CONFIG_HPP_IN

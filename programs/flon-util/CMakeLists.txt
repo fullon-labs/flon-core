@@ -1,10 +1,12 @@
-add_executable( ${FULLON_UTIL_EXECUTABLE_NAME} main.cpp actions/subcommand.cpp actions/generic.cpp actions/blocklog.cpp actions/bls.cpp actions/snapshot.cpp actions/chain.cpp)
+
+configure_file(config.hpp.in config.hpp ESCAPE_QUOTES)
+add_executable( ${FULLON_UTIL_EXECUTABLE_NAME} main.cpp actions/subcommand.cpp actions/generic.cpp actions/blocklog.cpp actions/bls.cpp actions/snapshot.cpp actions/chain.cpp "${CMAKE_CURRENT_BINARY_DIR}/config.hpp")
 
 if( UNIX AND NOT APPLE )
   set(rt_library rt )
 endif()
 
-target_include_directories(${FULLON_UTIL_EXECUTABLE_NAME} PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
+target_include_directories(${FULLON_UTIL_EXECUTABLE_NAME} PUBLIC ${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
 
 target_link_libraries( ${FULLON_UTIL_EXECUTABLE_NAME}
         PRIVATE appbase version

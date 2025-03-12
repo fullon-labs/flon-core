@@ -36,7 +36,7 @@ Your download path may vary. If you are in an Ubuntu docker container, omit `sud
 
 Finally, verify fullon was installed correctly:
 ```bash
-funod --full-version
+fonod --full-version
 ```
 You should see a [semantic version](https://semver.org) string followed by a `git` commit hash with no errors. For example:
 ```
@@ -75,7 +75,7 @@ git clone --recursive https://github.com/fullon-labs/flon-core.git
 git clone --recursive git@github.com:fullon-labs/flon-core.git
 ```
 
-> ℹ️ **HTTPS vs. SSH Clone** ℹ️  
+> ℹ️ **HTTPS vs. SSH Clone** ℹ️
 Both an HTTPS or SSH git clone will yield the same result - a folder named `flon-core` containing our source code. It doesn't matter which type you use.
 
 Navigate into that folder:
@@ -99,13 +99,13 @@ git submodule update --init --recursive
 ### Step 3 - Build
 Select build instructions below for a [pinned build](#pinned-build) (preferred) or an [unpinned build](#unpinned-build).
 
-> ℹ️ **Pinned vs. Unpinned Build** ℹ️  
+> ℹ️ **Pinned vs. Unpinned Build** ℹ️
 We have two types of builds for fullon: "pinned" and "unpinned." A pinned build is a reproducible build with the build environment and dependency versions fixed by the development team. In contrast, unpinned builds use the dependency versions provided by the build platform. Unpinned builds tend to be quicker because the pinned build environment must be built from scratch. Pinned builds, in addition to being reproducible, ensure the compiler remains the same between builds of different fullon major versions. fullon requires the compiler version to remain the same, otherwise its state might need to be recovered from a portable snapshot or the chain needs to be replayed.
 
-> ⚠️ **A Warning On Parallel Compilation Jobs (`-j` flag)** ⚠️  
+> ⚠️ **A Warning On Parallel Compilation Jobs (`-j` flag)** ⚠️
 When building C/C++ software, often the build is performed in parallel via a command such as `make -j "$(nproc)"` which uses all available CPU threads. However, be aware that some compilation units (`*.cpp` files) in fullon will consume nearly 4GB of memory. Failures due to memory exhaustion will typically, but not always, manifest as compiler crashes. Using all available CPU threads may also prevent you from doing other things on your computer during compilation. For these reasons, consider reducing this value.
 
-> 🐋 **Docker and `sudo`** 🐋  
+> 🐋 **Docker and `sudo`** 🐋
 If you are in an Ubuntu docker container, omit `sudo` from all commands because you run as `root` by default. Most other docker containers also exclude `sudo`, especially Debian-family containers. If your shell prompt is a hash tag (`#`), omit `sudo`.
 
 #### Pinned Reproducible Build
@@ -187,7 +187,7 @@ ctest -j "$(nproc)" -L wasm_spec_tests
 We have observed severe performance issues when multiple virtual machines are running this test suite on the same physical host at the same time, for example in a CICD system. This can be resolved by disabling hyperthreading on the host.
 
 #### Serial Tests
-The serial test suite consists of [medium](https://testing.googleblog.com/2010/12/test-sizes.html) component or integration tests that use specific paths, ports, rely on process names, or similar, and cannot be run concurrently with other tests. Serial tests can be sensitive to other software running on the same host and they may `SIGKILL` other `funod` processes. These tests take a moderate amount of time to complete, but we recommend running them.
+The serial test suite consists of [medium](https://testing.googleblog.com/2010/12/test-sizes.html) component or integration tests that use specific paths, ports, rely on process names, or similar, and cannot be run concurrently with other tests. Serial tests can be sensitive to other software running on the same host and they may `SIGKILL` other `fonod` processes. These tests take a moderate amount of time to complete, but we recommend running them.
 
 You can invoke them by running `ctest` from a terminal in your fullon build directory and specifying the following arguments:
 ```bash

@@ -1,6 +1,6 @@
-__all__ = ["log_reader", "performance_test_basic", "performance_test", "FunodPluginArgs"]
+__all__ = ["log_reader", "performance_test_basic", "performance_test", "NodePluginArgs"]
 
 from .log_reader import blockData, trxData, chainData, scrapeTrxGenTrxSentDataLogs, JsonReportHandler, analyzeLogResults, TpsTestConfig, ArtifactPaths, LogAnalysis
-from .FunodPluginArgs import BasePluginArgs, ChainPluginArgs, HttpPluginArgs, NetPluginArgs, ProducerPluginArgs, ResourceMonitorPluginArgs, SignatureProviderPluginArgs, StateHistoryPluginArgs, TraceApiPluginArgs
+from .NodePluginArgs import BasePluginArgs, ChainPluginArgs, HttpPluginArgs, NetPluginArgs, ProducerPluginArgs, ResourceMonitorPluginArgs, SignatureProviderPluginArgs, StateHistoryPluginArgs, TraceApiPluginArgs
 from .performance_test_basic import PerformanceTestBasic, PtbArgumentsHandler
 from .performance_test import PerformanceTest, PerfTestArgumentsHandler

@@ -235,7 +235,7 @@ private:
          // Note: It is possible that we first accept a block on one branch that has timestamp t2 and then accept a
          // block on another branch that has timestamp t1 where t1 < t2. Even though the block_received_time of the
          // block with timestamp t1 would presumably be greater than the block_received_time of the block with timestamp
-         // t2 (since it was accepted after in funod), with the RT being the minimum and both blocks being late, the
+         // t2 (since it was accepted after in node), with the RT being the minimum and both blocks being late, the
          // received_time for the first block would be t2 and the received_time for the second block would be the lower
          // value t1.
          if ((vote_time < block_orig) && (block_orig <= received_time))

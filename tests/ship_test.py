@@ -15,7 +15,7 @@ from TestHarness.TestHelper import AppArgs
 
 ###############################################################
 # ship_test
-# 
+#
 # This test sets up <-p> producing node(s) and <-n - -p>
 #   non-producing node(s). One of the non-producing nodes
 #   is configured with the state_history_plugin.  An instance
@@ -55,17 +55,17 @@ try:
 
     cluster.setWalletMgr(walletMgr)
     Print("Stand up cluster")
-    specificExtrafunodArgs={}
+    specificExtraNodeArgs={}
     # non-producing nodes are at the end of the cluster's nodes, so reserving the last one for state_history_plugin
     shipNodeNum = totalNodes - 1
-    specificExtrafunodArgs[shipNodeNum]="--plugin eosio::state_history_plugin --sync-fetch-span 200 --plugin eosio::net_api_plugin "
+    specificExtraNodeArgs[shipNodeNum]="--plugin eosio::state_history_plugin --sync-fetch-span 200 --plugin eosio::net_api_plugin "
 
     if args.unix_socket:
-        specificExtrafunodArgs[shipNodeNum] += "--state-history-unix-socket-path ship.sock"
+        specificExtraNodeArgs[shipNodeNum] += "--state-history-unix-socket-path ship.sock"
 
     if cluster.launch(pnodes=totalProducerNodes,
                       totalNodes=totalNodes, totalProducers=totalProducers, activateIF=activateIF,
-                      specificExtrafunodArgs=specificExtrafunodArgs) is False:
+                      specificExtraNodeArgs=specificExtraNodeArgs) is False:
         Utils.cmdError("launcher")
         Utils.errorExit("Failed to stand up eos cluster.")
 
@@ -109,7 +109,7 @@ try:
         out.close()
         err.close()
 
-    Print("Shutdown state_history_plugin funod")
+    Print("Shutdown state_history_plugin node")
     shipNode.kill(signal.SIGTERM)
 
     files = None

@@ -26,7 +26,7 @@ addEnum(BlockType, "head")
 addEnum(BlockType, "lib")
 
 
-class funodQueries:
+class NodeQueries:
     def __init__(self, host, port, walletMgr=None):
         self.endpointHttp = f'http://{host}:{port}'
         self.endpointArgs = f'--url {self.endpointHttp}'
@@ -93,12 +93,12 @@ class funodQueries:
 
         executed="executed"
 
-        transStatus=funodQueries.getTransStatus(trans)
+        transStatus=NodeQueries.getTransStatus(trans)
         assert transStatus == executed, f"ERROR: Valid transaction should be '{executed}' but it was '{transStatus}'.\nTransaction: {json.dumps(trans, indent=1)}"
 
     @staticmethod
     def getTransStatus(trans):
-        cntxt=funodQueries.Context(trans, "trans")
+        cntxt=NodeQueries.Context(trans, "trans")
         # could be a transaction response
         if cntxt.hasKey("processed"):
             cntxt.add("processed")
@@ -114,7 +114,7 @@ class funodQueries:
 
     @staticmethod
     def getTransBlockNum(trans):
-        cntxt=funodQueries.Context(trans, "trans")
+        cntxt=NodeQueries.Context(trans, "trans")
         # could be a transaction response
         if cntxt.hasKey("processed"):
             cntxt.add("processed")
@@ -506,7 +506,7 @@ class funodQueries:
     def getAccountEosBalance(self, scope):
         """Returns SYS currency0000 account balance from cleos get table command. Returned balance is an integer e.g. 980311. """
         balanceStr=self.getAccountEosBalanceStr(scope)
-        balance=funodQueries.currencyStrToInt(balanceStr)
+        balance=NodeQueries.currencyStrToInt(balanceStr)
         return balance
 
     def getAccountCodeHash(self, account):
@@ -708,17 +708,17 @@ class funodQueries:
         if waitForBlock:
             self.waitForBlock(blockNum, timeout=timeout, blockType=BlockType.head)
         block=self.getBlock(blockNum, exitOnError=exitOnError)
-        return funodQueries.getBlockAttribute(block, "producer", blockNum, exitOnError=exitOnError)
+        return NodeQueries.getBlockAttribute(block, "producer", blockNum, exitOnError=exitOnError)
 
     def getBlockProducer(self, timeout=None, waitForBlock=True, exitOnError=True, blockType=BlockType.head):
         blockNum=self.getBlockNum(blockType=blockType)
         block=self.getBlock(blockNum, exitOnError=exitOnError, blockType=blockType)
-        return funodQueries.getBlockAttribute(block, "producer", blockNum, exitOnError=exitOnError)
+        return NodeQueries.getBlockAttribute(block, "producer", blockNum, exitOnError=exitOnError)
 
     def getNextCleanProductionCycle(self, trans):
         rounds=21*12*2  # max time to ensure that at least 2/3+1 of producers x blocks per producer x at least 2 times
         if trans is not None:
-            transId=funodQueries.getTransId(trans)
+            transId=NodeQueries.getTransId(trans)
             self.waitForTransFinalization(transId, timeout=rounds/2)
         else:
             transId="Null"

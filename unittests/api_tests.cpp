@@ -1050,7 +1050,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE( checktime_pause_max_trx_cpu_extended_test, T, tes
    if( t.get_config().wasm_runtime == wasm_interface::vm_type::eos_vm_oc ) {
       // eos_vm_oc wasm_runtime does not tier-up and completes compile before continuing execution.
       // A completely different test with different constraints would be needed to test with eos_vm_oc.
-      // Since non-tier-up is not a normal valid funod runtime, just skip this test for eos_vm_oc.
+      // Since non-tier-up is not a normal valid node runtime, just skip this test for eos_vm_oc.
       return;
    }
    t.execute_setup_policy( setup_policy::full );
@@ -1116,7 +1116,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE( checktime_pause_max_trx_extended_test, T, testers
    if( t.get_config().wasm_runtime == wasm_interface::vm_type::eos_vm_oc ) {
       // eos_vm_oc wasm_runtime does not tier-up and completes compile before continuing execution.
       // A completely different test with different constraints would be needed to test with eos_vm_oc.
-      // Since non-tier-up is not a normal valid funod runtime, just skip this test for eos_vm_oc.
+      // Since non-tier-up is not a normal valid node runtime, just skip this test for eos_vm_oc.
       return;
    }
    t.execute_setup_policy( setup_policy::full );
@@ -1164,7 +1164,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE( checktime_pause_block_deadline_not_extended_test,
    if( t.get_config().wasm_runtime == wasm_interface::vm_type::eos_vm_oc ) {
       // eos_vm_oc wasm_runtime does not tier-up and completes compile before continuing execution.
       // A completely different test with different constraints would be needed to test with eos_vm_oc.
-      // Since non-tier-up is not a normal valid funod runtime, just skip this test for eos_vm_oc.
+      // Since non-tier-up is not a normal valid node runtime, just skip this test for eos_vm_oc.
       return;
    }
    t.execute_setup_policy( setup_policy::full );
@@ -1211,7 +1211,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE( checktime_pause_block_deadline_not_extended_while
    if( t.get_config().wasm_runtime == wasm_interface::vm_type::eos_vm_oc ) {
       // eos_vm_oc wasm_runtime does not tier-up and completes compile before continuing execution.
       // A completely different test with different constraints would be needed to test with eos_vm_oc.
-      // Since non-tier-up is not a normal valid funod runtime, just skip this test for eos_vm_oc.
+      // Since non-tier-up is not a normal valid node runtime, just skip this test for eos_vm_oc.
       return;
    }
    t.execute_setup_policy( setup_policy::full );

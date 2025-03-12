@@ -42,7 +42,7 @@ Push a transaction
 * You can also create a JSON snippet that uses clear text JSON for `data` field.
 
 [[info]]
-| Be aware that if a clear text `data` field is used, cleos need to fetch copies of required ABIs using `funod` API. That operation has a performance overhead on `funod`
+| Be aware that if a clear text `data` field is used, cleos need to fetch copies of required ABIs using `fonod` API. That operation has a performance overhead on `fonod`
 
 ```JSON
 {

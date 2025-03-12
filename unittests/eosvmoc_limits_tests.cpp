@@ -113,7 +113,7 @@ BOOST_AUTO_TEST_CASE( vm_limit ) { try {
    limit_not_violated_test(eosvmoc_config);
 } FC_LOG_AND_RETHROW() }
 
-//make sure vm_limit is populated for a default constructed config (what funod will use)
+//make sure vm_limit is populated for a default constructed config (what node will use)
 BOOST_AUTO_TEST_CASE( check_config_default_vm_limit ) { try {
    eosvmoc::config eosvmoc_config;
 

@@ -16,7 +16,7 @@ from TestHarness.TestHelper import AppArgs
 #
 #  Test to verify that transaction finality status feature is working
 #  appropriately.
-# 
+#
 #  It sets up a "line" of block producers and non-producing nodes (NPN)
 #  so that a transaction added to the last NPN will have to travel along
 #  the "line" of nodes till it gets in a block which will also have to
@@ -56,11 +56,11 @@ try:
     Print("Stand up cluster")
     successDuration = 60
     failure_duration = 40
-    extrafunodArgs=" --transaction-finality-status-max-storage-size-gb 1 " + \
+    extraNodeArgs=" --transaction-finality-status-max-storage-size-gb 1 " + \
                    f"--transaction-finality-status-success-duration-sec {successDuration} --transaction-finality-status-failure-duration-sec {failure_duration}"
-    extrafunodArgs+=" --http-max-response-time-ms 990000"
+    extraNodeArgs+=" --http-max-response-time-ms 990000"
     if cluster.launch(prodCount=prodCount, onlyBios=False, pnodes=pnodes, totalNodes=totalNodes, totalProducers=pnodes*prodCount, activateIF=activateIF,
-                      topo="line", extrafunodArgs=extrafunodArgs) is False:
+                      topo="line", extraNodeArgs=extraNodeArgs) is False:
         Utils.errorExit("Failed to stand up eos cluster.")
 
     Print("Validating system accounts after bootstrap")

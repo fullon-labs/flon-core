@@ -17,12 +17,12 @@ class TraceApiPluginTest(unittest.TestCase):
     accounts = []
     cluster.setWalletMgr(walletMgr)
 
-    # start keosd and funod
+    # start keosd and node
     def startEnv(self) :
         account_names = ["alice", "bob", "charlie"]
         abs_path = os.path.abspath(os.getcwd() + '/unittests/contracts/eosio.token/eosio.token.abi')
-        tracefunodArgs = " --verbose-http-errors --trace-rpc-abi eosio.token=" + abs_path
-        self.cluster.launch(totalNodes=2, activateIF=True, extrafunodArgs=tracefunodArgs)
+        traceNodeArgs = " --verbose-http-errors --trace-rpc-abi eosio.token=" + abs_path
+        self.cluster.launch(totalNodes=2, activateIF=True, extraNodeArgs=traceNodeArgs)
         self.walletMgr.launch()
         testWalletName="testwallet"
         testWallet=self.walletMgr.create(testWalletName, [self.cluster.eosioAccount, self.cluster.defproduceraAccount])

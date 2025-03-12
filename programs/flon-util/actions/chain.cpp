@@ -1,4 +1,5 @@
 #include "chain.hpp"
+#include "config.hpp"
 #include <memory>
 
 #include <fc/bitutil.hpp>
@@ -18,6 +19,7 @@
 
 using namespace eosio;
 using namespace eosio::chain;
+using namespace eosio::util::config;
 
 void chain_actions::setup(CLI::App& app) {
    auto* sub = app.add_subcommand("chain-state", "chain utility");
@@ -65,7 +67,7 @@ int chain_actions::run_subcommand_sstate() {
    // default state dir, if none specified
    if(opt->sstate_state_dir.empty()) {
       auto root = fc::app_path();
-      auto default_data_dir = root / "eosio" / "funod" / "data" ;
+      auto default_data_dir = root / program_root_name / node_executable_name / "data" ;
       state_dir  = default_data_dir / config::default_state_dir_name;
    }
    else {

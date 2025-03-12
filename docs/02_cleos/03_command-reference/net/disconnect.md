@@ -6,8 +6,8 @@ fucli net disconnect [OPTIONS] host
 **Where:**
 * [OPTIONS] = See **Options**section TBD
 
-[//]: # ( THIS IS A COMMENT LINK BELOW IS BROKEN )  
-[//]: # (in the **Command Usage** command-usage section below.)  
+[//]: # ( THIS IS A COMMENT LINK BELOW IS BROKEN )
+[//]: # (in the **Command Usage** command-usage section below.)
 
 **Note:** The arguments and options enclosed in square brackets are optional.
 
@@ -29,7 +29,7 @@ Make sure you meet the following requirements:
 * Install the currently supported version of `fucli`.
 [[info | Note]]
 | `fucli` is bundled with the FullOn software. [Installing FullOn](../../../00_install/index.md) will also install the `fucli` and `keosd` command line tools.
-* You have access to a producing node instance with the [`net_api_plugin`](../../../01_funod/03_plugins/net_api_plugin/index.md) loaded.
+* You have access to a producing node instance with the [`net_api_plugin`](../../../01_node/03_plugins/net_api_plugin/index.md) loaded.
 
 ## Examples
 The following examples demonstrate how to use the `fucli net disconnect` command:
@@ -52,7 +52,7 @@ fucli -u http://127.0.0.1:8001 net disconnect localhost:9002
 "connection removed"
 ```
 
-**Note:** If any of the above commands are re-executed, `fucli` returns the following message as expected:  
+**Note:** If any of the above commands are re-executed, `fucli` returns the following message as expected:
 ```console
 "no known connection for host"
 ```

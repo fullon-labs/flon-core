@@ -62,7 +62,7 @@ struct chain_config_v0 {
    inline const chain_config_v0& v0() const {
       return *this;
    }
-   
+
    template<typename Stream>
    friend Stream& operator << ( Stream& out, const chain_config_v0& c ) {
       return c.log(out) << "\n";
@@ -144,7 +144,7 @@ struct chain_config_v1 : chain_config_v0 {
    using Base = chain_config_v0;
 
    uint32_t   max_action_return_value_size = config::default_max_action_return_value_size;               ///< size limit for action return value
-   
+
    //order must match parameters as ids are used in serialization
    enum {
      max_action_return_value_size_id = Base::PARAMS_COUNT,
@@ -164,7 +164,7 @@ struct chain_config_v1 : chain_config_v0 {
 
    friend inline bool operator == ( const chain_config_v1& lhs, const chain_config_v1& rhs ) {
       //add v1 parameters comarison here
-      return std::tie(lhs.max_action_return_value_size) == std::tie(rhs.max_action_return_value_size) 
+      return std::tie(lhs.max_action_return_value_size) == std::tie(rhs.max_action_return_value_size)
           && lhs.base() == rhs.base();
    }
 
@@ -211,14 +211,14 @@ FC_REFLECT(eosio::chain::chain_config_v0,
 
 )
 
-FC_REFLECT_DERIVED(eosio::chain::chain_config_v1, (eosio::chain::chain_config_v0), 
+FC_REFLECT_DERIVED(eosio::chain::chain_config_v1, (eosio::chain::chain_config_v0),
            (max_action_return_value_size)
 )
 
 namespace fc {
 
 /**
- * @brief This is for packing data_entry<chain_config_v0, ...> 
+ * @brief This is for packing data_entry<chain_config_v0, ...>
  * that is used as part of packing data_range<chain_config_v0, ...>
  * @param s datastream
  * @param entry contains config reference and particular id
@@ -231,7 +231,7 @@ inline DataStream &operator<<(DataStream &s, const eosio::chain::data_entry<eosi
    //initial requirements were to skip packing field if it is not activated.
    //this approach allows to spam this function with big buffer so changing this behavior
    EOS_ASSERT(entry.is_allowed(), unsupported_feature, "config id ${id} is no allowed", ("id", entry.id));
-   
+
    switch (entry.id){
       case chain_config_v0::max_block_net_usage_id:
       fc::raw::pack(s, entry.config.max_block_net_usage);
@@ -291,7 +291,7 @@ inline DataStream &operator<<(DataStream &s, const eosio::chain::data_entry<eosi
 }
 
 /**
- * @brief This is for packing data_entry<chain_config_v1, ...> 
+ * @brief This is for packing data_entry<chain_config_v1, ...>
  * that is used as part of packing data_range<chain_config_v1, ...>
  * @param s datastream
  * @param entry contains config reference and particular id
@@ -305,11 +305,11 @@ inline DataStream &operator<<(DataStream &s, const eosio::chain::data_entry<eosi
    //this approach allows to spam this function with big buffer so changing this behavior
    //moreover:
    //The contract has no way to know that the value was skipped and is likely to behave incorrectly.
-   //When the protocol feature is not activated, the old version of funod that doesn't know about 
-   //the entry MUST behave the same as the new version of funod that does.
+   //When the protocol feature is not activated, the old version of node that doesn't know about
+   //the entry MUST behave the same as the new version of node that does.
    //Skipping known but unactivated entries violates this.
    EOS_ASSERT(entry.is_allowed(), unsupported_feature, "config id ${id} is no allowed", ("id", entry.id));
-   
+
    switch (entry.id){
       case chain_config_v1::max_action_return_value_size_id:
       fc::raw::pack(s, entry.config.max_action_return_value_size);
@@ -323,7 +323,7 @@ inline DataStream &operator<<(DataStream &s, const eosio::chain::data_entry<eosi
 }
 
 /**
- * @brief This is for unpacking data_entry<chain_config_v0, ...> 
+ * @brief This is for unpacking data_entry<chain_config_v0, ...>
  * that is used as part of unpacking data_range<chain_config_v0, ...>
  * @param s datastream
  * @param entry contains config reference and particular id
@@ -390,12 +390,12 @@ inline DataStream &operator>>(DataStream &s, eosio::chain::data_entry<eosio::cha
       default:
       FC_THROW_EXCEPTION(eosio::chain::config_parse_error, "DataStream& operator<<: no such id: ${id}", ("id", entry.id));
    }
-   
+
    return s;
 }
 
 /**
- * @brief This is for unpacking data_entry<chain_config_v1, ...> 
+ * @brief This is for unpacking data_entry<chain_config_v1, ...>
  * that is used as part of unpacking data_range<chain_config_v1, ...>
  * @param s datastream
  * @param entry contains config reference and particular id
@@ -421,7 +421,7 @@ inline DataStream &operator>>(DataStream &s, eosio::chain::data_entry<eosio::cha
 
 /**
  * @brief Packs config stream in the following format:
- * |uint32_t:sequence_length | uint32_t:parameter_id | <various>:parameter_value | ... 
+ * |uint32_t:sequence_length | uint32_t:parameter_id | <various>:parameter_value | ...
  * @param s datastream
  * @param selection contains ids range to pack
  * @throws config_parse_error on duplicate or unknown id in selection
@@ -429,7 +429,7 @@ inline DataStream &operator>>(DataStream &s, eosio::chain::data_entry<eosio::cha
 template<typename DataStream, typename T>
 inline DataStream& operator<<( DataStream& s, const eosio::chain::data_range<T, eosio::chain::config_entry_validator>& selection ) {
    using namespace eosio::chain;
-   
+
    fc::unsigned_int size = selection.ids.size();
    fc::raw::pack(s, size);
 
@@ -450,7 +450,7 @@ inline DataStream& operator<<( DataStream& s, const eosio::chain::data_range<T, 
 
 /**
  * @brief Unpacks config stream in the following format:
- * |uint32_t:sequence_length | uint32_t:parameter_id | <various>:parameter_value | ... 
+ * |uint32_t:sequence_length | uint32_t:parameter_id | <various>:parameter_value | ...
  * @param s datastream
  * @param selection contains config reference where values will be unpacked
  * @throws config_parse_error on duplicate or unknown id in stream
@@ -458,7 +458,7 @@ inline DataStream& operator<<( DataStream& s, const eosio::chain::data_range<T, 
 template<typename DataStream, typename T>
 inline DataStream& operator>>( DataStream& s, eosio::chain::data_range<T, eosio::chain::config_entry_validator>& selection ) {
    using namespace eosio::chain;
-   
+
    fc::unsigned_int length;
    fc::raw::unpack(s, length);
 
@@ -467,7 +467,7 @@ inline DataStream& operator>>( DataStream& s, eosio::chain::data_range<T, eosio:
    for (uint32_t i = 0; i < length; ++i) {
       fc::unsigned_int id;
       fc::raw::unpack(s, id);
-      
+
       EOS_ASSERT(id.value < visited.size(), config_parse_error, "provided id ${id} should be less than ${size}", ("id", id)("size", visited.size()));
       EOS_ASSERT(!visited[id], config_parse_error, "duplicate id provided: ${id}", ("id", id));
       visited[id] = true;

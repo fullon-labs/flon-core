@@ -9,9 +9,9 @@ from TestHarness.TestHelper import AppArgs
 ###############################################################
 # terminate-scenarios-test
 #
-# Tests terminate scenarios for funod.  Uses "-c" flag to indicate "replay" (--replay-blockchain), "resync"
+# Tests terminate scenarios for node.  Uses "-c" flag to indicate "replay" (--replay-blockchain), "resync"
 # (--delete-all-blocks), "hardReplay"(--hard-replay-blockchain), and "none" to indicate what kind of restart flag should
-# be used. This is one of the only test that actually verify that funod terminates with a good exit status.
+# be used. This is one of the only test that actually verify that node terminates with a good exit status.
 #
 ###############################################################
 
@@ -69,7 +69,7 @@ try:
     if not cluster.getNode(0).kill(killSignal):
         errorExit("Failed to kill Eos instances")
     assert not cluster.getNode(0).verifyAlive()
-    Print("funod instances 0 killed.")
+    Print("node instances 0 killed.")
 
     Print ("Relaunch dead cluster node instance.")
     nodeArg = "--terminate-at-block %d" % terminate if terminate > 0 else ""
@@ -79,7 +79,7 @@ try:
     nodeArg += " --enable-stale-production "
     if cluster.relaunchEosInstances(nodeArgs=nodeArg, waitForTerm=(terminate > 0)) is False:
         errorExit("Failed to relaunch Eos instance")
-    Print("funod instance relaunched.")
+    Print("node instance relaunched.")
 
     testSuccessful=True
 finally:

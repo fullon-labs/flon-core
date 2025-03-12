@@ -54,9 +54,9 @@ try:
     Print(f'producing nodes: {pnodes}, delay between nodes launch: {delay} second{"s" if delay != 1 else ""}')
 
     Print("Stand up cluster")
-    extrafunodArgs = " --plugin eosio::producer_api_plugin "
+    extraNodeArgs = " --plugin eosio::producer_api_plugin "
     if cluster.launch(pnodes=pnodes, totalNodes=total_nodes, totalProducers=pnodes, delay=delay, loadSystemContract=False,
-                      extrafunodArgs=extrafunodArgs, activateIF=True, biosFinalizer=False) is False:
+                      extraNodeArgs=extraNodeArgs, activateIF=True, biosFinalizer=False) is False:
         errorExit("Failed to stand up eos cluster.")
 
     assert cluster.biosNode.getInfo(exitOnError=True)["head_block_producer"] != "eosio", "launch should have waited for production to change"

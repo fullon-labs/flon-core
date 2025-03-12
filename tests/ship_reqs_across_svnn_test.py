@@ -10,7 +10,7 @@ from TestHarness import Cluster, TestHelper, Utils, WalletMgr
 
 ###############################################################
 # ship_reqs_across_savanna
-# 
+#
 # This test verifies SHiP get_blocks_result_v1 works across Legacy and Savanna boundary.
 #   1. Start a producer Node and a SHiP node in Legacy mode
 #   2. Transition to Savanna
@@ -18,7 +18,7 @@ from TestHarness import Cluster, TestHelper, Utils, WalletMgr
 #      and a block whose block number greater than Savanna Genesis block (post Savanna)
 #   4. Verify `finality_data` field in every block before Savanna Genesis block is NULL,
 #      and `finality_data` field in every block after Savanna Genesis block contains a value.
-# 
+#
 ###############################################################
 
 Print=Utils.Print
@@ -46,12 +46,12 @@ try:
     Print("Stand up cluster")
 
     shipNodeNum = 1
-    specificExtrafunodArgs={}
-    specificExtrafunodArgs[shipNodeNum]="--plugin eosio::state_history_plugin --trace-history --chain-state-history --state-history-stride 200 --plugin eosio::net_api_plugin --plugin eosio::producer_api_plugin --finality-data-history"
+    specificExtraNodeArgs={}
+    specificExtraNodeArgs[shipNodeNum]="--plugin eosio::state_history_plugin --trace-history --chain-state-history --state-history-stride 200 --plugin eosio::net_api_plugin --plugin eosio::producer_api_plugin --finality-data-history"
 
     if cluster.launch(topo="mesh", pnodes=totalProducerNodes, totalNodes=totalNodes,
                       activateIF=True,
-                      specificExtrafunodArgs=specificExtrafunodArgs) is False:
+                      specificExtraNodeArgs=specificExtraNodeArgs) is False:
         Utils.cmdError("launcher")
         Utils.errorExit("Failed to stand up cluster.")
 

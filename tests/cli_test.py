@@ -18,9 +18,9 @@ from TestHarness import Account, Node, ReturnType, Utils, WalletMgr
 
 testSuccessful=False
 
-def funod_help_test():
-    """Test that funod help contains option descriptions"""
-    help_text = subprocess.check_output(["./programs/funod/funod", "--help"])
+def node_help_test():
+    """Test that node help contains option descriptions"""
+    help_text = subprocess.check_output([Utils.NodeServerPath, "--help"])
 
     assert(re.search(b'Application.*Options', help_text))
     assert(re.search(b'Options for .*_plugin', help_text))
@@ -48,7 +48,7 @@ def cli11_bugfix_test():
 
     # Make sure that the command failed because of the connection error,
     # not the command line parsing error.
-    assert(b'Failed http request to funod' in completed_process.stderr)
+    assert(b'Failed http request to node' in completed_process.stderr)
 
 
 def cli11_optional_option_arg_test():
@@ -164,10 +164,10 @@ def cleos_abi_file_test():
     account = 'eosio.token'
     action = 'transfer'
     unpacked_action_data = '{"from":"aaa","to":"bbb","quantity":"10.0000 SYS","memo":"hello"}'
-    # use URL http://127.0.0.1:12345 to make sure cleos not to connect to any running funod
+    # use URL http://127.0.0.1:12345 to make sure cleos not to connect to any running node
     cmd = ['./programs/cleos/cleos', '-u', 'http://127.0.0.1:12345', 'convert', 'pack_action_data', account, action, unpacked_action_data]
     outs, errs = processCleosCommand(cmd)
-    assert(b'Failed http request to funod' in errs)
+    assert(b'Failed http request to node' in errs)
 
     # invalid option --abi-file
     invalid_abi_arg = 'eosio.token' + ' ' + token_abi_path
@@ -324,7 +324,7 @@ def cleos_abi_file_test():
     assert(b'"quantity": "10.0000 SYS"' in outs)
     assert(b'"memo": "hello"' in outs)
 
-def abi_file_with_funod_test():
+def abi_file_with_node_test():
     # push action token transfer with option `--abi-file`
     global testSuccessful
     try:
@@ -345,7 +345,7 @@ def abi_file_with_funod_test():
 
         tries = 30
         while not Utils.arePortsAvailable(set(range(8888, 8889))):
-            Utils.Print("ERROR: Another process is listening on funod test port 8888. wait...")
+            Utils.Print("ERROR: Another process is listening on node test port 8888. wait...")
             if tries == 0:
                 assert False
             tries -= 1
@@ -355,7 +355,7 @@ def abi_file_with_funod_test():
         os.makedirs(data_dir, exist_ok=True)
         walletMgr = WalletMgr(True)
         walletMgr.launch()
-        cmd = "./programs/funod/funod -e -p eosio --plugin eosio::trace_api_plugin --trace-no-abis --plugin eosio::producer_plugin --plugin eosio::producer_api_plugin --plugin eosio::chain_api_plugin --plugin eosio::chain_plugin --plugin eosio::http_plugin --access-control-allow-origin=* --http-validate-host=false --max-transaction-time=-1 --resource-monitor-not-shutdown-on-threshold-exceeded " + "--data-dir " + data_dir + " --config-dir " + data_dir
+        cmd = Utils.NodeServerPath + " -e -p eosio --plugin eosio::trace_api_plugin --trace-no-abis --plugin eosio::producer_plugin --plugin eosio::producer_api_plugin --plugin eosio::chain_api_plugin --plugin eosio::chain_plugin --plugin eosio::http_plugin --access-control-allow-origin=* --http-validate-host=false --max-transaction-time=-1 --resource-monitor-not-shutdown-on-threshold-exceeded " + "--data-dir " + data_dir + " --config-dir " + data_dir
         node = Node('localhost', 8888, nodeId, data_dir=Path(data_dir), config_dir=Path(data_dir), cmd=shlex.split(cmd), launch_time=datetime.datetime.now().strftime('%Y_%m_%d_%H_%M_%S'), walletMgr=walletMgr)
         time.sleep(5)
         node.waitForBlock(1)
@@ -404,7 +404,7 @@ def abi_file_with_funod_test():
             if not node.killed:
                 node.kill(signal.SIGKILL)
         if testSuccessful:
-            Utils.Print("Cleanup funod data.")
+            Utils.Print("Cleanup node data.")
             shutil.rmtree(Utils.DataPath)
 
         if malicious_token_abi_path:
@@ -413,7 +413,7 @@ def abi_file_with_funod_test():
 
         walletMgr.testFailed = not testSuccessful
 
-funod_help_test()
+node_help_test()
 
 cleos_help_test(['--help'])
 cleos_help_test(['system', '--help'])
@@ -426,7 +426,7 @@ cli11_optional_option_arg_test()
 cleos_sign_test()
 
 cleos_abi_file_test()
-abi_file_with_funod_test()
+abi_file_with_node_test()
 
 errorCode = 0 if testSuccessful else 1
 exit(errorCode)

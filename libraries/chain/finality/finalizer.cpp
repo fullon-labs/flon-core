@@ -339,7 +339,7 @@ my_finalizers_t::fsi_map my_finalizers_t::load_finalizer_safety_info() {
       EOS_ASSERT(magic == fsi_t::magic, finalizer_safety_exception,
                  "bad magic number in finalizer safety persistence file: ${p}", ("p", persist_file_path));
 
-      // We can load files with older, but not files with a version higher that the running funod understands.
+      // We can load files with older, but not files with a version higher that the running node understands.
       // -----------------------------------------------------------------------------------------------------
       uint64_t file_version = 0; // current file version
       fc::raw::unpack(persist_file, file_version);

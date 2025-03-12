@@ -47,7 +47,7 @@ endif()
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS "ON")
 set(BUILD_DOXYGEN FALSE CACHE BOOL "Build doxygen documentation on every make")
-set(ENABLE_MULTIVERSION_PROTOCOL_TEST FALSE CACHE BOOL "Enable funod multiversion protocol test")
+set(ENABLE_MULTIVERSION_PROTOCOL_TEST FALSE CACHE BOOL "Enable node multiversion protocol test")
 
 option(ENABLE_OC "Enable eosvm-oc on supported platforms" ON)
 

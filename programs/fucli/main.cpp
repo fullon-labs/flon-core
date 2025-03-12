@@ -3,8 +3,8 @@
 
   @section intro Introduction to cleos
 
-  `cleos` is a command line tool that interfaces with the REST api exposed by @ref funod. In order to use `cleos` you will need to
-  have a local copy of `funod` running and configured to load the 'eosio::chain_api_plugin'.
+  `cleos` is a command line tool that interfaces with the REST api exposed by @ref node. In order to use `cleos` you will need to
+  have a local copy of `node` running and configured to load the 'eosio::chain_api_plugin'.
 
    cleos contains documentation for all of its commands. For a list of all commands known to cleos, simply run it with no arguments:
 ```
@@ -15,7 +15,7 @@ Usage: programs/cleos/cleos [OPTIONS] SUBCOMMAND
 Options:
   -h,--help                   Print this help message and exit
   -u,--url TEXT=http://localhost:8888/
-                              the http URL where funod is running
+                              the http URL where node is running
   --wallet-url TEXT=http://localhost:8888/
                               the http URL where keosd is running
   -r,--header                 pass specific HTTP header, repeat this option to pass multiple headers
@@ -1370,12 +1370,12 @@ struct approve_producer_subcommand {
                                ("table_key", "owner")
                                ("lower_bound", name(voter).to_uint64_t())
                                ("upper_bound", name(voter).to_uint64_t() + 1)
-                               // Less than ideal upper_bound usage preserved so cleos can still work with old buggy funod versions
-                               // Change to voter.value when cleos no longer needs to support funod versions older than 1.5.0
+                               // Less than ideal upper_bound usage preserved so cleos can still work with old buggy node versions
+                               // Change to voter.value when cleos no longer needs to support node versions older than 1.5.0
                                ("limit", 1)
             );
             auto res = result.as<eosio::chain_apis::read_only::get_table_rows_result>();
-            // Condition in if statement below can simply be res.rows.empty() when cleos no longer needs to support funod versions older than 1.5.0
+            // Condition in if statement below can simply be res.rows.empty() when cleos no longer needs to support node versions older than 1.5.0
             // Although since this subcommand will actually change the voter's vote, it is probably better to just keep this check to protect
             //  against future potential chain_plugin bugs.
             if( res.rows.empty() || res.rows[0].get_object()["owner"].as_string() != name(voter).to_string() ) {
@@ -1423,12 +1423,12 @@ struct unapprove_producer_subcommand {
                                ("table_key", "owner")
                                ("lower_bound", name(voter).to_uint64_t())
                                ("upper_bound", name(voter).to_uint64_t() + 1)
-                               // Less than ideal upper_bound usage preserved so cleos can still work with old buggy funod versions
-                               // Change to voter.value when cleos no longer needs to support funod versions older than 1.5.0
+                               // Less than ideal upper_bound usage preserved so cleos can still work with old buggy node versions
+                               // Change to voter.value when cleos no longer needs to support node versions older than 1.5.0
                                ("limit", 1)
             );
             auto res = result.as<eosio::chain_apis::read_only::get_table_rows_result>();
-            // Condition in if statement below can simply be res.rows.empty() when cleos no longer needs to support funod versions older than 1.5.0
+            // Condition in if statement below can simply be res.rows.empty() when cleos no longer needs to support node versions older than 1.5.0
             // Although since this subcommand will actually change the voter's vote, it is probably better to just keep this check to protect
             //  against future potential chain_plugin bugs.
             if( res.rows.empty() || res.rows[0].get_object()["owner"].as_string() != name(voter).to_string() ) {
@@ -1704,15 +1704,15 @@ struct bidname_info_subcommand {
                                ("table", "namebids")
                                ("lower_bound", name(newname).to_uint64_t())
                                ("upper_bound", name(newname).to_uint64_t() + 1)
-                               // Less than ideal upper_bound usage preserved so cleos can still work with old buggy funod versions
-                               // Change to newname.value when cleos no longer needs to support funod versions older than 1.5.0
+                               // Less than ideal upper_bound usage preserved so cleos can still work with old buggy node versions
+                               // Change to newname.value when cleos no longer needs to support node versions older than 1.5.0
                                ("limit", 1));
          if ( print_json ) {
             std::cout << fc::json::to_pretty_string(rawResult) << std::endl;
             return;
          }
          auto result = rawResult.as<eosio::chain_apis::read_only::get_table_rows_result>();
-         // Condition in if statement below can simply be res.rows.empty() when cleos no longer needs to support funod versions older than 1.5.0
+         // Condition in if statement below can simply be res.rows.empty() when cleos no longer needs to support node versions older than 1.5.0
          if( result.rows.empty() || result.rows[0].get_object()["newname"].as_string() != name(newname).to_string() ) {
             std::cout << "No bidname record found" << std::endl;
             return;
@@ -2549,7 +2549,7 @@ void get_account( const string& accountName, const string& coresym, bool json_fo
          auto net_total = to_asset(res.total_resources.get_object()["net_weight"].as_string());
 
          if( net_total.get_symbol() != unstaking.get_symbol() ) {
-            // Core symbol of funod responding to the request is different than core symbol built into cleos
+            // Core symbol of node responding to the request is different than core symbol built into cleos
             unstaking = asset( 0, net_total.get_symbol() ); // Correct core symbol for unstaking asset.
             staked = asset( 0, net_total.get_symbol() ); // Correct core symbol for staked asset.
          }
@@ -3099,7 +3099,7 @@ int main( int argc, char** argv ) {
             abi = fc::json::to_pretty_string(abi_d);
       }
       catch(chain::missing_chain_api_plugin_exception&) {
-         //see if this is an old funod that doesn't support get_raw_code_and_abi
+         //see if this is an old node that doesn't support get_raw_code_and_abi
          const auto old_result = call(get_code_func, fc::mutable_variant_object("account_name", accountName)("code_as_wasm",code_as_wasm));
          code_hash = old_result["code_hash"].as_string();
          wasm = old_result["wasm"].as_string();
@@ -4140,14 +4140,14 @@ int main( int argc, char** argv ) {
                                  ("table_key", "")
                                  ("lower_bound", name(proposal_name).to_uint64_t())
                                  ("upper_bound", name(proposal_name).to_uint64_t() + 1)
-                                 // Less than ideal upper_bound usage preserved so cleos can still work with old buggy funod versions
-                                 // Change to name(proposal_name).value when cleos no longer needs to support funod versions older than 1.5.0
+                                 // Less than ideal upper_bound usage preserved so cleos can still work with old buggy node versions
+                                 // Change to name(proposal_name).value when cleos no longer needs to support node versions older than 1.5.0
                                  ("limit", 1)
                            );
       //std::cout << fc::json::to_pretty_string(result) << std::endl;
 
       const auto& rows1 = result1.get_object()["rows"].get_array();
-      // Condition in if statement below can simply be rows.empty() when cleos no longer needs to support funod versions older than 1.5.0
+      // Condition in if statement below can simply be rows.empty() when cleos no longer needs to support node versions older than 1.5.0
       if( rows1.empty() || rows1[0].get_object()["proposal_name"] != proposal_name ) {
          std::cerr << "Proposal not found" << std::endl;
          return;
@@ -4176,8 +4176,8 @@ int main( int argc, char** argv ) {
                                        ("table_key", "")
                                        ("lower_bound", name(proposal_name).to_uint64_t())
                                        ("upper_bound", name(proposal_name).to_uint64_t() + 1)
-                                       // Less than ideal upper_bound usage preserved so cleos can still work with old buggy funod versions
-                                       // Change to name(proposal_name).value when cleos no longer needs to support funod versions older than 1.5.0
+                                       // Less than ideal upper_bound usage preserved so cleos can still work with old buggy node versions
+                                       // Change to name(proposal_name).value when cleos no longer needs to support node versions older than 1.5.0
                                        ("limit", 1)
                                  );
             rows2 = result2.get_object()["rows"].get_array();
@@ -4206,8 +4206,8 @@ int main( int argc, char** argv ) {
                                        ("table_key", "")
                                        ("lower_bound", name(proposal_name).to_uint64_t())
                                        ("upper_bound", name(proposal_name).to_uint64_t() + 1)
-                                       // Less than ideal upper_bound usage preserved so cleos can still work with old buggy funod versions
-                                       // Change to name(proposal_name).value when cleos no longer needs to support funod versions older than 1.5.0
+                                       // Less than ideal upper_bound usage preserved so cleos can still work with old buggy node versions
+                                       // Change to name(proposal_name).value when cleos no longer needs to support node versions older than 1.5.0
                                        ("limit", 1)
                                  );
             const auto& rows3 = result3.get_object()["rows"].get_array();
@@ -4239,8 +4239,8 @@ int main( int argc, char** argv ) {
                                           ("table_key", "")
                                           ("lower_bound", a.first.to_uint64_t())
                                           ("upper_bound", a.first.to_uint64_t() + 1)
-                                          // Less than ideal upper_bound usage preserved so cleos can still work with old buggy funod versions
-                                          // Change to name(proposal_name).value when cleos no longer needs to support funod versions older than 1.5.0
+                                          // Less than ideal upper_bound usage preserved so cleos can still work with old buggy node versions
+                                          // Change to name(proposal_name).value when cleos no longer needs to support node versions older than 1.5.0
                                           ("limit", 1)
                                     );
                const auto& rows4 = result4.get_object()["rows"].get_array();
