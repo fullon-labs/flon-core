@@ -1,6 +1,6 @@
 ## Overview
 
-This how-to guide provides instructions on how to import a private key into the `fuwal` default wallet. You can use the private key to authorize transactions in an FullOn blockchain.
+This how-to guide provides instructions on how to import a private key into the `fowal` default wallet. You can use the private key to authorize transactions in an FullOn blockchain.
 
 ## Before you Begin
 
@@ -21,7 +21,7 @@ See the following reference guide for `focli` command line usage and related opt
 
 ## Procedure
 
-The following steps show how to import a private key to an existing `fuwal` default wallet:
+The following steps show how to import a private key to an existing `fowal` default wallet:
 
 1. Run the following command to import a private key into the default wallet. The command prompts to enter a private key:
 ```sh

@@ -11,7 +11,7 @@ import sys
 ###############################################################
 # node_run_test
 #
-# General test that tests a wide range of general use actions around node and keosd
+# General test that tests a wide range of general use actions around node and wallet
 #
 ###############################################################
 

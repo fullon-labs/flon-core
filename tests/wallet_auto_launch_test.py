@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
 
-# This script tests that client launches keosd automatically when keosd is not
+# This script tests that client launches wallet automatically when wallet is not
 # running yet.
 
 import subprocess
 from TestHarness import Utils
 
-def run_client_wallet_command(command: str, no_auto_keosd: bool):
+def run_client_wallet_command(command: str, no_auto_wallet: bool):
     """Run the given client command and return subprocess.CompletedProcess."""
     args = [Utils.ClientPath]
 
-    if no_auto_keosd:
-        args.append('--no-auto-keosd')
+    if no_auto_wallet:
+        args.append('--no-auto-wallet')
 
     args += 'wallet', command
 
@@ -21,9 +21,9 @@ def run_client_wallet_command(command: str, no_auto_keosd: bool):
                           stderr=subprocess.PIPE)
 
 
-def stop_keosd():
-    """Stop the default keosd instance."""
-    run_client_wallet_command('stop', no_auto_keosd=True)
+def stop_wallet():
+    """Stop the default wallet instance."""
+    run_client_wallet_command('stop', no_auto_wallet=True)
 
 
 def check_client_stderr(stderr: bytes, expected_match: bytes):
@@ -32,26 +32,26 @@ def check_client_stderr(stderr: bytes, expected_match: bytes):
             expected_match.decode(), stderr.decode()))
 
 
-def keosd_auto_launch_test():
+def wallet_auto_launch_test():
     """Test that keos auto-launching works but can be optionally inhibited."""
-    stop_keosd()
+    stop_wallet()
 
-    # Make sure that when '--no-auto-keosd' is given, keosd is not started by
+    # Make sure that when '--no-auto-wallet' is given, wallet is not started by
     # client.
-    completed_process = run_client_wallet_command('list', no_auto_keosd=True)
+    completed_process = run_client_wallet_command('list', no_auto_wallet=True)
     assert completed_process.returncode != 0
-    check_client_stderr(completed_process.stderr, b'Failed http request to keosd')
+    check_client_stderr(completed_process.stderr, b'Failed http request to wallet')
 
-    # Verify that keosd auto-launching works.
-    completed_process = run_client_wallet_command('list', no_auto_keosd=False)
+    # Verify that wallet auto-launching works.
+    completed_process = run_client_wallet_command('list', no_auto_wallet=False)
     if completed_process.returncode != 0:
-        raise RuntimeError("Expected that keosd would be started, "
+        raise RuntimeError("Expected that wallet would be started, "
                            "but got an error instead: {}".format(
                                completed_process.stderr.decode()))
     check_client_stderr(completed_process.stderr, b'launched')
 
 
 try:
-    keosd_auto_launch_test()
+    wallet_auto_launch_test()
 finally:
-    stop_keosd()
+    stop_wallet()

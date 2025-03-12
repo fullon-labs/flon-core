@@ -14,12 +14,12 @@ Wallet=namedtuple("Wallet", "name password host port")
 # pylint: disable=too-many-instance-attributes
 class WalletMgr(object):
     __walletDataDir=f"{Utils.DataPath}/test_wallet_0"
-    __walletLogOutFile=f"{__walletDataDir}/test_keosd_out.log"
-    __walletLogErrFile=f"{__walletDataDir}/test_keosd_err.log"
+    __walletLogOutFile=f"{__walletDataDir}/test_wallet_out.log"
+    __walletLogErrFile=f"{__walletDataDir}/test_wallet_err.log"
     __MaxPort=9999
 
     # pylint: disable=too-many-arguments
-    # walletd [True|False] True=Launch wallet(keosd) process; False=Manage launch process externally.
+    # walletd [True|False] True=Launch wallet(wallet) process; False=Manage launch process externally.
     def __init__(self, walletd, nodePort=8888, nodeHost="localhost", port=9899, host="localhost", keepRunning=False, keepLogs=False):
         atexit.register(self.shutdown)
         self.walletd=walletd
@@ -62,7 +62,7 @@ class WalletMgr(object):
 
     def launch(self):
         if not self.walletd:
-            Utils.Print("ERROR: Wallet Manager wasn't configured to launch keosd")
+            Utils.Print("ERROR: Wallet Manager wasn't configured to launch wallet")
             return False
 
         if self.isLaunched():
@@ -96,7 +96,7 @@ class WalletMgr(object):
             self.popenProc=subprocess.Popen(cmd.split(), stdout=sout, stderr=serr)
             self.walletPid=self.popenProc.pid
 
-        # Give keosd time to warm up
+        # Give wallet time to warm up
         time.sleep(2)
 
         try:
@@ -295,7 +295,7 @@ class WalletMgr(object):
                 shutil.copyfileobj(f, sys.stdout)
 
     def shutdown(self):
-        '''Shutdown the managed keosd instance unless keepRunning was set.'''
+        '''Shutdown the managed wallet instance unless keepRunning was set.'''
         if self.keepRunning:
             return
         if self.popenProc:

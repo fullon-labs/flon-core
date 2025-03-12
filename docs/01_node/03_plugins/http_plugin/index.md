@@ -1,6 +1,6 @@
 ## Description
 
-The `http_plugin` is a core plugin supported by both `fonod` and `keosd`. The plugin is required to enable any RPC API functionality provided by a `fonod` or `keosd` instance.
+The `http_plugin` is a core plugin supported by both `fonod` and `fowal`. The plugin is required to enable any RPC API functionality provided by a `fonod` or `fowal` instance.
 
 ## Usage
 
@@ -13,7 +13,7 @@ plugin = eosio::http_plugin
 # command-line
 fonod ... --plugin eosio::http_plugin [options]
  (or)
-keosd ... --plugin eosio::http_plugin [options]
+fowal ... --plugin eosio::http_plugin [options]
 ```
 
 ## Options

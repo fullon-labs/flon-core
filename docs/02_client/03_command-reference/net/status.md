@@ -30,7 +30,7 @@ Make sure you meet the following requirements:
 
 * Install the currently supported version of `focli`.
 [[info | Note]]
-| `focli` is bundled with the FullOn software. [Installing FullOn](../../../00_install/index.md) will also install the `focli` and `keosd` command line tools.
+| `focli` is bundled with the FullOn software. [Installing FullOn](../../../00_install/index.md) will also install the `focli` and `fowal` command line tools.
 * You have access to a producing node instance with the [`net_api_plugin`](../../../01_node/03_plugins/net_api_plugin/index.md) loaded.
 
 ## Examples

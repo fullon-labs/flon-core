@@ -1,6 +1,6 @@
 ## Goal
 
-Create a wallet using `keosd`.
+Create a wallet using `fowal`.
 
 ## Before you begin
 

@@ -12,7 +12,7 @@ This section describes how to set up a producing node within the FullOn network.
 ## Before you begin
 
 * [Install the FullOn software](../../../00_install/index.md) before starting this section.
-* It is assumed that `fonod`, `focli`, and `fuwal` are accessible through the path.
+* It is assumed that `fonod`, `focli`, and `fowal` are accessible through the path.
 
 [//]: # ( THIS IS A COMMENT LINK BELOW IS BROKEN )
 [//]: # ( If you built FullOn using shell scripts, make sure to run the  Install Script ../../../00_install/01_build-from-source/01_shell-scripts/03_install-FullOn-binaries.md )
@@ -55,7 +55,7 @@ You will need to set the private key for your producer. The public key should ha
 `signature-provider` is defined with a 3-field tuple:
 * `public-key` - A valid FullOn public key in form of a string.
 * `provider-spec` - It's a string formatted like `<provider-type>:<data>`
-* `provider-type` - KEY or KEOSD
+* `provider-type` - KEY or WALLET
 
 #### Using a Key:
 
@@ -68,16 +68,16 @@ signature-provider = PUBLIC_SIGNING_KEY=KEY:PRIVATE_SIGNING_KEY
 //signature-provider = EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV=KEY:5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3
 ```
 
-#### Using Keosd:
-You can also use `keosd` instead of hard-defining keys.
+#### Using Kowal:
+You can also use `fowal` instead of hard-defining keys.
 
 ```console
 # config.ini:
 
-signature-provider = KEOSD:<data>
+signature-provider = WALLET:<data>
 
 //Example
-//EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV=KEOSD:https://127.0.0.1:88888
+//EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV=WALLET:https://127.0.0.1:88888
 ```
 
 ### 4. Define a peers list

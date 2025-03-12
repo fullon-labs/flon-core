@@ -1633,9 +1633,9 @@ Finally, the full detail test report for each of the determined max TPS throughp
       "signatureProviderPluginArgs": {
         "_pluginNamespace": "eosio",
         "_pluginName": "signature_provider_plugin",
-        "keosdProviderTimeout": null,
-        "_keosdProviderTimeoutNodeDefault": 5,
-        "_keosdProviderTimeoutNodeArg": "--keosd-provider-timeout"
+        "walletProviderTimeout": null,
+        "_walletProviderTimeoutNodeDefault": 5,
+        "_walletProviderTimeoutNodeArg": "--wallet-provider-timeout"
       },
       "stateHistoryPluginArgs": {
         "_pluginNamespace": "eosio",
@@ -2289,9 +2289,9 @@ The Performance Test Basic generates, by default, a report that details results 
       "signatureProviderPluginArgs": {
         "_pluginNamespace": "eosio",
         "_pluginName": "signature_provider_plugin",
-        "keosdProviderTimeout": null,
-        "_keosdProviderTimeoutNodeDefault": 5,
-        "_keosdProviderTimeoutNodeArg": "--keosd-provider-timeout"
+        "walletProviderTimeout": null,
+        "_walletProviderTimeoutNodeDefault": 5,
+        "_walletProviderTimeoutNodeArg": "--wallet-provider-timeout"
       },
       "stateHistoryPluginArgs": {
         "_pluginNamespace": "eosio",

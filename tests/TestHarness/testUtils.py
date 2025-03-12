@@ -60,13 +60,13 @@ class Utils:
 
     ClientName=str("focli")
     ClientPath=str(testBinPath / "focli")
-    MiscEosClientArgs="--no-auto-keosd"
+    MiscEosClientArgs="--no-auto-wallet"
 
     SysAccount=str("flon")
     TokenAccount=str("flon.token")
     SpringClientPath=str(testBinPath / "fullon-util")
 
-    EosWalletName="keosd"
+    EosWalletName="fowal"
     EosWalletPath=str(testBinPath / EosWalletName)
 
     EosServerName="fonod"

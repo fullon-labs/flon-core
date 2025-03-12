@@ -3,7 +3,7 @@
 The `wallet_api_plugin` exposes functionality from the [`wallet_plugin`](../wallet_plugin/index.md) to the RPC API interface managed by the [`http_plugin`](../../../01_node/03_plugins/http_plugin/index.md).
 
 [[caution | Caution]]
-| This plugin exposes wallets. Therefore, running this plugin on a publicly accessible node is not recommended. As of 1.2.0, the `wallet_api_plugin` is only available through `keosd`. It is no longer supported by `fonod`.
+| This plugin exposes wallets. Therefore, running this plugin on a publicly accessible node is not recommended. As of 1.2.0, the `wallet_api_plugin` is only available through `fowal`. It is no longer supported by `fonod`.
 
 ## Usage
 
@@ -12,7 +12,7 @@ The `wallet_api_plugin` exposes functionality from the [`wallet_plugin`](../wall
 plugin = eosio::wallet_api_plugin
 
 # command-line
-keosd ... --plugin eosio::wallet_api_plugin
+fowal ... --plugin eosio::wallet_api_plugin
 ```
 
 ## Options
@@ -36,6 +36,6 @@ plugin = eosio::http_plugin
 [options]
 
 # command-line
-keosd ... --plugin eosio::wallet_plugin [options]  \
+fowal ... --plugin eosio::wallet_plugin [options]  \
            --plugin eosio::http_plugin [options]
 ```
