@@ -89,7 +89,7 @@ class Node(Transactions):
             self.fetchKeyCommand = lambda: "[trx][trx][ref_block_num]"
             self.fetchRefBlock = lambda trans: trans["trx"]["trx"]["ref_block_num"]
             self.fetchHeadBlock = lambda node, headBlock: node.processUrllibRequest("chain", "get_block", {"block_num_or_id":headBlock}, silentErrors=False, exitOnError=True)
-            self.cleosLimit = ""
+            self.clientLimit = ""
 
         else:
             self.fetchTransactionCommand = lambda: "get transaction_trace"
@@ -99,9 +99,9 @@ class Node(Transactions):
             self.fetchRefBlock = lambda trans: trans["block_num"]
             self.fetchHeadBlock = lambda node, headBlock: node.processUrllibRequest("chain", "get_block_info", {"block_num":headBlock}, silentErrors=False, exitOnError=True)
             if 'v3.1' in self.nodeVers:
-                self.cleosLimit = ""
+                self.clientLimit = ""
             else:
-                self.cleosLimit = "--time-limit 999"
+                self.clientLimit = "--time-limit 999"
 
     def __str__(self):
         return "Host: %s, Port:%d, NodeNum:%s, Pid:%s" % (self.host, self.port, self.nodeId, self.pid)

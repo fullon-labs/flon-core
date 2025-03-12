@@ -47,7 +47,7 @@ testSuccessful=False
 dontBootstrap=sanityTest # intent is to limit the scope of the sanity test to just verifying that nodes can be started
 
 WalletdName=Utils.EosWalletName
-ClientName="cleos"
+ClientName=Utils.ClientName
 timeout = .5 * 12 * 2 + 60 # time for finalization with 1 producer + 60 seconds padding
 Utils.setIrreversibleTimeout(timeout)
 
@@ -140,7 +140,7 @@ try:
         cmdDesc = "convert pack_transaction"
         cmd     = "%s --pack-action-data '%s'" % (cmdDesc, json.dumps(trx))
         exitMsg = "failed to pack transaction: %s" % (trx)
-        packedTrx = node.processCleosCmd(cmd, cmdDesc, silentErrors=False, exitOnError=True, exitMsg=exitMsg)
+        packedTrx = node.processClientCmd(cmd, cmdDesc, silentErrors=False, exitOnError=True, exitMsg=exitMsg)
 
         packed_trx_param = packedTrx["packed_trx"]
         if packed_trx_param is None:

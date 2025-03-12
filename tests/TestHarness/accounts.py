@@ -65,7 +65,7 @@ def createAccountKeys(count: int) -> List[Account]:
     p = re.compile('Private key: (.+)\nPublic key: (.+)\n', re.MULTILINE)
     for _ in range(0, count):
         try:
-            cmd="%s create key --to-console" % (Utils.EosClientPath)
+            cmd="%s create key --to-console" % (Utils.ClientPath)
             if Utils.Debug: Utils.Print("cmd: %s" % (cmd))
             keyStr=Utils.checkOutput(cmd.split())
             m=p.search(keyStr)
@@ -76,7 +76,7 @@ def createAccountKeys(count: int) -> List[Account]:
             ownerPrivate=m.group(1)
             ownerPublic=m.group(2)
 
-            cmd="%s create key --to-console" % (Utils.EosClientPath)
+            cmd="%s create key --to-console" % (Utils.ClientPath)
             if Utils.Debug: Utils.Print("cmd: %s" % (cmd))
             keyStr=Utils.checkOutput(cmd.split())
             m=p.match(keyStr)

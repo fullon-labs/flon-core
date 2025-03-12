@@ -41,5 +41,5 @@ $ pip install numpy
 $ cd ~
 $ git clone -b release/*latest* https://github.com/AntelopeIO/fullon
 $ cd ./fullon/tutorials/bios-boot-tutorial/
-$ python3 bios-boot-tutorial.py --cleos=cleos --node=fonod --keosd=keosd --contracts-dir="${CONTRACTS_DIRECTORY}" -w -a
+$ python3 bios-boot-tutorial.py --focli=focli --node=fonod --keosd=keosd --contracts-dir="${CONTRACTS_DIRECTORY}" -w -a
 ```

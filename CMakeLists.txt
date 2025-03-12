@@ -231,7 +231,7 @@ configure_file(libraries/libfc/secp256k1/secp256k1/COPYING                 licen
 configure_file(libraries/libfc/include/fc/crypto/webauthn_json/license.txt licenses/fullon/LICENSE.rapidjson COPYONLY)
 configure_file(libraries/eos-vm/LICENSE                                    licenses/fullon/LICENSE.eos-vm    COPYONLY)
 configure_file(libraries/prometheus/prometheus-cpp/LICENSE                 licenses/fullon/LICENSE.prom      COPYONLY)
-configure_file(programs/fucli/LICENSE.CLI11                                licenses/fullon/LICENSE.CLI11     COPYONLY)
+configure_file(programs/client/LICENSE.CLI11                                licenses/fullon/LICENSE.CLI11     COPYONLY)
 configure_file(libraries/libfc/libraries/bls12-381/LICENSE                 licenses/fullon/LICENSE.bls12-381 COPYONLY)
 configure_file(libraries/libfc/libraries/boringssl/boringssl/src/LICENSE   licenses/fullon/LICENSE.boringssl COPYONLY)
 
@@ -275,11 +275,11 @@ endif()
 
 configure_file(${CMAKE_SOURCE_DIR}/libraries/cli11/bash-completion/completions/fullon-util
                ${CMAKE_BINARY_DIR}/programs/fullon-util/bash-completion/completions/fullon-util COPYONLY)
-configure_file(${CMAKE_SOURCE_DIR}/libraries/cli11/bash-completion/completions/fucli
-               ${CMAKE_BINARY_DIR}/programs/fucli/bash-completion/completions/fucli COPYONLY)
+configure_file(${CMAKE_SOURCE_DIR}/libraries/cli11/bash-completion/completions/client.in
+               ${CMAKE_BINARY_DIR}/programs/client/bash-completion/completions/${CLI_CLIENT_EXECUTABLE_NAME} @ONLY)
 
 install(FILES libraries/cli11/bash-completion/completions/fullon-util DESTINATION ${CMAKE_INSTALL_FULL_DATAROOTDIR}/bash-completion/completions COMPONENT base)
-install(FILES libraries/cli11/bash-completion/completions/fucli DESTINATION ${CMAKE_INSTALL_FULL_DATAROOTDIR}/bash-completion/completions COMPONENT base)
+install(FILES ${CMAKE_BINARY_DIR}/programs/client/bash-completion/completions/${CLI_CLIENT_EXECUTABLE_NAME} DESTINATION ${CMAKE_INSTALL_FULL_DATAROOTDIR}/bash-completion/completions COMPONENT base)
 
 # Add the boost submodule we used to build to our install package, so headers can be found for libtester
 install(DIRECTORY "${CMAKE_SOURCE_DIR}/libraries/boost/"

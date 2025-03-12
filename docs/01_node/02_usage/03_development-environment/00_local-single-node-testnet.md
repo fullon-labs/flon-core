@@ -8,12 +8,12 @@ This section describes how to set up a single-node blockchain configuration runn
 
 ![Single host single node testnet](single-host-single-node-testnet.png)
 
-`fucli` is used to manage the wallets, manage the accounts, and invoke actions on the blockchain.  `fuwal` performs wallet management, including digital signing.  If not started explicitly, `fuwal` is started by `fucli` by default.
+`focli` is used to manage the wallets, manage the accounts, and invoke actions on the blockchain.  `fuwal` performs wallet management, including digital signing.  If not started explicitly, `fuwal` is started by `focli` by default.
 
 ## Before you begin
 
 * [Install the FullOn software](../../../00_install/index.md) before starting this section.
-* It is assumed that `fonod`, `fucli`, and `fuwal` are accessible through the path.
+* It is assumed that `fonod`, `focli`, and `fuwal` are accessible through the path.
 
 [//]: # (THIS IS A COMMENT, NEXT LINK HAS BROKEN LINK)
 [//]: # (If you built FullOn using shell scripts, make sure to run the Install Script ../../../00_install/01_build-from-source/01_shell-scripts/03_install-FullOn-binaries.md .)
@@ -57,7 +57,7 @@ At this point, `fonod` is running with a single producer, `eosio`.
 Get info about the producing node:
 
 ```sh
-fucli get info
+focli get info
 ```
 
 This should produce output that looks similar to this:

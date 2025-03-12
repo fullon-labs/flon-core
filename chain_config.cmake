@@ -7,7 +7,7 @@ set( SYSTEM_ACCOUNT_PREFIX          flon        )
 
 ## config program name
 set( PROGRAM_ROOT_NAME              flon        )
-set( CLI_CLIENT_EXECUTABLE_NAME     fucli       )
+set( CLI_CLIENT_EXECUTABLE_NAME     focli       )
 set( NODE_EXECUTABLE_NAME           fonod       )
 set( KEY_STORE_EXECUTABLE_NAME      fuwal       )
 set( FULLON_UTIL_EXECUTABLE_NAME    flon-util   )

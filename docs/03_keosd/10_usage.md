@@ -3,7 +3,7 @@ content_title: Keosd Usage
 ---
 
 [[info | Recommended Usage]]
-| For most users, the easiest way to use `keosd` is to have `cleos` launch it automatically. Wallet files will be created in the default directory (`~/eosio-wallet`).
+| For most users, the easiest way to use `keosd` is to have `focli` launch it automatically. Wallet files will be created in the default directory (`~/eosio-wallet`).
 
 ## Launching keosd manually
 

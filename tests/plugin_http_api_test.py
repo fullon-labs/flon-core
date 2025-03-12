@@ -32,11 +32,11 @@ class HttpCategoryConfig:
         args = list(map(
             lambda item: f"--http-category-address {item[0]},{TestHelper.LOCAL_HOST}:{item[1]}", self.ports.items()))
 
-        # at this moment, cleos cannot handle split api endpoints, put all these categories in the same default endpoint
-        cleos_categories = ["chain_rw",
+        # at this moment, client cannot handle split api endpoints, put all these categories in the same default endpoint
+        client_categories = ["chain_rw",
                             "producer_ro", "producer_rw", "trace_api"]
         args += list(map(
-            lambda item: f"--http-category-address {item},{TestHelper.LOCAL_HOST}:{HttpCategoryConfig.default_port}", cleos_categories))
+            lambda item: f"--http-category-address {item},{TestHelper.LOCAL_HOST}:{HttpCategoryConfig.default_port}", client_categories))
 
         return " ".join(["--http-server-address http-category-address"] + args)
 

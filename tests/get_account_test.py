@@ -7,7 +7,7 @@ from TestHarness import Account, Cluster, ReturnType, TestHelper, Utils, WalletM
 ###############################################################
 # get_account_test
 #
-# integration test for cleos get account
+# integration test for client get account
 #
 ###############################################################
 

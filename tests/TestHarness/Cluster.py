@@ -668,8 +668,8 @@ class Cluster(object):
         """Returns client version (string)"""
         p = re.compile(r'^v?(.+)\n$')
         try:
-            cmd="%s version client" % (Utils.EosClientPath)
-            if fullVersion: cmd="%s version full" % (Utils.EosClientPath)
+            cmd="%s version client" % (Utils.ClientPath)
+            if fullVersion: cmd="%s version full" % (Utils.ClientPath)
             if Utils.Debug: Utils.Print("cmd: %s" % (cmd))
             response=Utils.checkOutput(cmd.split())
             assert(response)

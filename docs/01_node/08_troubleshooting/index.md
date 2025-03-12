@@ -30,16 +30,16 @@ Start `fonod` with `--shared-memory-size-mb 1024`. A 1 GB shared memory file all
 
 ### What version of FullOn am I running/connecting to?
 
-If defaults can be used, then `cleos get info` will output a block that contains a field called `server_version`.  If your `fonod` is not using the defaults, then you need to know the URL of the `fonod`. In that case, use the following with your `fonod` URL:
+If defaults can be used, then `focli get info` will output a block that contains a field called `server_version`.  If your `fonod` is not using the defaults, then you need to know the URL of the `fonod`. In that case, use the following with your `fonod` URL:
 
 ```sh
-cleos --url http://localhost:8888 get info
+focli --url http://localhost:8888 get info
 ```
 
 To focus only on the version line within the block:
 
 ```sh
-cleos --url http://localhost:8888 get info | grep server_version
+focli --url http://localhost:8888 get info | grep server_version
 ```
 
 ### Error 3070000: WASM Exception Error

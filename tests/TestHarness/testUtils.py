@@ -58,7 +58,8 @@ class Utils:
 
     testBinPath = Path(__file__).resolve().parents[2] / 'bin'
 
-    EosClientPath=str(testBinPath / "cleos")
+    ClientName=str("focli")
+    ClientPath=str(testBinPath / "focli")
     MiscEosClientArgs="--no-auto-keosd"
 
     SysAccount=str("flon")

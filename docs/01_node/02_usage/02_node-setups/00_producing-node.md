@@ -12,7 +12,7 @@ This section describes how to set up a producing node within the FullOn network.
 ## Before you begin
 
 * [Install the FullOn software](../../../00_install/index.md) before starting this section.
-* It is assumed that `fonod`, `fucli`, and `fuwal` are accessible through the path.
+* It is assumed that `fonod`, `focli`, and `fuwal` are accessible through the path.
 
 [//]: # ( THIS IS A COMMENT LINK BELOW IS BROKEN )
 [//]: # ( If you built FullOn using shell scripts, make sure to run the  Install Script ../../../00_install/01_build-from-source/01_shell-scripts/03_install-FullOn-binaries.md )
@@ -34,7 +34,7 @@ Please follow the steps below to set up a producing node:
 In order for your account to be eligible as a producer, you will need to register the account as a producer:
 
 ```sh
-cleos system regproducer accountname1 EOS1234534... http://producer.site Antarctica
+focli system regproducer accountname1 EOS1234534... http://producer.site Antarctica
 ```
 
 ### 2. Set Producer Name

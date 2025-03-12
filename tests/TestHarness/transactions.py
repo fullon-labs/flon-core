@@ -26,7 +26,7 @@ class Transactions(NodeQueries):
              f'\'{account.activePublicKey}\' --stake-net "{stakeNet} {CORE_SYMBOL}" --stake-cpu '
              f'"{stakeCPU} {CORE_SYMBOL}" --buy-ram "{buyRAM} {CORE_SYMBOL}" {additionalArgs} {retryStr}')
         msg="(creator account=%s, account=%s)" % (creatorAccount.name, account.name);
-        trans=self.processCleosCmd(cmd, cmdDesc, silentErrors=silentErrors, exitOnError=exitOnError, exitMsg=msg)
+        trans=self.processClientCmd(cmd, cmdDesc, silentErrors=silentErrors, exitOnError=exitOnError, exitMsg=msg)
         self.trackCmdTransaction(trans)
         transId=NodeQueries.getTransId(trans)
 
@@ -48,7 +48,7 @@ class Transactions(NodeQueries):
         cmd=(f"{cmdDesc} -j {signStr} {creatorAccount.name} {account.name} {account.ownerPublicKey} "
              f"{account.activePublicKey} {retryStr}")
         msg="(creator account=%s, account=%s)" % (creatorAccount.name, account.name);
-        trans=self.processCleosCmd(cmd, cmdDesc, silentErrors=silentErrors, exitOnError=exitOnError, exitMsg=msg)
+        trans=self.processClientCmd(cmd, cmdDesc, silentErrors=silentErrors, exitOnError=exitOnError, exitMsg=msg)
         self.trackCmdTransaction(trans)
         transId=NodeQueries.getTransId(trans)
 
@@ -81,7 +81,7 @@ class Transactions(NodeQueries):
             expirationStr = "--expiration %d " % (expiration)
 
         cmd="%s %s -v transfer %s -j %s %s" % (
-            Utils.EosClientPath, self.eosClientArgs(), self.getRetryCmdArg(retry), dontSendStr, expirationStr)
+            Utils.ClientPath, self.eosClientArgs(), self.getRetryCmdArg(retry), dontSendStr, expirationStr)
         cmdArr=cmd.split()
         # not using sign_str, since cmdArr messes up the string
         if sign:
@@ -155,7 +155,7 @@ class Transactions(NodeQueries):
     def publishContract(self, account, contractDir, wasmFile, abiFile, waitForTransBlock=True, shouldFail=False, sign=False, retryNum:int=5):
         assert(isinstance(retryNum, int))
         signStr = NodeQueries.sign_str(sign, [ account.activePublicKey ])
-        cmd=f"{Utils.EosClientPath} {self.eosClientArgs()} -v set contract -j -f {signStr} {account.name} {contractDir}"
+        cmd=f"{Utils.ClientPath} {self.eosClientArgs()} -v set contract -j -f {signStr} {account.name} {contractDir}"
         cmd += "" if wasmFile is None else (" "+ wasmFile)
         cmd += "" if abiFile is None else (" " + abiFile)
         if Utils.Debug: Utils.Print("cmd: %s" % (cmd))
@@ -210,7 +210,7 @@ class Transactions(NodeQueries):
 
     # set code or abi and return True for success and False for failure
     def setCodeOrAbi(self, account, setType, setFile):
-        cmd=f"{Utils.EosClientPath} {self.eosClientArgs()} -v set {setType} -j {account.name} {setFile} "
+        cmd=f"{Utils.ClientPath} {self.eosClientArgs()} -v set {setType} -j {account.name} {setFile} "
         if Utils.Debug: Utils.Print("cmd: %s" % (cmd))
         try:
             trans=Utils.runCmdReturnJson(cmd, trace=False)
@@ -228,7 +228,7 @@ class Transactions(NodeQueries):
         if isinstance(permissions, str):
             permissions=[permissions]
 
-        cmd="%s %s push transaction -j" % (Utils.EosClientPath, self.eosClientArgs())
+        cmd="%s %s push transaction -j" % (Utils.ClientPath, self.eosClientArgs())
         cmdArr=cmd.split()
         transStr = json.dumps(trans, separators=(',', ':'))
         transStr = transStr.replace("'", '"')
@@ -259,7 +259,7 @@ class Transactions(NodeQueries):
 
     # returns tuple with transaction execution status and transaction
     def pushMessage(self, account, action, data, opts, silentErrors=False, signatures=None, expectTrxTrace=True, force=False):
-        cmd="%s %s push action -j %s %s" % (Utils.EosClientPath, self.eosClientArgs(), account, action)
+        cmd="%s %s push action -j %s %s" % (Utils.ClientPath, self.eosClientArgs(), account, action)
         cmdArr=cmd.split()
         # not using sign_str, since cmdArr messes up the string
         if signatures is not None:
@@ -294,7 +294,7 @@ class Transactions(NodeQueries):
         signStr = NodeQueries.sign_str(sign, [ account.activePublicKey ])
         cmdDesc="set action permission"
         cmd="%s -j %s %s %s %s %s" % (cmdDesc, signStr, account.name, code.name, pType, requirement)
-        trans=self.processCleosCmd(cmd, cmdDesc, silentErrors=False, exitOnError=exitOnError)
+        trans=self.processClientCmd(cmd, cmdDesc, silentErrors=False, exitOnError=exitOnError)
         self.trackCmdTransaction(trans)
 
         return self.waitForTransBlockIfNeeded(trans, waitForTransBlock, exitOnError=exitOnError)
@@ -311,7 +311,7 @@ class Transactions(NodeQueries):
         cmd=(f'{cmdDesc} -j {signStr} {fromAccount.name} {toAccount.name} "{netQuantity} {CORE_SYMBOL}" '
              f'"{cpuQuantity} {CORE_SYMBOL}" {transferStr} {retryStr}')
         msg="fromAccount=%s, toAccount=%s" % (fromAccount.name, toAccount.name);
-        trans=self.processCleosCmd(cmd, cmdDesc, silentErrors=silentErrors, exitOnError=exitOnError, exitMsg=msg)
+        trans=self.processClientCmd(cmd, cmdDesc, silentErrors=silentErrors, exitOnError=exitOnError, exitMsg=msg)
         self.trackCmdTransaction(trans, reportStatus=reportStatus)
 
         return trans
@@ -327,7 +327,7 @@ class Transactions(NodeQueries):
         cmd=(f'{cmdDesc} -j {signStr} {fromAccount.name} {toAccount.name} "{netQuantity} {CORE_SYMBOL}" '
              f'"{cpuQuantity} {CORE_SYMBOL}" {retryStr}')
         msg="fromAccount=%s, toAccount=%s" % (fromAccount.name, toAccount.name);
-        trans=self.processCleosCmd(cmd, cmdDesc, silentErrors=silentErrors, exitOnError=exitOnError, exitMsg=msg)
+        trans=self.processClientCmd(cmd, cmdDesc, silentErrors=silentErrors, exitOnError=exitOnError, exitMsg=msg)
         self.trackCmdTransaction(trans)
 
         return trans
@@ -339,7 +339,7 @@ class Transactions(NodeQueries):
         retryStr = f"--retry-num-blocks {retry_num_blocks}" if waitForTransBlock else ""
         cmd = f'{cmdDesc} -j {signStr} {producer.name} {producer.activePublicKey} {url} {location} {retryStr}'
         msg = f"producer={producer.name}"
-        trans = self.processCleosCmd(cmd, cmdDesc, silentErrors=silentErrors, exitOnError=exitOnError, exitMsg=msg)
+        trans = self.processClientCmd(cmd, cmdDesc, silentErrors=silentErrors, exitOnError=exitOnError, exitMsg=msg)
         self.trackCmdTransaction(trans)
 
         return trans
@@ -351,7 +351,7 @@ class Transactions(NodeQueries):
         retryStr = f"--retry-num-blocks {retry_num_blocks}" if waitForTransBlock else ""
         cmd = f'{cmdDesc} -j {signStr} {account.name} {" ".join(producers)} {retryStr}'
         msg = "account=%s, producers=[ %s ]" % (account.name, ", ".join(producers));
-        trans = self.processCleosCmd(cmd, cmdDesc, silentErrors=silentErrors, exitOnError=exitOnError, exitMsg=msg)
+        trans = self.processClientCmd(cmd, cmdDesc, silentErrors=silentErrors, exitOnError=exitOnError, exitMsg=msg)
         self.trackCmdTransaction(trans)
 
         return trans
