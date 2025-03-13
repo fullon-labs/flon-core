@@ -14,7 +14,7 @@ namespace eosio {
    using namespace chain;
    using boost::signals2::scoped_connection;
 
-   static auto _history_plugin = app().register_plugin<history_plugin>();
+   static auto _history_plugin = application::register_plugin<history_plugin>();
 
 
    struct account_history_object : public chainbase::object<account_history_object_type, account_history_object>  {
@@ -216,7 +216,7 @@ namespace eosio {
             if( itr->account == n )
                asn = itr->account_sequence_num + 1;
 
-            const auto& a = db.create<account_history_object>( [&]( auto& aho ) {
+            db.create<account_history_object>( [&]( auto& aho ) {
               aho.account = n;
               aho.action_sequence_num = act.receipt->global_sequence;
               aho.account_sequence_num = asn;
@@ -254,7 +254,7 @@ namespace eosio {
             if( filter( at ) ) {
                auto& chain = chain_plug->chain();
                chainbase::database& db = const_cast<chainbase::database&>( chain.db() ); // Override read-only access to state DB (highly unrecommended practice!)
-               
+
                db.create<action_history_object>( [&]( auto& aho ) {
 
                   aho.packed_action_trace.resize_and_fill( fc::raw::pack_size( at ), [&at](char* data, std::size_t size) {
@@ -262,7 +262,7 @@ namespace eosio {
                      fc::raw::pack( ds, at );
                   });
                   aho.action_sequence_num = at.receipt->global_sequence;
-                  aho.block_num = chain.head_block_num() + 1;
+                  aho.block_num = chain.head().block_num() + 1;
                   aho.block_time = chain.pending_block_time();
                   aho.trx_id     = at.trx_id;
                });
@@ -290,7 +290,7 @@ namespace eosio {
          //    if(trace_log)
          //       trace_converter.add_transaction(p, t);
          // }
-      
+
    };
 
    history_plugin::history_plugin()
@@ -503,10 +503,10 @@ namespace eosio {
 
             auto blk = chain.fetch_block_by_number( result.block_num );
             if( blk || chain.is_building_block() ) {
-               const vector<transaction_receipt>& receipts = blk ? 
-                        vector<transaction_receipt>(blk->transactions.begin(), blk->transactions.end()) : 
+               const vector<transaction_receipt>& receipts = blk ?
+                        vector<transaction_receipt>(blk->transactions.begin(), blk->transactions.end()) :
                         chain.get_pending_trx_receipts();
-              
+
                for (const auto &receipt: receipts) {
                      if (std::holds_alternative<packed_transaction>(receipt.trx)) {
                         auto &pt = std::get<packed_transaction>(receipt.trx);
