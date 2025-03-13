@@ -40,7 +40,7 @@ focli create account flonian bob EOS87TQktA5RVse2EguhztfQVEh6XXxBmgkU8b4Y5YnGvtY
 
 ```console
 executed transaction: 4d65a274de9f809f9926b74c3c54aadc0947020bcfb6dd96043d1bcd9c46604c  200 bytes  166 us
-#         eosio <= eosio::newaccount            {"creator":"flonian","name":"bob","owner":{"threshold":1,"keys":[{"key":"FU87TQktA5RVse2EguhztfQVEh6X...
+#         eosio <= eosio::newaccount            {"creator":"flonian","name":"bob","owner":{"threshold":1,"keys":[{"key":"FO87TQktA5RVse2EguhztfQVEh6X...
 warning: transaction executed locally, but may not be confirmed by the network yet         ]
 ```
 
