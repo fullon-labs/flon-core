@@ -165,6 +165,15 @@ extern const char* const state_history_plugin_abi = R"({
             ]
         },
         {
+            "name": "transaction_res_usage_v0", "fields": [
+                { "name": "payer", "type": "name" },
+                { "name": "net_usage", "type": "uint64_t" },
+                { "name": "net_gas", "type": "uint64_t" },
+                { "name": "cpu_usage", "type": "uint64_t" },
+                { "name": "cpu_gas", "type": "uint64_t" }
+            ]
+        },
+        {
             "name": "partial_transaction_v0", "fields": [
                 { "name": "expiration", "type": "time_point_sec" },
                 { "name": "ref_block_num", "type": "uint16" },
@@ -184,7 +193,7 @@ extern const char* const state_history_plugin_abi = R"({
                 { "name": "cpu_usage_us", "type": "uint32" },
                 { "name": "net_usage_words", "type": "varuint32" },
                 { "name": "elapsed", "type": "int64" },
-                { "name": "net_usage", "type": "uint64" },
+                { "name": "trx_res_usage", "type": "transaction_res_usage_v0" },
                 { "name": "scheduled", "type": "bool" },
                 { "name": "action_traces", "type": "action_trace[]" },
                 { "name": "account_ram_delta", "type": "account_delta?" },
@@ -694,6 +703,7 @@ extern const char* const state_history_plugin_abi = R"({
 
         { "name": "action_receipt", "types": ["action_receipt_v0"] },
         { "name": "action_trace", "types": ["action_trace_v0", "action_trace_v1"] },
+        { "name": "transaction_res_usage", "types": ["transaction_res_usage_v0"] },
         { "name": "partial_transaction", "types": ["partial_transaction_v0"] },
         { "name": "transaction_trace", "types": ["transaction_trace_v0"] },
         { "name": "transaction_variant", "types": ["transaction_id", "packed_transaction"] },
