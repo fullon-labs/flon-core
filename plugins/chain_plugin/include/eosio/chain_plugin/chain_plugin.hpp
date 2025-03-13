@@ -250,8 +250,8 @@ public:
       int64_t used = 0;
       int64_t available = 0;
       int64_t max = 0;
-      std::optional<chain::block_timestamp_type> last_usage_update_time;    // optional for backward funod support
-      std::optional<int64_t> current_used;  // optional for backward funod support
+      std::optional<chain::block_timestamp_type> last_usage_update_time;    // optional for backward node support
+      std::optional<int64_t> current_used;  // optional for backward node support
       void set( const eosio::chain::resource_limits::account_resource_limit& arl)
       {
          used = arl.used;
@@ -551,7 +551,7 @@ public:
    get_scheduled_transactions_result get_scheduled_transactions( const get_scheduled_transactions_params& params, const fc::time_point& deadline ) const;
    struct compute_transaction_results {
        chain::transaction_id_type  transaction_id;
-       fc::variant                 processed; // "processed" is expected JSON for trxs in cleos
+       fc::variant                 processed; // "processed" is expected JSON for trxs in client
     };
 
    struct compute_transaction_params {
@@ -882,7 +882,7 @@ public:
    using push_transaction_params = fc::variant_object;
    struct push_transaction_results {
       chain::transaction_id_type  transaction_id;
-      fc::variant                 processed; // "processed" is expected JSON for trxs in cleos
+      fc::variant                 processed; // "processed" is expected JSON for trxs in client
    };
    void push_transaction(const push_transaction_params& params, chain::plugin_interface::next_function<push_transaction_results> next);
 

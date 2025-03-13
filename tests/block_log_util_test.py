@@ -12,7 +12,7 @@ from TestHarness.Node import BlockType
 
 ###############################################################
 # block_log_util_test
-#  Test verifies that the blockLogUtil is still compatible with funod
+#  Test verifies that the blockLogUtil is still compatible with node
 ###############################################################
 
 Print=Utils.Print
@@ -21,7 +21,7 @@ errorExit=Utils.errorExit
 def verifyBlockLog(expected_block_num, trimmedBlockLog):
     firstBlockNum = expected_block_num
     for block in trimmedBlockLog:
-        assert 'block_num' in block, print("ERROR: fullon-util didn't return block output")
+        assert 'block_num' in block, print("ERROR: util program didn't return block output")
         block_num = block['block_num']
         assert block_num == expected_block_num
         expected_block_num += 1
@@ -43,7 +43,7 @@ walletMgr=WalletMgr(True, port=walletPort)
 testSuccessful=False
 
 WalletdName=Utils.EosWalletName
-ClientName="cleos"
+ClientName="focli"
 
 try:
     TestHelper.printSystemInfo("BEGIN")

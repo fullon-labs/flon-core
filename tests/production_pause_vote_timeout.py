@@ -25,7 +25,7 @@ from TestHarness.Node import BlockType
 #        Connect to the center node and finalizercNode.
 # finalizercNode: Has the finalizer key with description of producerc.
 #        Has vote-threads enabled. Connect to the center node and producercNode.
-# 
+#
 # Test cases:
 #
 # 1. Bring down finalizercNode. producercNode should eventually
@@ -71,14 +71,14 @@ try:
     Print(f'producing nodes: {pnodes}, delay between nodes launch: {delay} second{"s" if delay != 1 else ""}')
 
     # for defproducerc producing node
-    specificExtrafunodArgs={}
-    specificExtrafunodArgs[2]="--production-pause-vote-timeout-ms 1000"
+    specificExtraNodeArgs={}
+    specificExtraNodeArgs[2]="--production-pause-vote-timeout-ms 1000"
 
     Print("Stand up cluster")
     # Cannot use activateIF to transition to Savanna directly as it assumes
     # each producer node has finalizer configured.
     if cluster.launch(pnodes=pnodes, totalNodes=totalNodes, totalProducers=pnodes, prodCount=prodCount, delay=delay, loadSystemContract=False,
-                      specificExtrafunodArgs=specificExtrafunodArgs,
+                      specificExtraNodeArgs=specificExtraNodeArgs,
                       activateIF=False, signatureProviderForNonProducer=True,
                       topo="./tests/production_pause_vote_timeout_test_shape.json") is False:
         errorExit("Failed to stand up eos cluster.")
@@ -199,7 +199,7 @@ try:
     # Verify node0 and node1 still producing
     assert node0.waitForHeadToAdvance(), "node0 paused after finalizercNode was shutdown"
     assert node1.waitForHeadToAdvance(), "node1 paused after finalizercNode was shutdown"
-    
+
     ####################### test 4 ######################
     # shutdown node0 and make sure node1 does not pause
 
@@ -212,7 +212,7 @@ try:
     Print("Shutdown Node0")
     node0.kill(signal.SIGTERM)
     assert not node0.verifyAlive(), "node0 did not shutdown"
-    
+
     Print("Verify defproducerb does not pause and produces all blocks of its round")
     # If Node0 A was producing then give time for C or B to produce
     assert node1.waitForHeadToAdvance(timeout=30), "node1 paused after finalizercNode was shutdown"

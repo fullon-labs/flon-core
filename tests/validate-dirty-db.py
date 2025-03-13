@@ -11,7 +11,7 @@ from pathlib import Path
 ###############################################################
 # validate-dirty-db
 #
-# Test for validating the dirty db flag sticks repeated funod restart attempts
+# Test for validating the dirty db flag sticks repeated node restart attempts
 #
 ###############################################################
 
@@ -35,24 +35,24 @@ seed=1
 Utils.Debug=debug
 testSuccessful=False
 
-def runfunodAndGetOutput(myTimeout=3, funodLogPath=f"{Utils.TestLogRoot}"):
-    """Startup funod, wait for timeout (before forced shutdown) and collect output. Stdout, stderr and return code are returned in a dictionary."""
-    Print("Launching funod process.")
-    cmd=f"programs/funod/funod --config-dir etc/eosio/node_bios --data-dir {funodLogPath}/node_bios --verbose-http-errors --http-validate-host=false --resource-monitor-not-shutdown-on-threshold-exceeded"
+def runNodeAndGetOutput(myTimeout=3, nodeLogPath=f"{Utils.TestLogRoot}"):
+    """Startup node, wait for timeout (before forced shutdown) and collect output. Stdout, stderr and return code are returned in a dictionary."""
+    Print("Launching node process.")
+    cmd=f"{Utils.NodeServerPath} --config-dir etc/eosio/node_bios --data-dir {nodeLogPath}/node_bios --verbose-http-errors --http-validate-host=false --resource-monitor-not-shutdown-on-threshold-exceeded"
     Print("cmd: %s" % (cmd))
     proc=subprocess.Popen(cmd.split(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    if debug: Print("funod process launched.")
+    if debug: Print("node process launched.")
 
     output={}
     try:
-        if debug: Print("Setting funod process timeout.")
+        if debug: Print("Setting node process timeout.")
         outs,errs = proc.communicate(timeout=myTimeout)
-        if debug: Print("funod process has exited.")
+        if debug: Print("node process has exited.")
         output["stdout"] = outs.decode("utf-8")
         output["stderr"] = errs.decode("utf-8")
         output["returncode"] = proc.returncode
     except (subprocess.TimeoutExpired) as _:
-        Print("ERROR: funod is running beyond the defined wait time. Hard killing funod instance.")
+        Print("ERROR: node is running beyond the defined wait time. Hard killing node instance.")
         proc.send_signal(signal.SIGKILL)
         return (False, None)
 
@@ -81,16 +81,16 @@ try:
         node.kill(signal.SIGKILL)
     cluster.biosNode.kill(signal.SIGKILL)
 
-    Print("Restart funod repeatedly to ensure dirty database flag sticks.")
+    Print("Restart node repeatedly to ensure dirty database flag sticks.")
     timeout=6
 
     for i in range(1,4):
         Print("Attempt %d." % (i))
-        ret = runfunodAndGetOutput(timeout, cluster.funodLogPath)
+        ret = runNodeAndGetOutput(timeout, cluster.nodeLogPath)
         assert(ret)
         assert(isinstance(ret, tuple))
         if not ret[0]:
-            errorExit("Failed to startup funod successfully on try number %d" % (i))
+            errorExit("Failed to startup node successfully on try number %d" % (i))
         assert(ret[1])
         assert(isinstance(ret[1], dict))
         # pylint: disable=unsubscriptable-object

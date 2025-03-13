@@ -14,7 +14,7 @@ from pathlib import Path, PurePath
 sys.path.append(str(PurePath(PurePath(Path(__file__).absolute()).parent).parent))
 
 from .log_reader import blockData, trxData, chainData, scrapeTrxGenTrxSentDataLogs, JsonReportHandler, analyzeLogResults, TpsTestConfig, ArtifactPaths, LogAnalysis
-from .FunodPluginArgs import ChainPluginArgs, HttpPluginArgs, NetPluginArgs, ProducerPluginArgs, ResourceMonitorPluginArgs, SignatureProviderPluginArgs, StateHistoryPluginArgs, TraceApiPluginArgs
+from .NodePluginArgs import ChainPluginArgs, HttpPluginArgs, NetPluginArgs, ProducerPluginArgs, ResourceMonitorPluginArgs, SignatureProviderPluginArgs, StateHistoryPluginArgs, TraceApiPluginArgs
 from TestHarness import Account, Cluster, TestHelper, Utils, WalletMgr, TransactionGeneratorsLauncher, TpsTrxGensConfig
 from TestHarness.TestHelper import AppArgs
 from dataclasses import dataclass, asdict, field
@@ -65,7 +65,7 @@ class PerformanceTestBasic:
     @dataclass
     class ClusterConfig:
         @dataclass
-        class ExtrafunodArgs:
+        class ExtraNodeArgs:
 
             chainPluginArgs: ChainPluginArgs = field(default_factory=ChainPluginArgs)
             httpPluginArgs: HttpPluginArgs = field(default_factory=HttpPluginArgs)
@@ -95,7 +95,7 @@ class PerformanceTestBasic:
         validationNodeCount: int = 1
         apiNodeCount: int = 0
         dontKill: bool = False # leave_running
-        extrafunodArgs: ExtrafunodArgs = field(default_factory=ExtrafunodArgs)
+        extraNodeArgs: ExtraNodeArgs = field(default_factory=ExtraNodeArgs)
         specifiedContract: SpecifiedContract = field(default_factory=SpecifiedContract)
         genesisPath: Path = Path("tests")/"PerformanceHarness"/"genesis.json"
         maximumP2pPerHost: int = 5000
@@ -104,8 +104,8 @@ class PerformanceTestBasic:
         loggingLevel: str = "info"
         loggingDict: dict = field(default_factory=lambda: { "bios": "off" })
         prodsEnableTraceApi: bool = False
-        funodVers: str = ""
-        specificExtrafunodArgs: dict = field(default_factory=dict)
+        nodeVers: str = ""
+        specificExtraNodeArgs: dict = field(default_factory=dict)
         _totalNodes: int = 2
         _pNodes: int = 1
         _producerNodeIds: list = field(default_factory=list)
@@ -123,35 +123,35 @@ class PerformanceTestBasic:
             self._apiNodeIds = list(range(self.producerNodeCount + self.validationNodeCount, self.producerNodeCount + self.validationNodeCount + self.validationNodeCount))
 
             def configureValidationNodes():
-                validationNodeSpecificfunodStr = ""
-                validationNodeSpecificfunodStr += '--p2p-accept-transactions false '
-                if "v2" in self.funodVers:
-                    validationNodeSpecificfunodStr += '--plugin eosio::history_api_plugin --filter-on "*" '
+                validationNodeSpecificNodeStr = ""
+                validationNodeSpecificNodeStr += '--p2p-accept-transactions false '
+                if "v2" in self.nodeVers:
+                    validationNodeSpecificNodeStr += '--plugin eosio::history_api_plugin --filter-on "*" '
                 else:
                     #If prodsEnableTraceApi, then Cluster configures all nodes with trace_api_plugin so no need to duplicate here
                     if not self.prodsEnableTraceApi:
-                        validationNodeSpecificfunodStr += "--plugin eosio::trace_api_plugin "
+                        validationNodeSpecificNodeStr += "--plugin eosio::trace_api_plugin "
                 if self.nonProdsEosVmOcEnable:
-                    validationNodeSpecificfunodStr += "--eos-vm-oc-enable all "
-                if validationNodeSpecificfunodStr:
-                    self.specificExtrafunodArgs.update({f"{nodeId}" : validationNodeSpecificfunodStr for nodeId in self._validationNodeIds})
+                    validationNodeSpecificNodeStr += "--eos-vm-oc-enable all "
+                if validationNodeSpecificNodeStr:
+                    self.specificExtraNodeArgs.update({f"{nodeId}" : validationNodeSpecificNodeStr for nodeId in self._validationNodeIds})
 
             def configureApiNodes():
-                apiNodeSpecificfunodStr = ""
-                apiNodeSpecificfunodStr += "--p2p-accept-transactions false "
-                apiNodeSpecificfunodStr += "--plugin eosio::chain_api_plugin "
-                apiNodeSpecificfunodStr += "--plugin eosio::net_api_plugin "
-                if "v4" in self.funodVers:
-                    apiNodeSpecificfunodStr += f"--read-only-threads {self.apiNodesReadOnlyThreadCount} "
-                if apiNodeSpecificfunodStr:
-                    self.specificExtrafunodArgs.update({f"{nodeId}" : apiNodeSpecificfunodStr for nodeId in self._apiNodeIds})
+                apiNodeSpecificNodeStr = ""
+                apiNodeSpecificNodeStr += "--p2p-accept-transactions false "
+                apiNodeSpecificNodeStr += "--plugin eosio::chain_api_plugin "
+                apiNodeSpecificNodeStr += "--plugin eosio::net_api_plugin "
+                if "v4" in self.nodeVers:
+                    apiNodeSpecificNodeStr += f"--read-only-threads {self.apiNodesReadOnlyThreadCount} "
+                if apiNodeSpecificNodeStr:
+                    self.specificExtraNodeArgs.update({f"{nodeId}" : apiNodeSpecificNodeStr for nodeId in self._apiNodeIds})
 
             if self.validationNodeCount > 0:
                 configureValidationNodes()
             if self.apiNodeCount > 0:
                 configureApiNodes()
 
-            if "v2" in self.funodVers:
+            if "v2" in self.nodeVers:
                 self.writeTrx = lambda trxDataFile, blockNum, trx: [trxDataFile.write(f"{trx['trx']['id']},{blockNum},{trx['cpu_usage_us']},{trx['net_usage_words']}\n")]
                 self.createBlockData = lambda block, blockTransactionTotal, blockNetTotal, blockCpuTotal: blockData(blockId=block["payload"]["id"], blockNum=block['payload']['block_num'], transactions=blockTransactionTotal, net=blockNetTotal, cpu=blockCpuTotal, producer=block["payload"]["producer"], status=block["payload"]["confirmed"], _timestamp=block["payload"]["timestamp"])
                 self.updateTrxDict = lambda blockNum, transaction, trxDict: trxDict.update(dict([(transaction['trx']['id'], trxData(blockNum, transaction['cpu_usage_us'], transaction['net_usage_words']))]))
@@ -228,13 +228,13 @@ class PerformanceTestBasic:
         self.producerNodeId = self.clusterConfig._producerNodeIds[0]
         self.validationNodeId = self.clusterConfig._validationNodeIds[0]
         pid = os.getpid()
-        self.funodLogDir =  Path(self.loggingConfig.logDirPath)/"var"/f"{Utils.DataRoot}{Utils.PID}"
-        self.funodLogPath = self.funodLogDir/f"node_{str(self.validationNodeId).zfill(2)}"/"stderr.txt"
+        self.nodeLogDir =  Path(self.loggingConfig.logDirPath)/"var"/f"{Utils.DataRoot}{Utils.PID}"
+        self.nodeLogPath = self.nodeLogDir/f"node_{str(self.validationNodeId).zfill(2)}"/"stderr.txt"
 
         # Setup cluster and its wallet manager
         self.walletMgr=WalletMgr(True)
         self.cluster=Cluster(loggingLevel=self.clusterConfig.loggingLevel, loggingLevelDict=self.clusterConfig.loggingDict,
-                             funodVers=self.clusterConfig.funodVers,unshared=self.testHelperConfig.unshared,
+                             nodeVers=self.clusterConfig.nodeVers,unshared=self.testHelperConfig.unshared,
                              keepRunning=self.clusterConfig.dontKill, keepLogs=self.clusterConfig.keepLogs)
         self.cluster.setWalletMgr(self.walletMgr)
 
@@ -307,7 +307,7 @@ class PerformanceTestBasic:
 
     def isOnBlockTransaction(self, transaction):
         # v2 history does not include onblock
-        if "v2" in self.clusterConfig.funodVers:
+        if "v2" in self.clusterConfig.nodeVers:
             return False
         else:
             if transaction['actions'][0]['account'] != 'eosio' or transaction['actions'][0]['action'] != 'onblock':
@@ -354,9 +354,9 @@ class PerformanceTestBasic:
             genesisPath=self.clusterConfig.genesisPath,
             maximumP2pPerHost=self.clusterConfig.maximumP2pPerHost,
             maximumClients=self.clusterConfig.maximumClients,
-            extrafunodArgs=str(self.clusterConfig.extrafunodArgs),
+            extraNodeArgs=str(self.clusterConfig.extraNodeArgs),
             prodsEnableTraceApi=self.clusterConfig.prodsEnableTraceApi,
-            specificExtrafunodArgs=self.clusterConfig.specificExtrafunodArgs
+            specificExtraNodeArgs=self.clusterConfig.specificExtraNodeArgs
             )
 
     def setupWalletAndAccounts(self, accountCnt: int=2, accountNames: list=None):
@@ -512,9 +512,9 @@ class PerformanceTestBasic:
 
     def captureLowLevelArtifacts(self):
         try:
-            shutil.move(f"{self.cluster.funodLogPath}", f"{self.varLogsDirPath}")
+            shutil.move(f"{self.cluster.nodeLogPath}", f"{self.varLogsDirPath}")
         except Exception as e:
-            print(f"Failed to move '{self.cluster.funodLogPath}' to '{self.varLogsDirPath}': {type(e)}: {e}")
+            print(f"Failed to move '{self.cluster.nodeLogPath}' to '{self.varLogsDirPath}': {type(e)}: {e}")
 
     def createReport(self, logAnalysis: LogAnalysis, tpsTestConfig: TpsTestConfig, argsDict: dict, testResult: PerfTestBasicResult) -> dict:
         report = {}
@@ -554,12 +554,12 @@ class PerformanceTestBasic:
         report['args'] =  argsDict
         report['args']['userTrxData'] = self.userTrxDataDict if self.ptbConfig.userTrxDataFile is not None else "NOT CONFIGURED"
         report['env'] = {'system': system(), 'os': os.name, 'release': release(), 'logical_cpu_count': os.cpu_count()}
-        report['funodVersion'] = self.clusterConfig.funodVers
+        report['nodeVersion'] = self.clusterConfig.nodeVers
         return report
 
     def analyzeResultsAndReport(self, testResult: PtbTpsTestResult):
         args = self.prepArgs()
-        artifactsLocate = ArtifactPaths(funodLogDir=self.funodLogDir, funodLogPath=self.funodLogPath, trxGenLogDirPath=self.trxGenLogDirPath, blockTrxDataPath=self.blockTrxDataPath,
+        artifactsLocate = ArtifactPaths(nodeLogDir=self.nodeLogDir, nodeLogPath=self.nodeLogPath, trxGenLogDirPath=self.trxGenLogDirPath, blockTrxDataPath=self.blockTrxDataPath,
                                                    blockDataPath=self.blockDataPath, transactionMetricsDataPath=self.transactionMetricsDataPath)
         tpsTestConfig = TpsTestConfig(targetTps=self.ptbConfig.targetTps, testDurationSec=self.ptbConfig.testTrxGenDurationSec, tpsLimitPerGenerator=self.ptbConfig.tpsLimitPerGenerator,
                                                  numBlocksToPrune=self.ptbConfig.numAddlBlocksToPrune, numTrxGensUsed=testResult.numGeneratorsUsed, targetTpsPerGenList=testResult.targetTpsPerGenList,
@@ -669,18 +669,18 @@ class PerformanceTestBasic:
         httpPluginArgs = HttpPluginArgs(httpMaxBytesInFlightMb=args.http_max_bytes_in_flight_mb, httpMaxInFlightRequests=args.http_max_in_flight_requests,
                                         httpMaxResponseTimeMs=args.http_max_response_time_ms, httpThreads=args.http_threads)
         netPluginArgs = NetPluginArgs(netThreads=args.net_threads, maxClients=0)
-        funodVers=Utils.getfunodVersion()
-        resourceMonitorPluginArgs = ResourceMonitorPluginArgs(resourceMonitorNotShutdownOnThresholdExceeded=not "v2" in funodVers)
-        ENA = PerformanceTestBasic.ClusterConfig.ExtrafunodArgs
-        extrafunodArgs = ENA(chainPluginArgs=chainPluginArgs, httpPluginArgs=httpPluginArgs, producerPluginArgs=producerPluginArgs, netPluginArgs=netPluginArgs,
+        nodeVers=Utils.getnodeVersion()
+        resourceMonitorPluginArgs = ResourceMonitorPluginArgs(resourceMonitorNotShutdownOnThresholdExceeded=not "v2" in nodeVers)
+        ENA = PerformanceTestBasic.ClusterConfig.ExtraNodeArgs
+        extraNodeArgs = ENA(chainPluginArgs=chainPluginArgs, httpPluginArgs=httpPluginArgs, producerPluginArgs=producerPluginArgs, netPluginArgs=netPluginArgs,
                             resourceMonitorPluginArgs=resourceMonitorPluginArgs)
         SC = PerformanceTestBasic.ClusterConfig.SpecifiedContract
         specifiedContract=SC(contractDir=args.contract_dir, wasmFile=args.wasm_file, abiFile=args.abi_file, account=Account(args.account_name))
         return PerformanceTestBasic.ClusterConfig(dontKill=args.leave_running, keepLogs=not args.del_perf_logs,
                                                             producerNodeCount=args.producer_nodes, validationNodeCount=args.validation_nodes, apiNodeCount=args.api_nodes,
-                                                            genesisPath=args.genesis, prodsEnableTraceApi=args.prods_enable_trace_api, extrafunodArgs=extrafunodArgs,
+                                                            genesisPath=args.genesis, prodsEnableTraceApi=args.prods_enable_trace_api, extraNodeArgs=extraNodeArgs,
                                                             specifiedContract=specifiedContract, loggingLevel=args.cluster_log_lvl,
-                                                            funodVers=funodVers, nonProdsEosVmOcEnable=args.non_prods_eos_vm_oc_enable,
+                                                            nodeVers=nodeVers, nonProdsEosVmOcEnable=args.non_prods_eos_vm_oc_enable,
                                                             apiNodesReadOnlyThreadCount=args.api_nodes_read_only_threads)
 
 class PtbArgumentsHandler(object):

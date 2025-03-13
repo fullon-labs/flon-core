@@ -64,7 +64,7 @@ try:
     # but it needs to be big enough while in Legacy.
     # Disable production-pause-vote-timeout so that production pause is only
     # caused by max-reversible-blocks reached.
-    extrafunodArgs="--production-pause-vote-timeout-ms 0"
+    extraNodeArgs="--production-pause-vote-timeout-ms 0"
 
     Print("Stand up cluster")
     # Cannot use activateIF to transition to Savanna directly as it assumes
@@ -73,7 +73,7 @@ try:
     if cluster.launch(pnodes=pnodes, totalNodes=totalNodes,
                       totalProducers=pnodes, prodCount=prodCount,
                       delay=delay, loadSystemContract=False,
-                      extrafunodArgs=extrafunodArgs,
+                      extraNodeArgs=extraNodeArgs,
                       activateIF=False, signatureProviderForNonProducer=True,
                       topo="./tests/production_pause_max_rev_blks_test_shape.json") is False:
         errorExit("Failed to stand up eos cluster.")
@@ -133,7 +133,7 @@ try:
     assert node0.missedNextProductionRound(), "node0 still producing after finalizerbNode was shutdown"
 
     ####################### test 2 ###########################
-    # funod can restart with a higher --max-reversible-blocks
+    # node can restart with a higher --max-reversible-blocks
 
     node0.getInfo()
     prevHeadBlockNum=node0.lastRetrievedHeadBlockNum

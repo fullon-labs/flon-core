@@ -47,7 +47,7 @@ endif()
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS "ON")
 set(BUILD_DOXYGEN FALSE CACHE BOOL "Build doxygen documentation on every make")
-set(ENABLE_MULTIVERSION_PROTOCOL_TEST FALSE CACHE BOOL "Enable funod multiversion protocol test")
+set(ENABLE_MULTIVERSION_PROTOCOL_TEST FALSE CACHE BOOL "Enable node multiversion protocol test")
 
 option(ENABLE_OC "Enable eosvm-oc on supported platforms" ON)
 
@@ -60,8 +60,8 @@ if(ENABLE_OC AND CMAKE_SIZEOF_VOID_P EQUAL 8 AND NOT WIN32)
       # EOS VM OC requires LLVM, but move the check up here to a central location so that the ProjectTester.cmakes
       # can be created with the exact version found
       find_package(LLVM REQUIRED CONFIG)
-      if(LLVM_VERSION_MAJOR VERSION_LESS 7 OR LLVM_VERSION_MAJOR VERSION_GREATER_EQUAL 12)
-	      message(FATAL_ERROR "fullon requires an LLVM version 7 through 11")
+      if(LLVM_VERSION_MAJOR VERSION_LESS 7 OR LLVM_VERSION_MAJOR VERSION_GREATER_EQUAL 16)
+	      message(FATAL_ERROR "fullon requires an LLVM version 7 through 15")
       endif()
    endif()
 endif()
@@ -236,7 +236,7 @@ configure_file(libraries/libfc/secp256k1/secp256k1/COPYING                 licen
 configure_file(libraries/libfc/include/fc/crypto/webauthn_json/license.txt licenses/fullon/LICENSE.rapidjson COPYONLY)
 configure_file(libraries/eos-vm/LICENSE                                    licenses/fullon/LICENSE.eos-vm    COPYONLY)
 configure_file(libraries/prometheus/prometheus-cpp/LICENSE                 licenses/fullon/LICENSE.prom      COPYONLY)
-configure_file(programs/fucli/LICENSE.CLI11                                licenses/fullon/LICENSE.CLI11     COPYONLY)
+configure_file(programs/client/LICENSE.CLI11                                licenses/fullon/LICENSE.CLI11     COPYONLY)
 configure_file(libraries/libfc/libraries/bls12-381/LICENSE                 licenses/fullon/LICENSE.bls12-381 COPYONLY)
 configure_file(libraries/libfc/libraries/boringssl/boringssl/src/LICENSE   licenses/fullon/LICENSE.boringssl COPYONLY)
 
@@ -278,13 +278,13 @@ else()
    # The `make package` installation of symlinks happens via the `postinst` script installed in cmake.package via the line below
 endif()
 
-configure_file(${CMAKE_SOURCE_DIR}/libraries/cli11/bash-completion/completions/fullon-util
-               ${CMAKE_BINARY_DIR}/programs/fullon-util/bash-completion/completions/fullon-util COPYONLY)
-configure_file(${CMAKE_SOURCE_DIR}/libraries/cli11/bash-completion/completions/fucli
-               ${CMAKE_BINARY_DIR}/programs/fucli/bash-completion/completions/fucli COPYONLY)
+configure_file(${CMAKE_SOURCE_DIR}/libraries/cli11/bash-completion/completions/util.in
+               ${CMAKE_BINARY_DIR}/programs/util/bash-completion/completions/${UTIL_EXECUTABLE_NAME} @ONLY)
+configure_file(${CMAKE_SOURCE_DIR}/libraries/cli11/bash-completion/completions/client.in
+               ${CMAKE_BINARY_DIR}/programs/client/bash-completion/completions/${CLI_CLIENT_EXECUTABLE_NAME} @ONLY)
 
-install(FILES libraries/cli11/bash-completion/completions/fullon-util DESTINATION ${CMAKE_INSTALL_FULL_DATAROOTDIR}/bash-completion/completions COMPONENT base)
-install(FILES libraries/cli11/bash-completion/completions/fucli DESTINATION ${CMAKE_INSTALL_FULL_DATAROOTDIR}/bash-completion/completions COMPONENT base)
+install(FILES ${CMAKE_BINARY_DIR}/programs/util/bash-completion/completions/${UTIL_EXECUTABLE_NAME} DESTINATION ${CMAKE_INSTALL_FULL_DATAROOTDIR}/bash-completion/completions COMPONENT base)
+install(FILES ${CMAKE_BINARY_DIR}/programs/client/bash-completion/completions/${CLI_CLIENT_EXECUTABLE_NAME} DESTINATION ${CMAKE_INSTALL_FULL_DATAROOTDIR}/bash-completion/completions COMPONENT base)
 
 # Add the boost submodule we used to build to our install package, so headers can be found for libtester
 install(DIRECTORY "${CMAKE_SOURCE_DIR}/libraries/boost/"

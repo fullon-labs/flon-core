@@ -17,12 +17,12 @@ class TraceApiPluginTest(unittest.TestCase):
     accounts = []
     cluster.setWalletMgr(walletMgr)
 
-    # start keosd and funod
+    # start wallet and node
     def startEnv(self) :
         account_names = ["alice", "bob", "charlie"]
         abs_path = os.path.abspath(os.getcwd() + '/unittests/contracts/eosio.token/eosio.token.abi')
-        tracefunodArgs = " --verbose-http-errors --trace-rpc-abi eosio.token=" + abs_path
-        self.cluster.launch(totalNodes=2, activateIF=True, extrafunodArgs=tracefunodArgs)
+        traceNodeArgs = " --verbose-http-errors --trace-rpc-abi eosio.token=" + abs_path
+        self.cluster.launch(totalNodes=2, activateIF=True, extraNodeArgs=traceNodeArgs)
         self.walletMgr.launch()
         testWalletName="testwallet"
         testWallet=self.walletMgr.create(testWalletName, [self.cluster.eosioAccount, self.cluster.defproduceraAccount])
@@ -104,7 +104,7 @@ class TraceApiPluginTest(unittest.TestCase):
         # Verify get block_trace still works even with no time for http-max-response-time-ms and no time for bi-serializer-max-time-ms
         cmdDesc="get block_trace"
         cmd=" --print-response %s %d" % (cmdDesc, blockNum)
-        cmd="%s %s %s" % (Utils.EosClientPath, node.eosClientArgs(), cmd)
+        cmd="%s %s %s" % (Utils.ClientPath, node.eosClientArgs(), cmd)
         result=Utils.runCmdReturnStr(cmd, ignoreError=True)
 
         Utils.Print(f"{cmdDesc} returned: {result}")

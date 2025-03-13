@@ -50,7 +50,7 @@ try:
 
         print("Stand up walletd")
         if walletMgr.launch() is False:
-            errorExit("Failed to stand up keosd.")
+            errorExit("Failed to stand up wallet progress.")
 
     Print ("producing nodes: %s, non-producing nodes: %d, topology: %s, delay between nodes launch(seconds): %d" % (pnodes, total_nodes-pnodes, topo, delay))
 
@@ -59,8 +59,8 @@ try:
 
     Print("Stand up cluster")
     if cluster.launch(pnodes=pnodes, totalNodes=total_nodes, topo=topo, delay=delay, activateIF=True,
-                      extrafunodArgs=" --http-max-response-time-ms 990000 --disable-subjective-api-billing false ",
-                      specificExtrafunodArgs=specificArgs ) is False:
+                      extraNodeArgs=" --http-max-response-time-ms 990000 --disable-subjective-api-billing false ",
+                      specificExtraNodeArgs=specificArgs ) is False:
        errorExit("Failed to stand up eos cluster.")
 
     Print ("Wait for Cluster stabilization")

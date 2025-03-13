@@ -33,6 +33,7 @@
 #include <eosio/chain/finality/qc.hpp>
 #include <eosio/chain/finality/vote_message.hpp>
 #include <eosio/chain/vote_processor.hpp>
+#include <eosio/chain/abi_serializer.hpp>
 
 #include <chainbase/chainbase.hpp>
 #include <eosio/vm/allocator.hpp>
@@ -853,6 +854,41 @@ struct pending_state {
       _block_stage(building_block(prev, input))
    {}
 
+   const vector<transaction_receipt> get_trx_receipts()const {
+     // if( _block_stage.contains<building_block>() )
+     if(std::holds_alternative<building_block>(_block_stage)){
+         auto& block = std::get<building_block>(_block_stage);
+
+         if(std::holds_alternative<building_block::building_block_legacy>(block.v)){
+            auto receipt = std::get<building_block::building_block_legacy>(block.v).pending_trx_receipts;
+            std::vector<transaction_receipt> vec( receipt.begin(),  receipt.end());
+            return vec;
+         }
+         if(std::holds_alternative<building_block::building_block_if>(block.v)){
+            auto receipt = std::get<building_block::building_block_if>(block.v).pending_trx_receipts;
+            std::vector<transaction_receipt> vec( receipt.begin(),  receipt.end());
+            return vec;
+         }
+     }
+      
+      if(std::holds_alternative<completed_block>(_block_stage)){
+         auto& block = std::get<completed_block>(_block_stage);
+         auto transactions = block.bsp.block()->transactions;
+         std::vector<transaction_receipt> vec( transactions.begin(),  transactions.end());
+         return vec;
+      }
+
+      auto& block = std::get<assembled_block>(_block_stage);
+      if(std::holds_alternative<assembled_block::assembled_block_if>(block.v)){
+         auto receipt = std::get<assembled_block::assembled_block_if>(block.v).trx_receipts;
+         std::vector<transaction_receipt> vec( receipt.begin(),  receipt.end());
+         return vec;
+      }
+
+      // return block._unsigned_block->transactions;
+   }
+
+
    deque<transaction_metadata_ptr> extract_trx_metas() {
       return std::visit([](auto& stage) { return stage.extract_trx_metas(); }, _block_stage);
    }
@@ -900,6 +936,8 @@ struct pending_state {
          [](const auto& stage) -> const producer_authority_schedule* { return stage.pending_producers(); },
          _block_stage);
    }
+
+
 
    std::optional<uint32_t> get_next_proposer_schedule_version(const std::vector<producer_authority>& producers) const {
       return std::visit(overloaded{
@@ -5158,7 +5196,7 @@ void controller::preactivate_feature( const digest_type& feature_digest, bool is
    // But it is still possible for a producer to retire a deferred transaction that deals with this subjective
    // information. If they recognized the feature, they would retire it successfully, but a validator that
    // does not recognize the feature should reject the entire block (not just fail the deferred transaction).
-   // Even if they don't recognize the feature, the producer could change their funod code to treat it like an
+   // Even if they don't recognize the feature, the producer could change their node code to treat it like an
    // objective failure thus leading the deferred transaction to retire with soft_fail or hard_fail.
    // In this case, validators that don't recognize the feature would reject the whole block immediately, and
    // validators that do recognize the feature would likely lead to a different retire status which would
@@ -5226,6 +5264,7 @@ vector<digest_type> controller::get_preactivated_protocol_features()const {
 
    return preactivated_protocol_features;
 }
+
 
 void controller::validate_protocol_features( const vector<digest_type>& features_to_activate )const {
    my->check_protocol_features( my->chain_head.block_time(),
@@ -5478,6 +5517,12 @@ bool controller::fork_db_has_root() const {
 size_t controller::fork_db_size() const {
    return my->fork_db_size();
 }
+
+const vector<transaction_receipt>& controller::get_pending_trx_receipts()const {
+   EOS_ASSERT( my->pending, block_validate_exception, "no pending block" );
+   return my->pending->get_trx_receipts();
+}
+
 
 uint32_t controller::last_irreversible_block_num() const {
    return my->fork_db_root_block_num();

@@ -21,8 +21,8 @@ from pathlib import Path
 #   loop of sending lib catch up to syncing node.
 ###############################################################
 
-def readlogs(node_num, net_latency, funodLogPath):
-    filename = funodLogPath
+def readlogs(node_num, net_latency, nodeLogPath):
+    filename = nodeLogPath
     f = subprocess.Popen(['tail','-F',filename], \
                          stdout=subprocess.PIPE,stderr=subprocess.PIPE)
     latRegex = re.compile(r'\d+ms')
@@ -59,17 +59,17 @@ dumpErrorDetails=args.dump_error_details
 
 testSuccessful=False
 
-specificExtrafunodArgs={}
+specificExtraNodeArgs={}
 producerNodeId=0
 syncingNodeId=1
 
-specificExtrafunodArgs[producerNodeId]=" --p2p-listen-endpoint 0.0.0.0:{}".format(9876+producerNodeId)
-specificExtrafunodArgs[syncingNodeId]="--p2p-peer-address 0.0.0.0:{}".format(9876+producerNodeId)
+specificExtraNodeArgs[producerNodeId]=" --p2p-listen-endpoint 0.0.0.0:{}".format(9876+producerNodeId)
+specificExtraNodeArgs[syncingNodeId]="--p2p-peer-address 0.0.0.0:{}".format(9876+producerNodeId)
 
 try:
     TestHelper.printSystemInfo("BEGIN")
-    tracefunodArgs=" --plugin eosio::producer_plugin --produce-block-offset-ms 0 --plugin eosio::net_plugin --net-threads 1"
-    if cluster.launch(pnodes=1, totalNodes=totalNodes, totalProducers=1, specificExtrafunodArgs=specificExtrafunodArgs, extrafunodArgs=tracefunodArgs) is False:
+    traceNodeArgs=" --plugin eosio::producer_plugin --produce-block-offset-ms 0 --plugin eosio::net_plugin --net-threads 1"
+    if cluster.launch(pnodes=1, totalNodes=totalNodes, totalProducers=1, specificExtraNodeArgs=specificExtraNodeArgs, extraNodeArgs=traceNodeArgs) is False:
         Utils.cmdError("launcher")
         Utils.errorExit("Failed to stand up eos cluster.")
 
@@ -91,7 +91,7 @@ try:
         print(err.decode("utf-8")) # print error details of network slowdown initialization commands
         Utils.errorExit("failed to initialize network latency, exited with error code {}".format(ReturnCode))
         # processing logs to make sure syncing node doesn't get into lib catch up mode.
-    testSuccessful=readlogs(syncingNodeId, latency, cluster.funodLogPath)
+    testSuccessful=readlogs(syncingNodeId, latency, cluster.nodeLogPath)
     if platform.system() == 'Darwin':
         cmd = 'sudo pfctl -f /etc/pf.conf && \
             sudo dnctl -q flush && sudo pfctl -d'

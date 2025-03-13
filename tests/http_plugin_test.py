@@ -25,7 +25,7 @@ cluster=Cluster(host="127.0.0.1", unshared=args.unshared, keepRunning=args.leave
 
 testSuccessful=False
 
-ClientName="cleos"
+ClientName=Utils.ClientName
 timeout = .5 * 12 * 2 + 60 # time for finalization with 1 producer + 60 seconds padding
 Utils.setIrreversibleTimeout(timeout)
 
@@ -34,7 +34,7 @@ try:
 
     Print("Stand up cluster")
     node0_extra_config = "--http-validate-host true --http-server-address 127.0.0.1:8888"
-    if cluster.launch(dontBootstrap=True, loadSystemContract=False, specificExtrafunodArgs = {0: node0_extra_config}) is False:
+    if cluster.launch(dontBootstrap=True, loadSystemContract=False, specificExtraNodeArgs = {0: node0_extra_config}) is False:
         cmdError("launcher")
         errorExit("Failed to stand up eos cluster.")
     Print("Getting cluster info")
@@ -64,4 +64,4 @@ finally:
 
 exitCode = 0 if testSuccessful else 1
 exit(exitCode)
-        
+

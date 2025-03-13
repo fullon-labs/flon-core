@@ -30,7 +30,7 @@ BOOST_AUTO_TEST_SUITE(payloadless_tests)
 
 BOOST_AUTO_TEST_CASE_TEMPLATE( test_doit, T, payloadless_testers ) {
    T chain;
-   
+
    chain.create_accounts( {"payloadless"_n} );
    chain.set_code( "payloadless"_n, test_contracts::payloadless_wasm() );
    chain.set_abi( "payloadless"_n, test_contracts::payloadless_abi() );
@@ -40,7 +40,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE( test_doit, T, payloadless_testers ) {
    BOOST_CHECK_EQUAL(msg == "Im a payloadless action", true);
 }
 
-// test GH#3916 - contract api action with no parameters fails when called from cleos
+// test GH#3916 - contract api action with no parameters fails when called from client
 // abi_serializer was failing when action data was empty.
 BOOST_AUTO_TEST_CASE_TEMPLATE( test_abi_serializer, T, payloadless_testers ) {
    T chain;

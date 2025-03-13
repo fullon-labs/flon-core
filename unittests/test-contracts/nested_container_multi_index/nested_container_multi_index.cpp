@@ -1,12 +1,12 @@
 /* Verify the support of nested containers in eosio multi-index table
- * For each action, an example regarding how to use the action with the cleos command line is given.
+ * For each action, an example regarding how to use the action with the client command line is given.
  *
  * std:pair<T1,T2> is a struct with 2 fields first and second,
  * std::map<K,V> is handled as an array/vector of pairs/structs by EOSIO with implicit fields key, value,
- * the cases of combined use of key/value and first/second involving map,pair in the cleos are documented here.
+ * the cases of combined use of key/value and first/second involving map,pair in the client are documented here.
  * so handling of std::pair is NOT the same as the handling of a general struct such as struct mystruct!
  *
- * When assigning data input with cleos:
+ * When assigning data input with client:
  *      [] represents an empty vector<T>/set<T> or empty map<T1,T2> where T, T1, T2 can be any composite types
  *      null represents an uninitialized std::optional<T> where T can be any composite type
  *      BUT [] or null can NOT be used to represent an empty struct or empty std::pair
@@ -73,7 +73,7 @@ class [[eosio::contract("nested_container_multi_index")]] nestcontnmi : public e
             vector< op_uint16 > vo;
             vector< mp_uint16 > vm;
             vector< pr_uint16 > vp;
-            vector< tup_uint16 > vt; 
+            vector< tup_uint16 > vt;
 
             optional< set_uint16 > ost;
             optional< vec_uint16 > ov;
@@ -96,11 +96,11 @@ class [[eosio::contract("nested_container_multi_index")]] nestcontnmi : public e
             pair< uint16_t, pr_uint16 > pp;
             pair< uint16_t, tup_uint16 > pt;
 
-            tuple< uint16_t, vec_uint16, vec_uint16 > tv;     
+            tuple< uint16_t, vec_uint16, vec_uint16 > tv;
             tuple< uint16_t, set_uint16, set_uint16 > tst;
             tuple< op_uint16, op_uint16, op_uint16,op_uint16,op_uint16 > to;
             tuple< uint16_t, mp_uint16, mp_uint16 > tm;
-            tuple< uint16_t, pr_uint16, pr_uint16 > tp;      
+            tuple< uint16_t, pr_uint16, pr_uint16 > tp;
             tuple< tup_uint16, tup_uint16,  tup_uint16 > tt;
 
             vector< op_struc > vos;
@@ -202,7 +202,7 @@ class [[eosio::contract("nested_container_multi_index")]] nestcontnmi : public e
             eosio::print("type defined optional< vector< uint16_t >> stored successfully!");
         }
 
-        [[eosio::action]] 
+        [[eosio::action]]
         void setoo(name user, const optional< op_uint16 > & oo){
             SETCONTAINERVAL(oo);
             eosio::print("type defined optional< optional< uint16_t >> stored successfully!");
@@ -239,7 +239,7 @@ class [[eosio::contract("nested_container_multi_index")]] nestcontnmi : public e
             eosio::print("type defined map< vector< uint16_t >> stored successfully!");
         }
 
-        [[eosio::action]] 
+        [[eosio::action]]
         void setmo(name user, const map< uint16_t, op_uint16 > & mo){
             SETCONTAINERVAL(mo);
             eosio::print("type defined map< optional< uint16_t >> stored successfully!");
@@ -276,7 +276,7 @@ class [[eosio::contract("nested_container_multi_index")]] nestcontnmi : public e
             eosio::print("type defined pair< vector< uint16_t >> stored successfully!");
         }
 
-        [[eosio::action]] 
+        [[eosio::action]]
         void setpo(name user, const pair< uint16_t, op_uint16 > & po){
             SETCONTAINERVAL(po);
             eosio::print("type defined pair< optional< uint16_t >> stored successfully!");
@@ -312,7 +312,7 @@ class [[eosio::contract("nested_container_multi_index")]] nestcontnmi : public e
             eosio::print("type defined tuple< uint16_t, vector< uint16_t >, vector< uint16_t > stored successfully!");
         }
 
-        [[eosio::action]] 
+        [[eosio::action]]
         void setto(name user, const tuple<op_uint16, op_uint16, op_uint16,op_uint16,op_uint16> & to){
             SETCONTAINERVAL(to);
             eosio::print("type defined tuple< optional < uint16_t >, optional < uint16_t >, ... > stored successfully!");

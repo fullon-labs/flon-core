@@ -58,16 +58,19 @@ class Utils:
 
     testBinPath = Path(__file__).resolve().parents[2] / 'bin'
 
-    EosClientPath=str(testBinPath / "cleos")
-    MiscEosClientArgs="--no-auto-keosd"
+    ClientName=str("focli")
+    ClientPath=str(testBinPath / "focli")
+    MiscEosClientArgs="--no-auto-wallet"
 
-    SpringClientPath=str(testBinPath / "fullon-util")
+    SysAccount=str("flon")
+    TokenAccount=str("flon.token")
+    SpringClientPath=str(testBinPath / "flon-util")
 
-    EosWalletName="keosd"
+    EosWalletName="fowal"
     EosWalletPath=str(testBinPath / EosWalletName)
 
-    EosServerName="funod"
-    EosServerPath=str(testBinPath / EosServerName)
+    EosServerName="fonod"
+    NodeServerPath=str(testBinPath / EosServerName)
 
     ShuttingDown=False
 
@@ -605,5 +608,5 @@ class Utils:
         return data.decode(enc)
 
     @staticmethod
-    def getfunodVersion():
-        return os.popen(f"{Utils.EosServerPath} --full-version").read().replace("\n", "")
+    def getNodeVersion():
+        return os.popen(f"{Utils.NodeServerPath} --full-version").read().replace("\n", "")

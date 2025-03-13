@@ -1,4 +1,4 @@
-add_subdirectory( funod )
-add_subdirectory( fucli )
-add_subdirectory( fuwal )
-add_subdirectory( flon-util )
+add_subdirectory( node )
+add_subdirectory( client )
+add_subdirectory( wallet )
+add_subdirectory( util )

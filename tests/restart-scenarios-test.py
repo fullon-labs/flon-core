@@ -7,9 +7,9 @@ from TestHarness import Cluster, TestHelper, Utils, WalletMgr
 ###############################################################
 # restart-scenarios-test
 #
-# Tests restart scenarios for funod.  Uses "-c" flag to indicate "replay" (--replay-blockchain), "resync"
+# Tests restart scenarios for node.  Uses "-c" flag to indicate "replay" (--replay-blockchain), "resync"
 # (--delete-all-blocks), "hardReplay"(--hard-replay-blockchain), and "none" to indicate what kind of restart flag should
-# be used. This is one of the only test that actually verify that funod terminates with a good exit status.
+# be used. This is one of the only test that actually verify that node terminates with a good exit status.
 #
 ###############################################################
 
@@ -57,7 +57,7 @@ try:
     if not cluster.waitOnClusterBlockNumSync(3):
         errorExit("Cluster never stabilized")
 
-    Print("Stand up EOS wallet keosd")
+    Print("Stand up wallet progress")
     accountsCount=total_nodes
     walletName="MyWallet"
     Print("Creating wallet %s if one doesn't already exist." % walletName)
@@ -85,7 +85,7 @@ try:
     Print("Kill %d cluster node instances." % (killCount))
     if cluster.killSomeEosInstances(killCount, killSignal) is False:
         errorExit("Failed to kill Eos instances")
-    Print("funod instances killed.")
+    Print("node instances killed.")
 
     Print("Spread funds and validate")
     if not cluster.spreadFundsAndValidate(10):
@@ -98,7 +98,7 @@ try:
     Print ("Relaunch dead cluster nodes instances.")
     if cluster.relaunchEosInstances() is False:
         errorExit("Failed to relaunch Eos instances")
-    Print("funod instances relaunched.")
+    Print("node instances relaunched.")
 
     Print ("Resyncing cluster nodes.")
     if not cluster.waitOnClusterSync():
@@ -119,7 +119,7 @@ try:
             if node.popenProc is not None:
                 atLeastOne=True
                 node.interruptAndVerifyExitStatus()
-        assert atLeastOne, "Test is setup to verify that a cleanly interrupted funod exits with an exit status of 0, but this test may no longer be setup to do that"
+        assert atLeastOne, "Test is setup to verify that a cleanly interrupted node exits with an exit status of 0, but this test may no longer be setup to do that"
 
     testSuccessful=True
 finally:

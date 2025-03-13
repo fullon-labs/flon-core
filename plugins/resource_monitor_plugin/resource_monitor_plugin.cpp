@@ -4,7 +4,7 @@
    continued to produce blocks and update state but the blocks log was
    "corrupted" in that it no longer contained all the irreversible blocks.
    It was also observed that when file system which "data/state"
-   belons to is running out of space, funod will crash with SIGBUS as
+   belons to is running out of space, node will crash with SIGBUS as
    the state file is unable to acquire new pages.
 
    The solution is to have a dedicated plugin to monitor resource
@@ -54,7 +54,7 @@ public:
            "If remaining space is less than value for any monitored directories then threshold is considered exceeded."
            "Overrides resource-monitor-space-threshold value.")
          ( "resource-monitor-not-shutdown-on-threshold-exceeded",
-           "Used to indicate funod will not shutdown when threshold is exceeded." )
+           "Used to indicate node will not shutdown when threshold is exceeded." )
          ( "resource-monitor-warning-interval", bpo::value<uint32_t>()->default_value(def_monitor_warning_interval),
            "Number of resource monitor intervals between two consecutive warnings when the threshold is hit. Should be between 1 and 450" )
          ;

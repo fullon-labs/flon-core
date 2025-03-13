@@ -266,7 +266,7 @@ void chain_plugin::set_program_options(options_description& cli, options_descrip
          ("blocks-archive-dir", bpo::value<std::filesystem::path>(),
           "the location of the blocks archive directory (absolute path or relative to blocks dir).\n"
           "If the value is empty, blocks files beyond the retained limit will be deleted.\n"
-          "All files in the archive directory are completely under user's control, i.e. they won't be accessed by funod anymore.")
+          "All files in the archive directory are completely under user's control, i.e. they won't be accessed by node anymore.")
          ("state-dir", bpo::value<std::filesystem::path>()->default_value(config::default_state_dir_name),
           "the location of the state directory (absolute path or relative to application data dir)")
          ("finalizers-dir", bpo::value<std::filesystem::path>()->default_value(config::default_finalizers_dir_name),
@@ -487,7 +487,7 @@ void chain_plugin_impl::plugin_initialize(const variables_map& options) {
       ilog("initializing chain plugin");
 
       try {
-         genesis_state gs; // Check if system_root_key is bad
+         genesis_state gs; // Check if SYSTEM_ROOT_KEY is valid
       } catch ( const std::exception& ) {
          elog( "SYSTEM_ROOT_KEY ('${root_key}') is invalid. Recompile with a valid public key.",
                ("root_key", genesis_state::system_root_key));
@@ -1260,7 +1260,7 @@ void chain_plugin_impl::log_guard_exception(const chain::guard_exception&e ) {
 void chain_plugin_impl::handle_guard_exception(const chain::guard_exception& e) {
    log_guard_exception(e);
 
-   elog("database chain::guard_exception, quitting..."); // log string searched for in: tests/funod_under_min_avail_ram.py
+   elog("database chain::guard_exception, quitting..."); // log string searched for in: tests/fonod_under_min_avail_ram.py
    // quit the app
    app().quit();
 }
@@ -1271,13 +1271,13 @@ void chain_plugin::handle_guard_exception(const chain::guard_exception& e) {
 
 void chain_apis::api_base::handle_db_exhaustion() {
    elog("database memory exhausted: increase chain-state-db-size-mb");
-   //return 1 -- it's what programs/funod/main.cpp considers "BAD_ALLOC"
+   //return 1 -- it's what programs/node/main.cpp considers "BAD_ALLOC"
    std::_Exit(1);
 }
 
 void chain_apis::api_base::handle_bad_alloc() {
    elog("std::bad_alloc - memory exhausted");
-   //return -2 -- it's what programs/funod/main.cpp reports for std::exception
+   //return -2 -- it's what programs/node/main.cpp reports for std::exception
    std::_Exit(-2);
 }
 
@@ -1328,7 +1328,7 @@ read_only::get_info_results read_only::get_info(const read_only::get_info_params
 
 read_only::get_transaction_status_results
 read_only::get_transaction_status(const read_only::get_transaction_status_params& param, const fc::time_point&) const {
-   EOS_ASSERT(trx_finality_status_proc, unsupported_feature, "Transaction Status Interface not enabled.  To enable, configure funod with '--transaction-finality-status-max-storage-size-gb <size>'.");
+   EOS_ASSERT(trx_finality_status_proc, unsupported_feature, "Transaction Status Interface not enabled.  To enable, configure node with '--transaction-finality-status-max-storage-size-gb <size>'.");
 
    trx_finality_status_processing::chain_state ch_state = trx_finality_status_proc->get_chain_state();
 

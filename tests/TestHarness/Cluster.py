@@ -58,7 +58,7 @@ class Cluster(object):
 
     # pylint: disable=too-many-arguments
     def __init__(self, localCluster=True, host="localhost", port=8888, walletHost="localhost", walletPort=9899
-                 , defproduceraPrvtKey=None, defproducerbPrvtKey=None, staging=False, loggingLevel="debug", loggingLevelDict={}, funodVers="", unshared=False, keepRunning=False, keepLogs=False):
+                 , defproduceraPrvtKey=None, defproducerbPrvtKey=None, staging=False, loggingLevel="debug", loggingLevelDict={}, nodeVers="", unshared=False, keepRunning=False, keepLogs=False):
         """Cluster container.
         localCluster [True|False] Is cluster local to host.
         host: eos server host
@@ -68,9 +68,9 @@ class Cluster(object):
         defproduceraPrvtKey: Defproducera account private key
         defproducerbPrvtKey: Defproducerb account private key
         staging: [True|False] If true, don't generate new node configurations
-        loggingLevel: Logging level to apply to all funod loggers in all nodes
-        loggingLevelDict: Dictionary of node indices and logging level to apply to all funod loggers in that node
-        funodVers: funod version string for compatibility
+        loggingLevel: Logging level to apply to all node loggers in all nodes
+        loggingLevelDict: Dictionary of node indices and logging level to apply to all node loggers in that node
+        nodeVers: node version string for compatibility
         unshared: [True|False] If true, launch all processes in Linux namespace
         keepRunning: [True|False] If true, leave nodes running when Cluster is destroyed. Implies keepLogs.
         keepLogs: [True|False] If true, retain log files after cluster shuts down.
@@ -109,8 +109,8 @@ class Cluster(object):
         self.testFailed=False
         self.alternateVersionLabels=Cluster.__defaultAlternateVersionLabels()
         self.biosNode = None
-        self.funodVers=funodVers
-        self.funodLogPath=Path(Utils.TestLogRoot) / Path(f'{Path(sys.argv[0]).stem}{os.getpid()}')
+        self.nodeVers=nodeVers
+        self.nodeLogPath=Path(Utils.TestLogRoot) / Path(f'{Path(sys.argv[0]).stem}{os.getpid()}')
 
         self.libTestingContractsPath = Path(__file__).resolve().parents[2] / "libraries" / "testing" / "contracts"
         self.unittestsContractsPath = Path(__file__).resolve().parents[2] / "unittests" / "contracts"
@@ -164,11 +164,11 @@ class Cluster(object):
     # pylint: disable=too-many-branches
     # pylint: disable=too-many-statements
     def launch(self, pnodes=1, unstartedNodes=0, totalNodes=1, prodCount=21, topo="mesh", delay=2, onlyBios=False, dontBootstrap=False,
-               totalProducers=None, sharedProducers=0, extrafunodArgs="", specificExtrafunodArgs=None, specificfunodInstances=None, onlySetProds=False,
+               totalProducers=None, sharedProducers=0, extraNodeArgs="", specificExtraNodeArgs=None, specificNodeInstances=None, onlySetProds=False,
                pfSetupPolicy=PFSetupPolicy.FULL, alternateVersionLabelsFile=None, associatedNodeLabels=None, loadSystemContract=True,
                activateIF=False, biosFinalizer=True,
                signatureProviderForNonProducer=False,
-               funodLogPath=Path(Utils.TestLogRoot) / Path(f'{Path(sys.argv[0]).stem}{os.getpid()}'), genesisPath=None,
+               nodeLogPath=Path(Utils.TestLogRoot) / Path(f'{Path(sys.argv[0]).stem}{os.getpid()}'), genesisPath=None,
                maximumP2pPerHost=0, maximumClients=25, prodsEnableTraceApi=True):
         """Launch cluster.
         pnodes: producer nodes count
@@ -180,11 +180,11 @@ class Cluster(object):
           delay 0 exposes a bootstrap bug where producer handover may have a large gap confusing nodes and bringing system to a halt.
         onlyBios: When true, only loads the bios contract (and not more full bootstrapping).
         dontBootstrap: When true, don't do any bootstrapping at all. (even bios is not uploaded)
-        extrafunodArgs: string of arguments to pass through to each funod instance (via --funod flag on launcher)
-        specificExtrafunodArgs: dictionary of arguments to pass to a specific node (via --specific-num and
-                                 --specific-funod flags on launcher), example: { "5" : "--plugin eosio::test_control_api_plugin" }
-        specificfunodInstances: dictionary of paths to launch specific funod binaries (via --spcfc-inst-num and
-                                 --spcfc_inst_funod flags to launcher), example: { "4" : "bin/funod"}
+        extraNodeArgs: string of arguments to pass through to each node instance (via --node flag on launcher)
+        specificExtraNodeArgs: dictionary of arguments to pass to a specific node (via --specific-num and
+                                 --specific-node flags on launcher), example: { "5" : "--plugin eosio::test_control_api_plugin" }
+        specificNodeInstances: dictionary of paths to launch specific node binaries (via --spcfc-inst-num and
+                                 --spcfc_inst_node flags to launcher), example: { "4" : Utils.NodeServerPath}
         onlySetProds: Stop the bootstrap process after setting the producers
         pfSetupPolicy: determine the protocol feature setup policy (none, preactivate_feature_only, or full)
         alternateVersionLabelsFile: Supply an alternate version labels file to use with associatedNodeLabels.
@@ -240,7 +240,7 @@ class Cluster(object):
 
         tries = 30
         while not Utils.arePortsAvailable(set(range(self.port, self.port+totalNodes+1))):
-            Utils.Print("ERROR: Another process is listening on funod default port. wait...")
+            Utils.Print("ERROR: Another process is listening on node default port. wait...")
             if tries == 0:
                 return False
             tries = tries - 1
@@ -252,70 +252,70 @@ class Cluster(object):
               f'--logging-level-map {loggingLevelDictString}')
         argsArr=args.split()
         argsArr.append("--config-dir")
-        argsArr.append(str(funodLogPath))
+        argsArr.append(str(nodeLogPath))
         argsArr.append("--data-dir")
-        argsArr.append(str(funodLogPath))
+        argsArr.append(str(nodeLogPath))
         if self.staging:
             argsArr.append("--nogen")
-        funodArgs=""
-        if "--vote-threads" not in extrafunodArgs:
-            funodArgs += " --vote-threads 4"
-        if "--max-transaction-time" not in extrafunodArgs:
-            funodArgs += " --max-transaction-time -1"
-        if "--abi-serializer-max-time-ms" not in extrafunodArgs:
-            funodArgs += " --abi-serializer-max-time-ms 990000"
-        if "--p2p-max-nodes-per-host" not in extrafunodArgs:
-            funodArgs += f" --p2p-max-nodes-per-host {maximumP2pPerHost}"
-        if "--max-clients" not in extrafunodArgs:
-            funodArgs += f" --max-clients {maximumClients}"
-        if "--connection-cleanup-period" not in extrafunodArgs:
+        nodeArgs=""
+        if "--vote-threads" not in extraNodeArgs:
+            nodeArgs += " --vote-threads 4"
+        if "--max-transaction-time" not in extraNodeArgs:
+            nodeArgs += " --max-transaction-time -1"
+        if "--abi-serializer-max-time-ms" not in extraNodeArgs:
+            nodeArgs += " --abi-serializer-max-time-ms 990000"
+        if "--p2p-max-nodes-per-host" not in extraNodeArgs:
+            nodeArgs += f" --p2p-max-nodes-per-host {maximumP2pPerHost}"
+        if "--max-clients" not in extraNodeArgs:
+            nodeArgs += f" --max-clients {maximumClients}"
+        if "--connection-cleanup-period" not in extraNodeArgs:
             # Quicker retry, default is 30s, since many tests launch multiple nodes at the same time
-            funodArgs += f" --connection-cleanup-period 15"
-        if Utils.Debug and "--contracts-console" not in extrafunodArgs:
-            funodArgs += " --contracts-console"
+            nodeArgs += f" --connection-cleanup-period 15"
+        if Utils.Debug and "--contracts-console" not in extraNodeArgs:
+            nodeArgs += " --contracts-console"
         if PFSetupPolicy.hasPreactivateFeature(pfSetupPolicy):
-            funodArgs += " --plugin eosio::producer_api_plugin"
+            nodeArgs += " --plugin eosio::producer_api_plugin"
         if prodsEnableTraceApi:
-            funodArgs += " --plugin eosio::trace_api_plugin "
-        if extrafunodArgs.find("--trace-rpc-abi") == -1:
-            funodArgs += " --trace-no-abis "
+            nodeArgs += " --plugin eosio::trace_api_plugin "
+        if extraNodeArgs.find("--trace-rpc-abi") == -1:
+            nodeArgs += " --trace-no-abis "
         httpMaxResponseTimeSet = False
-        if specificExtrafunodArgs is not None:
-            assert(isinstance(specificExtrafunodArgs, dict))
-            for nodeNum,arg in specificExtrafunodArgs.items():
+        if specificExtraNodeArgs is not None:
+            assert(isinstance(specificExtraNodeArgs, dict))
+            for nodeNum,arg in specificExtraNodeArgs.items():
                 assert(isinstance(nodeNum, (str,int)))
                 assert(isinstance(arg, str))
                 if not len(arg):
                     continue
                 argsArr.append("--specific-num")
                 argsArr.append(str(nodeNum))
-                argsArr.append("--specific-funod")
+                argsArr.append("--specific-node")
                 if arg.find("--http-max-response-time-ms") != -1:
                     httpMaxResponseTimeSet = True
                 if arg[0] != "'" and arg[-1] != "'":
                     argsArr.append("'" + arg + "'")
                 else:
                     argsArr.append(arg)
-        if specificfunodInstances is not None:
-            assert(isinstance(specificfunodInstances, dict))
-            for nodeNum,arg in specificfunodInstances.items():
+        if specificNodeInstances is not None:
+            assert(isinstance(specificNodeInstances, dict))
+            for nodeNum,arg in specificNodeInstances.items():
                 assert(isinstance(nodeNum, (str,int)))
                 assert(isinstance(arg, str))
                 argsArr.append("--spcfc-inst-num")
                 argsArr.append(str(nodeNum))
-                argsArr.append("--spcfc-inst-funod")
+                argsArr.append("--spcfc-inst-node")
                 argsArr.append(arg)
 
-        if not httpMaxResponseTimeSet and extrafunodArgs.find("--http-max-response-time-ms") == -1:
-            extrafunodArgs+=" --http-max-response-time-ms 990000 "
+        if not httpMaxResponseTimeSet and extraNodeArgs.find("--http-max-response-time-ms") == -1:
+            extraNodeArgs+=" --http-max-response-time-ms 990000 "
 
-        if extrafunodArgs is not None:
-            assert(isinstance(extrafunodArgs, str))
-            funodArgs += extrafunodArgs
+        if extraNodeArgs is not None:
+            assert(isinstance(extraNodeArgs, str))
+            nodeArgs += extraNodeArgs
 
-        if funodArgs:
-            argsArr.append("--funod")
-            argsArr.append(funodArgs)
+        if nodeArgs:
+            argsArr.append("--node")
+            argsArr.append(nodeArgs)
 
         if genesisPath is None:
             argsArr.append("--max-block-cpu-usage")
@@ -335,7 +335,7 @@ class Cluster(object):
                     Utils.errorExit("associatedNodeLabels passed in indicates label %s for node num %s, but it was not identified in %s" % (label, nodeNum, alternateVersionLabelsFile))
                 argsArr.append("--spcfc-inst-num")
                 argsArr.append(str(nodeNum))
-                argsArr.append("--spcfc-inst-funod")
+                argsArr.append("--spcfc-inst-node")
                 argsArr.append(path)
 
         # must be last cmdArr.append before subprocess.call, so that everything is on the command line
@@ -345,7 +345,7 @@ class Cluster(object):
             shapeFile=shapeFilePrefix+".json"
             cmdArrForOutput=copy.deepcopy(argsArr)
             cmdArrForOutput.append("--output")
-            cmdArrForOutput.append(str(funodLogPath / shapeFile))
+            cmdArrForOutput.append(str(nodeLogPath / shapeFile))
             cmdArrForOutput.append("--shape")
             cmdArrForOutput.append("line")
             s=" ".join(cmdArrForOutput)
@@ -353,8 +353,8 @@ class Cluster(object):
             bridgeLauncher.define_network()
             bridgeLauncher.generate()
 
-            Utils.Print(f"opening {topo} shape file: {funodLogPath / shapeFile}")
-            f = open(funodLogPath / shapeFile, "r")
+            Utils.Print(f"opening {topo} shape file: {nodeLogPath / shapeFile}")
+            f = open(nodeLogPath / shapeFile, "r")
             shapeFileJsonStr = f.read()
             f.close()
             shapeFileObject = json.loads(shapeFileJsonStr)
@@ -465,16 +465,16 @@ class Cluster(object):
             argsArr.append("--shape")
             argsArr.append(topo)
 
-        if type(specificExtrafunodArgs) is dict:
-            for args in specificExtrafunodArgs.values():
+        if type(specificExtraNodeArgs) is dict:
+            for args in specificExtraNodeArgs.values():
                 if "--plugin eosio::history_api_plugin" in args:
-                    argsArr.append("--is-funod-v2")
+                    argsArr.append("--is-node-v2")
                     break
         if signatureProviderForNonProducer:
             argsArr.append("--signature-provider")
 
         # Handle common case of specifying no block offset for older versions
-        if "v2" in self.funodVers or "v3" in self.funodVers or "v4" in self.funodVers:
+        if "v2" in self.nodeVers or "v3" in self.nodeVers or "v4" in self.nodeVers:
             argsArr = list(map(lambda st: str.replace(st, "--produce-block-offset-ms 0", "--last-block-time-offset-us 0 --last-block-cpu-effort-percent 100"), argsArr))
 
         Cluster.__LauncherCmdArr = argsArr.copy()
@@ -489,7 +489,7 @@ class Cluster(object):
             nodeNum = instance.index
             node = Node(self.host, self.port + nodeNum, nodeNum, Path(instance.data_dir_name),
                         Path(instance.config_dir_name), eosdcmd, unstarted=instance.dont_start,
-                        launch_time=launcher.launch_time, walletMgr=self.walletMgr, funodVers=self.funodVers)
+                        launch_time=launcher.launch_time, walletMgr=self.walletMgr, nodeVers=self.nodeVers)
             node.keys = instance.keys
             node.isProducer = len(instance.producers) > 0
             node.producerName = instance.producers[0] if node.isProducer else None
@@ -566,7 +566,7 @@ class Cluster(object):
         port=Cluster.__BiosPort if onlyBios else self.port
         host=Cluster.__BiosHost if onlyBios else self.host
         nodeNum="bios" if onlyBios else 0
-        node=Node(host, port, nodeNum, walletMgr=self.walletMgr, funodVers=self.funodVers)
+        node=Node(host, port, nodeNum, walletMgr=self.walletMgr, nodeVers=self.nodeVers)
         if Utils.Debug: Utils.Print("Node: %s", str(node))
 
         node.checkPulse(exitOnError=True)
@@ -605,7 +605,7 @@ class Cluster(object):
         for n in nArr:
             port=n["port"]
             host=n["host"]
-            node=Node(host, port, nodeId=len(nodes), walletMgr=self.walletMgr, funodVers=self.funodVers)
+            node=Node(host, port, nodeId=len(nodes), walletMgr=self.walletMgr, nodeVers=self.nodeVers)
             if Utils.Debug: Utils.Print("Node:", node)
 
             node.checkPulse(exitOnError=True)
@@ -668,8 +668,8 @@ class Cluster(object):
         """Returns client version (string)"""
         p = re.compile(r'^v?(.+)\n$')
         try:
-            cmd="%s version client" % (Utils.EosClientPath)
-            if fullVersion: cmd="%s version full" % (Utils.EosClientPath)
+            cmd="%s version client" % (Utils.ClientPath)
+            if fullVersion: cmd="%s version full" % (Utils.ClientPath)
             if Utils.Debug: Utils.Print("cmd: %s" % (cmd))
             response=Utils.checkOutput(cmd.split())
             assert(response)
@@ -1414,7 +1414,7 @@ class Cluster(object):
                 Cluster.dumpErrorDetailImpl(fileName)
 
     def shutdown(self):
-        """Shut down all funod instances launched by this Cluster."""
+        """Shut down all node instances launched by this Cluster."""
         if not self.keepRunning:
             Utils.Print('Cluster shutting down.')
             for node in self.nodes:
@@ -1431,7 +1431,7 @@ class Cluster(object):
         self.cleanup()
 
     def bounce(self, nodes, silent=True):
-        """Bounces funod instances as indicated by parameter nodes.
+        """Bounces node instances as indicated by parameter nodes.
         nodes should take the form of a comma-separated list as accepted by the launcher --bounce command (e.g. '00' or '00,01')"""
         cmdArr = Cluster.__LauncherCmdArr.copy()
         cmdArr.append("--bounce")
@@ -1444,7 +1444,7 @@ class Cluster(object):
         return True
 
     def down(self, nodes, silent=True):
-        """Brings down funod instances as indicated by parameter nodes.
+        """Brings down node instances as indicated by parameter nodes.
         nodes should take the form of a comma-separated list as accepted by the launcher --bounce command (e.g. '00' or '00,01')"""
         cmdArr = Cluster.__LauncherCmdArr.copy()
         cmdArr.append("--down")
@@ -1542,7 +1542,7 @@ class Cluster(object):
         with open(startFile, 'r') as file:
             cmd=file.read()
             Utils.Print("unstarted local node cmd: %s" % (cmd))
-        instance=Node(self.host, port=self.port+nodeId, nodeId=nodeId, pid=None, cmd=cmd, walletMgr=self.walletMgr, funodVers=self.funodVers)
+        instance=Node(self.host, port=self.port+nodeId, nodeId=nodeId, pid=None, cmd=cmd, walletMgr=self.walletMgr, nodeVers=self.nodeVers)
         if Utils.Debug: Utils.Print("Unstarted Node>", instance)
         return instance
 

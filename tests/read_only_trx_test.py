@@ -71,7 +71,7 @@ payloadlessAccountName = "payloadless"
 def getCodeHash(node, account):
     # Example get code result: code hash: 67d0598c72e2521a1d588161dad20bbe9f8547beb5ce6d14f3abd550ab27d3dc
     cmd = f"get code {account}"
-    codeHash = node.processCleosCmd(cmd, cmd, silentErrors=False, returnType=ReturnType.raw)
+    codeHash = node.processClientCmd(cmd, cmd, silentErrors=False, returnType=ReturnType.raw)
     if codeHash is None: errorExit(f"Unable to get code {account} from node {node.nodeId}")
     else: codeHash = codeHash.split(' ')[2].strip()
     if Utils.Debug: Utils.Print(f"{account} code hash: {codeHash}")
@@ -95,35 +95,35 @@ def startCluster():
 
         print("Stand up walletd")
         if walletMgr.launch() is False:
-            errorExit("Failed to stand up keosd.")
+            errorExit("Failed to stand up wallet.")
 
     Print ("producing nodes: %d, non-producing nodes: %d, topology: %s, delay between nodes launch(seconds): %d" % (pnodes, total_nodes-pnodes, topo, delay))
 
     Print("Stand up cluster")
     # set up read-only options for API node
-    specificExtrafunodArgs={}
+    specificExtraNodeArgs={}
     # producer nodes will be mapped to 0 through pnodes-1, so the number pnodes is the no-producing API node
-    specificExtrafunodArgs[pnodes]=" --plugin eosio::net_api_plugin"
-    specificExtrafunodArgs[pnodes]+=" --contracts-console "
-    specificExtrafunodArgs[pnodes]+=" --read-only-write-window-time-us "
-    specificExtrafunodArgs[pnodes]+=" 10000 "
-    specificExtrafunodArgs[pnodes]+=" --read-only-read-window-time-us "
-    specificExtrafunodArgs[pnodes]+=" 490000 "
-    specificExtrafunodArgs[pnodes]+=" --eos-vm-oc-cache-size-mb "
-    specificExtrafunodArgs[pnodes]+=" 1 " # set small so there is churn
-    specificExtrafunodArgs[pnodes]+=" --read-only-threads "
-    specificExtrafunodArgs[pnodes]+=str(args.read_only_threads)
+    specificExtraNodeArgs[pnodes]=" --plugin eosio::net_api_plugin"
+    specificExtraNodeArgs[pnodes]+=" --contracts-console "
+    specificExtraNodeArgs[pnodes]+=" --read-only-write-window-time-us "
+    specificExtraNodeArgs[pnodes]+=" 10000 "
+    specificExtraNodeArgs[pnodes]+=" --read-only-read-window-time-us "
+    specificExtraNodeArgs[pnodes]+=" 490000 "
+    specificExtraNodeArgs[pnodes]+=" --eos-vm-oc-cache-size-mb "
+    specificExtraNodeArgs[pnodes]+=" 1 " # set small so there is churn
+    specificExtraNodeArgs[pnodes]+=" --read-only-threads "
+    specificExtraNodeArgs[pnodes]+=str(args.read_only_threads)
     if args.eos_vm_oc_enable:
         if platform.system() != "Linux":
             Print("OC not run on Linux. Skip the test")
             exit(True) # Do not fail the test
-        specificExtrafunodArgs[pnodes]+=" --eos-vm-oc-enable "
-        specificExtrafunodArgs[pnodes]+=args.eos_vm_oc_enable
+        specificExtraNodeArgs[pnodes]+=" --eos-vm-oc-enable "
+        specificExtraNodeArgs[pnodes]+=args.eos_vm_oc_enable
     if args.wasm_runtime:
-        specificExtrafunodArgs[pnodes]+=" --wasm-runtime "
-        specificExtrafunodArgs[pnodes]+=args.wasm_runtime
-    extrafunodArgs=" --http-max-response-time-ms 990000 --disable-subjective-api-billing false "
-    if cluster.launch(pnodes=pnodes, totalNodes=total_nodes, topo=topo, delay=delay, activateIF=activateIF, specificExtrafunodArgs=specificExtrafunodArgs, extrafunodArgs=extrafunodArgs ) is False:
+        specificExtraNodeArgs[pnodes]+=" --wasm-runtime "
+        specificExtraNodeArgs[pnodes]+=args.wasm_runtime
+    extraNodeArgs=" --http-max-response-time-ms 990000 --disable-subjective-api-billing false "
+    if cluster.launch(pnodes=pnodes, totalNodes=total_nodes, topo=topo, delay=delay, activateIF=activateIF, specificExtraNodeArgs=specificExtraNodeArgs, extraNodeArgs=extraNodeArgs ) is False:
         errorExit("Failed to stand up eos cluster.")
 
     Print ("Wait for Cluster stabilization")

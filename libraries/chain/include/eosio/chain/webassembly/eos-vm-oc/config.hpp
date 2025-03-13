@@ -20,7 +20,7 @@ struct config {
    uint64_t threads    = 1u;
 
    // subjective limits for OC compilation.
-   // funod enforces the limits by the default values.
+   // node enforces the limits by the default values.
    // libtester disables the limits in all tests, except enforces the limits
    // in the tests in unittests/eosvmoc_limits_tests.cpp.
    std::optional<rlim_t>   cpu_limit {20u};

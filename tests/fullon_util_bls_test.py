@@ -8,7 +8,7 @@ from TestHarness import Utils
 ###############################################################
 # fullon_util_bls_test
 #
-#  Test fullon-util's BLS commands.
+#  Test util program's BLS commands.
 #  - Create a key pair
 #  - Create a POP (Proof of Possession)
 #  - Error handlings
@@ -94,9 +94,9 @@ def test_create_pop_error_handling():
         os.remove(temp_file)
     assert Utils.processFullOnUtilCmd("bls create pop --file {}".format(temp_file), "private file not existing") == None
 
-def check_create_key_results(rslts): 
+def check_create_key_results(rslts):
     results = get_results(rslts)
-    
+
     # check each output has valid value
     assert "PVT_BLS_" in results["Private key"]
     assert "PUB_BLS_" in results["Public key"]
@@ -109,7 +109,7 @@ def get_results(rslts):
     # Proof of Possession: SIG_BLS_3jwkVUUYahHgsnmnEA...
     pattern = r'(\w+[^:]*): ([^\n]+)'
     matched= re.findall(pattern, rslts)
-    
+
     results = {}
     for k, v in matched:
         results[k.strip()] = v.strip()
@@ -118,7 +118,7 @@ def get_results(rslts):
 
 # tests start
 try:
-    # test create key to console 
+    # test create key to console
     test_create_key_to_console()
 
     # test create key to file
@@ -126,7 +126,7 @@ try:
 
     # test create pop from private key in command line
     test_create_pop_from_command_line()
-    
+
     # test create pop from private key in file
     test_create_pop_from_file()
 

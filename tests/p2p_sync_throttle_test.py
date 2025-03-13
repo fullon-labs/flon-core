@@ -57,7 +57,7 @@ try:
     #
     # Compare the sync time of throttledNode and unThrottledNode
     if cluster.launch(pnodes=pnodes, unstartedNodes=3, totalNodes=total_nodes, prodCount=prod_count,
-                      extrafunodArgs="--sync-fetch-span 5",
+                      extraNodeArgs="--sync-fetch-span 5",
                       topo='./tests/p2p_sync_throttle_test_shape.json', delay=delay, activateIF=activateIF) is False:
         errorExit("Failed to stand up eos cluster.")
 

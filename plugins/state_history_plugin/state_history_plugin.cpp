@@ -220,7 +220,7 @@ void state_history_plugin::set_program_options(options_description& cli, options
    options("state-history-archive-dir", bpo::value<std::filesystem::path>(),
            "the location of the state history archive directory (absolute path or relative to state-history dir).\n"
            "If the value is empty string, blocks files beyond the retained limit will be deleted.\n"
-           "All files in the archive directory are completely under user's control, i.e. they won't be accessed by funod anymore.");
+           "All files in the archive directory are completely under user's control, i.e. they won't be accessed by node anymore.");
    options("state-history-stride", bpo::value<uint32_t>(),
          "split the state history log files when the block number is the multiple of the stride\n"
          "When the stride is reached, the current history log and index will be renamed '*-history-<start num>-<end num>.log/index'\n"
@@ -333,7 +333,7 @@ void state_history_plugin::plugin_initialize(const variables_map& options) {
    handle_sighup(); // setup logging
    my->plugin_initialize(options);
 }
-   
+
 void state_history_plugin_impl::plugin_startup() {
    try {
       const auto& chain = chain_plug->chain();

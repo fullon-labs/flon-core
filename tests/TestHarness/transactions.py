@@ -6,11 +6,11 @@ import time
 
 from .core_symbol import CORE_SYMBOL
 from .depresolver import dep
-from .queries import funodQueries
+from .queries import NodeQueries
 from .accounts import Account
 from .testUtils import Utils
 
-class Transactions(funodQueries):
+class Transactions(NodeQueries):
     retry_num_blocks_default = 1
 
     def __init__(self, host, port, walletMgr=None):
@@ -18,7 +18,7 @@ class Transactions(funodQueries):
 
     # Create & initialize account and return creation transactions. Return transaction json object
     def createInitializeAccount(self, account, creatorAccount, stakedDeposit=1000, waitForTransBlock=False, silentErrors=False, stakeNet=100, stakeCPU=100, buyRAM=10000, exitOnError=False, sign=False, additionalArgs='', retry_num_blocks=None):
-        signStr = funodQueries.sign_str(sign, [ creatorAccount.activePublicKey ])
+        signStr = NodeQueries.sign_str(sign, [ creatorAccount.activePublicKey ])
         cmdDesc="system newaccount"
         retry_num_blocks = self.retry_num_blocks_default if retry_num_blocks is None else retry_num_blocks
         retryStr = f"--retry-num-blocks {retry_num_blocks}" if waitForTransBlock else ""
@@ -26,38 +26,38 @@ class Transactions(funodQueries):
              f'\'{account.activePublicKey}\' --stake-net "{stakeNet} {CORE_SYMBOL}" --stake-cpu '
              f'"{stakeCPU} {CORE_SYMBOL}" --buy-ram "{buyRAM} {CORE_SYMBOL}" {additionalArgs} {retryStr}')
         msg="(creator account=%s, account=%s)" % (creatorAccount.name, account.name);
-        trans=self.processCleosCmd(cmd, cmdDesc, silentErrors=silentErrors, exitOnError=exitOnError, exitMsg=msg)
+        trans=self.processClientCmd(cmd, cmdDesc, silentErrors=silentErrors, exitOnError=exitOnError, exitMsg=msg)
         self.trackCmdTransaction(trans)
-        transId=funodQueries.getTransId(trans)
+        transId=NodeQueries.getTransId(trans)
 
         if stakedDeposit > 0:
             if not waitForTransBlock: # Wait for account creation to be finalized if we haven't already
                 self.waitForTransactionInBlock(transId)
-            trans = self.transferFunds(creatorAccount, account, funodQueries.currencyIntToStr(stakedDeposit, CORE_SYMBOL), "init", waitForTransBlock=waitForTransBlock)
-            transId=funodQueries.getTransId(trans)
+            trans = self.transferFunds(creatorAccount, account, NodeQueries.currencyIntToStr(stakedDeposit, CORE_SYMBOL), "init", waitForTransBlock=waitForTransBlock)
+            transId=NodeQueries.getTransId(trans)
 
         return trans
 
     def createAccount(self, account, creatorAccount, stakedDeposit=1000, waitForTransBlock=False, silentErrors=False,exitOnError=False, sign=False, retry_num_blocks=None):
         """Create account and return creation transactions. Return transaction json object.
         waitForTransBlock: wait on creation transaction id to appear in a block."""
-        signStr = funodQueries.sign_str(sign, [ creatorAccount.activePublicKey ])
+        signStr = NodeQueries.sign_str(sign, [ creatorAccount.activePublicKey ])
         cmdDesc="create account"
         retry_num_blocks = self.retry_num_blocks_default if retry_num_blocks is None else retry_num_blocks
         retryStr = f"--retry-num-blocks {retry_num_blocks}" if waitForTransBlock else ""
         cmd=(f"{cmdDesc} -j {signStr} {creatorAccount.name} {account.name} {account.ownerPublicKey} "
              f"{account.activePublicKey} {retryStr}")
         msg="(creator account=%s, account=%s)" % (creatorAccount.name, account.name);
-        trans=self.processCleosCmd(cmd, cmdDesc, silentErrors=silentErrors, exitOnError=exitOnError, exitMsg=msg)
+        trans=self.processClientCmd(cmd, cmdDesc, silentErrors=silentErrors, exitOnError=exitOnError, exitMsg=msg)
         self.trackCmdTransaction(trans)
-        transId=funodQueries.getTransId(trans)
+        transId=NodeQueries.getTransId(trans)
 
         if stakedDeposit > 0:
             if not waitForTransBlock: # account creation needs to be finalized before transfer can happen so wait if we haven't already
                 self.waitForTransactionInBlock(transId)
             trans = self.transferFunds(creatorAccount, account, "%0.04f %s" % (stakedDeposit/10000, CORE_SYMBOL), "init")
             self.trackCmdTransaction(trans)
-            transId=funodQueries.getTransId(trans)
+            transId=NodeQueries.getTransId(trans)
 
         return trans
 
@@ -81,7 +81,7 @@ class Transactions(funodQueries):
             expirationStr = "--expiration %d " % (expiration)
 
         cmd="%s %s -v transfer %s -j %s %s" % (
-            Utils.EosClientPath, self.eosClientArgs(), self.getRetryCmdArg(retry), dontSendStr, expirationStr)
+            Utils.ClientPath, self.eosClientArgs(), self.getRetryCmdArg(retry), dontSendStr, expirationStr)
         cmdArr=cmd.split()
         # not using sign_str, since cmdArr messes up the string
         if sign:
@@ -154,8 +154,8 @@ class Transactions(funodQueries):
     # publish contract and return transaction as json object
     def publishContract(self, account, contractDir, wasmFile, abiFile, waitForTransBlock=True, shouldFail=False, sign=False, retryNum:int=5):
         assert(isinstance(retryNum, int))
-        signStr = funodQueries.sign_str(sign, [ account.activePublicKey ])
-        cmd=f"{Utils.EosClientPath} {self.eosClientArgs()} -v set contract -j -f {signStr} {account.name} {contractDir}"
+        signStr = NodeQueries.sign_str(sign, [ account.activePublicKey ])
+        cmd=f"{Utils.ClientPath} {self.eosClientArgs()} -v set contract -j -f {signStr} {account.name} {contractDir}"
         cmd += "" if wasmFile is None else (" "+ wasmFile)
         cmd += "" if abiFile is None else (" " + abiFile)
         if Utils.Debug: Utils.Print("cmd: %s" % (cmd))
@@ -199,10 +199,10 @@ class Transactions(funodQueries):
                     Utils.Print("ERROR: The publish contract did not fail as expected.")
                     return None
 
-            funodQueries.validateTransaction(trans)
+            NodeQueries.validateTransaction(trans)
             if not waitForTransBlock:
                 return trans
-            transId=funodQueries.getTransId(trans)
+            transId=NodeQueries.getTransId(trans)
             if self.waitForTransactionInBlock(transId, timeout=30, exitOnError=False):
                 break
 
@@ -210,7 +210,7 @@ class Transactions(funodQueries):
 
     # set code or abi and return True for success and False for failure
     def setCodeOrAbi(self, account, setType, setFile):
-        cmd=f"{Utils.EosClientPath} {self.eosClientArgs()} -v set {setType} -j {account.name} {setFile} "
+        cmd=f"{Utils.ClientPath} {self.eosClientArgs()} -v set {setType} -j {account.name} {setFile} "
         if Utils.Debug: Utils.Print("cmd: %s" % (cmd))
         try:
             trans=Utils.runCmdReturnJson(cmd, trace=False)
@@ -228,7 +228,7 @@ class Transactions(funodQueries):
         if isinstance(permissions, str):
             permissions=[permissions]
 
-        cmd="%s %s push transaction -j" % (Utils.EosClientPath, self.eosClientArgs())
+        cmd="%s %s push transaction -j" % (Utils.ClientPath, self.eosClientArgs())
         cmdArr=cmd.split()
         transStr = json.dumps(trans, separators=(',', ':'))
         transStr = transStr.replace("'", '"')
@@ -249,7 +249,7 @@ class Transactions(funodQueries):
             if Utils.Debug:
                 end=time.perf_counter()
                 Utils.Print("cmd Duration: %.3f sec" % (end-start))
-            return (funodQueries.getTransStatus(retTrans) == 'executed', retTrans)
+            return (NodeQueries.getTransStatus(retTrans) == 'executed', retTrans)
         except subprocess.CalledProcessError as ex:
             msg=ex.stderr.decode("utf-8")
             if not silentErrors:
@@ -259,7 +259,7 @@ class Transactions(funodQueries):
 
     # returns tuple with transaction execution status and transaction
     def pushMessage(self, account, action, data, opts, silentErrors=False, signatures=None, expectTrxTrace=True, force=False):
-        cmd="%s %s push action -j %s %s" % (Utils.EosClientPath, self.eosClientArgs(), account, action)
+        cmd="%s %s push action -j %s %s" % (Utils.ClientPath, self.eosClientArgs(), account, action)
         cmdArr=cmd.split()
         # not using sign_str, since cmdArr messes up the string
         if signatures is not None:
@@ -279,7 +279,7 @@ class Transactions(funodQueries):
             if Utils.Debug:
                 end=time.perf_counter()
                 Utils.Print("cmd Duration: %.3f sec" % (end-start))
-            return (funodQueries.getTransStatus(trans) == 'executed' if expectTrxTrace else True, trans)
+            return (NodeQueries.getTransStatus(trans) == 'executed' if expectTrxTrace else True, trans)
         except subprocess.CalledProcessError as ex:
             msg=ex.stderr.decode("utf-8")
             output=ex.output.decode("utf-8")
@@ -291,10 +291,10 @@ class Transactions(funodQueries):
     def setPermission(self, account, code, pType, requirement, waitForTransBlock=False, exitOnError=False, sign=False):
         assert(isinstance(account, Account))
         assert(isinstance(code, Account))
-        signStr = funodQueries.sign_str(sign, [ account.activePublicKey ])
+        signStr = NodeQueries.sign_str(sign, [ account.activePublicKey ])
         cmdDesc="set action permission"
         cmd="%s -j %s %s %s %s %s" % (cmdDesc, signStr, account.name, code.name, pType, requirement)
-        trans=self.processCleosCmd(cmd, cmdDesc, silentErrors=False, exitOnError=exitOnError)
+        trans=self.processClientCmd(cmd, cmdDesc, silentErrors=False, exitOnError=exitOnError)
         self.trackCmdTransaction(trans)
 
         return self.waitForTransBlockIfNeeded(trans, waitForTransBlock, exitOnError=exitOnError)
@@ -303,7 +303,7 @@ class Transactions(funodQueries):
         if toAccount is None:
             toAccount=fromAccount
 
-        signStr = funodQueries.sign_str(sign, [ fromAccount.activePublicKey ])
+        signStr = NodeQueries.sign_str(sign, [ fromAccount.activePublicKey ])
         cmdDesc="system delegatebw"
         transferStr="--transfer" if transferTo else ""
         retry_num_blocks = self.retry_num_blocks_default if retry_num_blocks is None else retry_num_blocks
@@ -311,7 +311,7 @@ class Transactions(funodQueries):
         cmd=(f'{cmdDesc} -j {signStr} {fromAccount.name} {toAccount.name} "{netQuantity} {CORE_SYMBOL}" '
              f'"{cpuQuantity} {CORE_SYMBOL}" {transferStr} {retryStr}')
         msg="fromAccount=%s, toAccount=%s" % (fromAccount.name, toAccount.name);
-        trans=self.processCleosCmd(cmd, cmdDesc, silentErrors=silentErrors, exitOnError=exitOnError, exitMsg=msg)
+        trans=self.processClientCmd(cmd, cmdDesc, silentErrors=silentErrors, exitOnError=exitOnError, exitMsg=msg)
         self.trackCmdTransaction(trans, reportStatus=reportStatus)
 
         return trans
@@ -320,38 +320,38 @@ class Transactions(funodQueries):
         if toAccount is None:
             toAccount=fromAccount
 
-        signStr = funodQueries.sign_str(sign, [ fromAccount.activePublicKey ])
+        signStr = NodeQueries.sign_str(sign, [ fromAccount.activePublicKey ])
         cmdDesc="system undelegatebw"
         retry_num_blocks = self.retry_num_blocks_default if retry_num_blocks is None else retry_num_blocks
         retryStr=f"--retry-num-blocks {retry_num_blocks}" if waitForTransBlock else ""
         cmd=(f'{cmdDesc} -j {signStr} {fromAccount.name} {toAccount.name} "{netQuantity} {CORE_SYMBOL}" '
              f'"{cpuQuantity} {CORE_SYMBOL}" {retryStr}')
         msg="fromAccount=%s, toAccount=%s" % (fromAccount.name, toAccount.name);
-        trans=self.processCleosCmd(cmd, cmdDesc, silentErrors=silentErrors, exitOnError=exitOnError, exitMsg=msg)
+        trans=self.processClientCmd(cmd, cmdDesc, silentErrors=silentErrors, exitOnError=exitOnError, exitMsg=msg)
         self.trackCmdTransaction(trans)
 
         return trans
 
     def regproducer(self, producer, url, location, waitForTransBlock=False, silentErrors=True, exitOnError=False, sign=False, retry_num_blocks=None):
-        signStr = funodQueries.sign_str(sign, [ producer.activePublicKey ])
+        signStr = NodeQueries.sign_str(sign, [ producer.activePublicKey ])
         cmdDesc = "system regproducer"
         retry_num_blocks = self.retry_num_blocks_default if retry_num_blocks is None else retry_num_blocks
         retryStr = f"--retry-num-blocks {retry_num_blocks}" if waitForTransBlock else ""
         cmd = f'{cmdDesc} -j {signStr} {producer.name} {producer.activePublicKey} {url} {location} {retryStr}'
         msg = f"producer={producer.name}"
-        trans = self.processCleosCmd(cmd, cmdDesc, silentErrors=silentErrors, exitOnError=exitOnError, exitMsg=msg)
+        trans = self.processClientCmd(cmd, cmdDesc, silentErrors=silentErrors, exitOnError=exitOnError, exitMsg=msg)
         self.trackCmdTransaction(trans)
 
         return trans
 
     def vote(self, account, producers, waitForTransBlock=False, silentErrors=True, exitOnError=False, sign=False, retry_num_blocks=None):
-        signStr = funodQueries.sign_str(sign, [ account.activePublicKey ])
+        signStr = NodeQueries.sign_str(sign, [ account.activePublicKey ])
         cmdDesc = "system voteproducer prods"
         retry_num_blocks = self.retry_num_blocks_default if retry_num_blocks is None else retry_num_blocks
         retryStr = f"--retry-num-blocks {retry_num_blocks}" if waitForTransBlock else ""
         cmd = f'{cmdDesc} -j {signStr} {account.name} {" ".join(producers)} {retryStr}'
         msg = "account=%s, producers=[ %s ]" % (account.name, ", ".join(producers));
-        trans = self.processCleosCmd(cmd, cmdDesc, silentErrors=silentErrors, exitOnError=exitOnError, exitMsg=msg)
+        trans = self.processClientCmd(cmd, cmdDesc, silentErrors=silentErrors, exitOnError=exitOnError, exitMsg=msg)
         self.trackCmdTransaction(trans)
 
         return trans

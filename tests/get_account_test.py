@@ -7,7 +7,7 @@ from TestHarness import Account, Cluster, ReturnType, TestHelper, Utils, WalletM
 ###############################################################
 # get_account_test
 #
-# integration test for cleos get account
+# integration test for client get account
 #
 ###############################################################
 
@@ -49,13 +49,13 @@ try:
 
         print("Stand up walletd")
         if walletMgr.launch() is False:
-            errorExit("Failed to stand up keosd.")
+            errorExit("Failed to stand up wallet progress.")
 
     Print ("producing nodes: %s, non-producing nodes: %d, topology: %s, delay between nodes launch(seconds): %d" % (pnodes, total_nodes-pnodes, topo, delay))
 
     Print("Stand up cluster")
-    extrafunodArgs=" --http-max-response-time-ms 990000 --disable-subjective-api-billing false "
-    if cluster.launch(pnodes=pnodes, totalNodes=total_nodes, activateIF=True, topo=topo, delay=delay,extrafunodArgs=extrafunodArgs ) is False:
+    extraNodeArgs=" --http-max-response-time-ms 990000 --disable-subjective-api-billing false "
+    if cluster.launch(pnodes=pnodes, totalNodes=total_nodes, activateIF=True, topo=topo, delay=delay,extraNodeArgs=extraNodeArgs ) is False:
        errorExit("Failed to stand up eos cluster.")
 
     Print ("Wait for Cluster stabilization")

@@ -44,11 +44,11 @@ try:
 
     cluster.setWalletMgr(walletMgr)
     Print("Stand up cluster")
-    specificExtrafunodArgs={}
+    specificExtraNodeArgs={}
     # producer nodes will be mapped to 0 through totalProducerNodes-1, so the number totalProducerNodes will be the non-producing node
-    specificExtrafunodArgs[totalProducerNodes]="--plugin eosio::test_control_api_plugin"
+    specificExtraNodeArgs[totalProducerNodes]="--plugin eosio::test_control_api_plugin"
     # test expects split network to advance with single producer
-    extrafunodArgs=" --production-pause-vote-timeout-ms 0 "
+    extraNodeArgs=" --production-pause-vote-timeout-ms 0 "
 
     # ***   setup topogrophy   ***
 
@@ -56,8 +56,8 @@ try:
     # and the only connection between those 2 groups is through the bridge (node4)
     if cluster.launch(topo="./tests/bridge_for_fork_test_shape.json", pnodes=totalProducerNodes,
                       totalNodes=totalNodes, totalProducers=totalProducerNodes, loadSystemContract=False,
-                      activateIF=activateIF, biosFinalizer=False, extrafunodArgs=extrafunodArgs,
-                      specificExtrafunodArgs=specificExtrafunodArgs) is False:
+                      activateIF=activateIF, biosFinalizer=False, extraNodeArgs=extraNodeArgs,
+                      specificExtraNodeArgs=specificExtraNodeArgs) is False:
         Utils.cmdError("launcher")
         Utils.errorExit("Failed to stand up eos cluster.")
     Print("Validating system accounts after bootstrap")
