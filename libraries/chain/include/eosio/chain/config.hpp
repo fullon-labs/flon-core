@@ -2,6 +2,7 @@
 #include <eosio/chain/wasm_interface.hpp>
 #include <fc/time.hpp>
 #include <fc/utility.hpp>
+#include <eosio/chain/symbol.hpp>
 
 namespace eosio { namespace chain { namespace config {
 
@@ -38,6 +39,10 @@ extern name eosio_code_name;      //{ "eosio.code"_n };
 extern name token_account_name;
 extern name msig_account_name;
 extern name wrap_account_name;
+extern name gas_account_name;
+
+extern symbol core_symbol;
+extern symbol_code core_symbol_code;
 
 const static int      block_interval_ms = 500;
 const static int      block_interval_us = block_interval_ms*1000;
@@ -60,6 +65,11 @@ static const uint32_t maximum_elastic_resource_multiplier  = 1000;
 
 const static uint32_t   rate_limiting_precision        = 1000*1000;
 
+const static uint32_t   gas_rate_precision                           = 1000;   // The precision of the gas conversion rate
+
+const static uint32_t   default_gas_per_cpu_ms                       = 10000;  // gas per cpu ms, use gas_rate_precision
+const static uint32_t   default_gas_per_net_kb                       = 50000;  // gas per net kilobyte, use gas_rate_precision
+const static uint32_t   default_gas_per_ram_kb                       = 50000;  // gas per ram per kilobyte, use gas_rate_precision
 
 const static uint32_t   default_max_block_net_usage                  = 1024 * 1024; /// at 500ms blocks and 200byte trx, this enables ~10,000 TPS burst
 const static uint32_t   default_target_block_net_usage_pct           = 10 * percent_1; /// we target 1000 TPS

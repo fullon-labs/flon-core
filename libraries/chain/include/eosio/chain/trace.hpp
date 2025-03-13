@@ -56,7 +56,7 @@ namespace eosio::chain {
          fc::raw::pack(e, r.auth_sequence);
          fc::raw::pack(e, r.code_sequence);
          fc::raw::pack(e, r.abi_sequence);
-   
+
          return e.result();
       }
 
@@ -91,6 +91,14 @@ namespace eosio::chain {
       }
    };
 
+   struct transaction_res_usage {
+      account_name                               payer;
+      uint64_t                                   net_usage = 0;
+      uint64_t                                   net_gas = 0;
+      uint64_t                                   cpu_usage = 0;
+      uint64_t                                   cpu_gas = 0;
+   };
+
    struct transaction_trace {
       transaction_id_type                        id;
       uint32_t                                   block_num = 0;
@@ -98,7 +106,7 @@ namespace eosio::chain {
       std::optional<block_id_type>               producer_block_id;
       std::optional<transaction_receipt_header>  receipt;
       fc::microseconds                           elapsed;
-      uint64_t                                   net_usage = 0;
+      transaction_res_usage                      gas_usage;
       bool                                       scheduled = false;
       vector<action_trace>                       action_traces;
       std::optional<account_delta>               account_ram_delta;
@@ -107,6 +115,8 @@ namespace eosio::chain {
       std::optional<fc::exception>               except;
       std::optional<uint64_t>                    error_code;
       std::exception_ptr                         except_ptr;
+
+      inline uint64_t net_usage() const { return gas_usage.net_usage; }
    };
 
    /**
@@ -134,7 +144,10 @@ FC_REFLECT( eosio::chain::action_trace,
                (receiver)(act)(context_free)(elapsed)(console)(trx_id)(block_num)(block_time)
                (producer_block_id)(account_ram_deltas)(except)(error_code)(return_value) )
 
+FC_REFLECT( eosio::chain::transaction_res_usage,
+   (payer)(net_usage)(net_gas)(cpu_usage)(cpu_gas) )
+
 // @ignore except_ptr
 FC_REFLECT( eosio::chain::transaction_trace, (id)(block_num)(block_time)(producer_block_id)
-                                             (receipt)(elapsed)(net_usage)(scheduled)
+                                             (receipt)(elapsed)(gas_usage)(scheduled)
                                              (action_traces)(account_ram_delta)(failed_dtrx_trace)(except)(error_code) )

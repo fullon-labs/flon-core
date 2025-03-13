@@ -8,6 +8,7 @@ if( EOSIO_COMPILE_TEST_CONTRACTS )
    else()
       find_package( cdt REQUIRED )
    endif()
+   add_compile_options(-no-missing-ricardian-clause)
 endif()
 
 if ("${CMAKE_GENERATOR}" STREQUAL "Ninja")

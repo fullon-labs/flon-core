@@ -17,7 +17,7 @@
  *
  * This repository contains examples of these privileged contracts that are useful when deploying,
  * managing, and/or using an EOSIO blockchain. They are provided for reference purposes:
- * - eosio.bios
+ * - flon.bios
  * - eosio.system
  * - eosio.msig
  * - eosio.wrap
@@ -26,7 +26,7 @@
  * - eosio.token
  */
 
-namespace eosiobios {
+namespace flonbios {
 
    using eosio::action_wrapper;
    using eosio::check;
@@ -152,15 +152,15 @@ namespace eosiobios {
    };
 
    /**
-    * @defgroup eosiobios eosio.bios
-    * @ingroup eosiocontracts
+    * @defgroup flonbios flon.bios
+    * @ingroup floncontracts
     *
-    * eosio.bios is a minimalistic system contract that only supplies the actions that are absolutely
+    * flon.bios is a minimalistic system contract that only supplies the actions that are absolutely
     * critical to bootstrap a chain and nothing more.
     *
     * @{
     */
-   class [[eosio::contract("eosio.bios")]] bios : public eosio::contract {
+   class [[eosio::contract("flon.bios")]] bios : public eosio::contract {
       public:
          using contract::contract;
          /**
@@ -323,12 +323,12 @@ namespace eosiobios {
           * @details Set the resource limits of an account
           *
           * @param account - name of the account whose resource limit to be set
-          * @param ram_bytes - ram limit in absolute bytes
-          * @param net_weight - fractionally proportionate net limit of available resources based on (weight / total_weight_of_all_accounts)
+          * @param gas - available gas in ELON
+          * @param is_unlimited - // Whether the account has unlimited gas to use
           * @param cpu_weight - fractionally proportionate cpu limit of available resources based on (weight / total_weight_of_all_accounts)
           */
          [[eosio::action]]
-         void setalimits( name account, int64_t ram_bytes, int64_t net_weight, int64_t cpu_weight );
+         void setalimits( name account, uint64_t gas, bool is_unlimited );
 
          /**
           * Set a new list of active producers, that is, a new producers' schedule.
@@ -428,5 +428,5 @@ namespace eosiobios {
          using activate_action = action_wrapper<"activate"_n, &bios::activate>;
          using reqactivated_action = action_wrapper<"reqactivated"_n, &bios::reqactivated>;
    };
-   /** @}*/ // end of @defgroup eosiobios eosio.bios
-} /// namespace eosiobios
+   /** @}*/ // end of @defgroup flonbios flon.bios
+} /// namespace flonbios

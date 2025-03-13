@@ -12,5 +12,9 @@ namespace eosio::chain::config {
    name token_account_name       = { "${SYSTEM_ACCOUNT_PREFIX}.token"_n };
    name msig_account_name        = { "${SYSTEM_ACCOUNT_PREFIX}.msig"_n };
    name wrap_account_name        = { "${SYSTEM_ACCOUNT_PREFIX}.wrap"_n };
+   name gas_account_name         = { "${SYSTEM_ACCOUNT_PREFIX}.gas"_n };
+
+   symbol core_symbol            = symbol(${CORE_SYMBOL_PRECISION}, "${CORE_SYMBOL_NAME}");
+   symbol_code core_symbol_code  = core_symbol.to_symbol_code();
 
 } /// namespace eosio::chain::config

@@ -57,7 +57,7 @@ option(ENABLE_OC "Enable eosvm-oc on supported platforms" ON)
 if(ENABLE_OC AND CMAKE_SIZEOF_VOID_P EQUAL 8 AND NOT WIN32)
    if("${CMAKE_SYSTEM_NAME}" STREQUAL "Linux" AND "${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "x86_64")
       list(APPEND flon_WASM_RUNTIMES eos-vm-oc)
-      # EOS VM OC requires LLVM, but move the check up here to a central location so that the flonTester.cmakes
+      # EOS VM OC requires LLVM, but move the check up here to a central location so that the ProjectTester.cmakes
       # can be created with the exact version found
       find_package(LLVM REQUIRED CONFIG)
       if(LLVM_VERSION_MAJOR VERSION_LESS 7 OR LLVM_VERSION_MAJOR VERSION_GREATER_EQUAL 16)
@@ -118,7 +118,7 @@ if(ENABLE_WEXTRA)
 endif()
 
 
-option(flon_ENABLE_DEVELOPER_OPTIONS "enable developer options for fullon" OFF)
+option(FLON_ENABLE_DEVELOPER_OPTIONS "enable developer options for fullon" OFF)
 
 # based on http://www.delorie.com/gnu/docs/gdb/gdb_70.html
 # uncomment this line to tell GDB about macros (slows compile times)
@@ -136,20 +136,25 @@ endif()
 
 include(utils)
 
-if ("${CORE_SYMBOL_NAME}" STREQUAL "")
-  set( CORE_SYMBOL_NAME "SYS" )
+string(TOUPPER ${CORE_SYMBOL_NAME} CORE_SYMBOL_NAME_UPPER)
+if (NOT CORE_SYMBOL_NAME STREQUAL CORE_SYMBOL_NAME_UPPER )
+  message(FATAL_ERROR "CORE_SYMBOL_NAME ${CORE_SYMBOL_NAME} must be upper case")
 endif()
-string(TOUPPER ${CORE_SYMBOL_NAME} CORE_SYMBOL_NAME)
 
 string(LENGTH ${CORE_SYMBOL_NAME} CORE_SYMBOL_NAME_LENGTH)
 if (CORE_SYMBOL_NAME_LENGTH GREATER 7)
   message(FATAL_ERROR "CORE_SYMBOL_NAME length must be between 1 and 7 characters")
 endif()
 
+if (CORE_SYMBOL_PRECISION GREATER 18)
+  message(FATAL_ERROR "CORE_SYMBOL_NAME length must less or equal 18")
+endif()
+
 message( STATUS "Using '${CORE_SYMBOL_NAME}' as CORE symbol name" )
+message( STATUS "Using '${CORE_SYMBOL_PRECISION}' as CORE symbol precision" )
 
 if ("${SYSTEM_ROOT_KEY}" STREQUAL "")
-  set(SYSTEM_ROOT_KEY "${PUBLIC_KEY_LEGACY_PREFIX}6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV")
+   set(SYSTEM_ROOT_KEY "${PUBLIC_KEY_LEGACY_PREFIX}6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV")
 endif()
 
 message( STATUS "Using '${SYSTEM_ROOT_KEY}' as public key for '${SYSTEM_ACCOUNT_NAME}' account" )

@@ -234,12 +234,13 @@ BOOST_AUTO_TEST_CASE_TEMPLATE( db_insert_test, T, read_only_trx_testers ) { try 
 
    // verify DB insert still works with non-read-only transaction after read-only
    chain.insert_a_record();
-   
+
    // do a read-only transaction and verify the return value (age) is the same as inserted
    auto res = chain.send_db_api_transaction("getage"_n, chain.getage_data, {}, transaction_metadata::trx_type::read_only);
    BOOST_CHECK_EQUAL(res->receipt->status, transaction_receipt::executed);
    BOOST_CHECK_EQUAL(res->action_traces[0].return_value[0], 10);
-   BOOST_CHECK_GT(res->net_usage, 0u);
+   BOOST_CHECK_GT(res->gas_usage.net_usage, 0u);
+   BOOST_CHECK_GT(res->gas_usage.cpu_usage, 0u);
    BOOST_CHECK_GT(res->elapsed.count(), 0u);
 } FC_LOG_AND_RETHROW() }
 
@@ -341,7 +342,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE( sequence_numbers_test, T, read_only_trx_testers )
    // verify sequence numbers in state increment for non-read-only transactions
    auto prev_global_action_sequence = p.global_action_sequence;
    auto prev_recv_sequence = receiver_account->recv_sequence;
-   auto prev_auth_sequence = amo->auth_sequence; 
+   auto prev_auth_sequence = amo->auth_sequence;
 
    auto res = chain.send_db_api_transaction("insert"_n, chain.insert_data);
    BOOST_CHECK_EQUAL(res->receipt->status, transaction_receipt::executed);
@@ -349,13 +350,13 @@ BOOST_AUTO_TEST_CASE_TEMPLATE( sequence_numbers_test, T, read_only_trx_testers )
    BOOST_CHECK_EQUAL( prev_global_action_sequence + 1, p.global_action_sequence );
    BOOST_CHECK_EQUAL( prev_recv_sequence + 1, receiver_account->recv_sequence );
    BOOST_CHECK_EQUAL( prev_auth_sequence + 1, amo->auth_sequence );
-   
+
    chain.produce_block();
 
    // verify sequence numbers in state do not change for read-only transactions
    prev_global_action_sequence = p.global_action_sequence;
    prev_recv_sequence = receiver_account->recv_sequence;
-   prev_auth_sequence = amo->auth_sequence; 
+   prev_auth_sequence = amo->auth_sequence;
 
    chain.send_db_api_transaction("getage"_n, chain.getage_data, {}, transaction_metadata::trx_type::read_only);
 

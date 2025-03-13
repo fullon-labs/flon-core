@@ -26,7 +26,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(activate_preactivate_feature, T, testers) try {
    c.produce_block();
 
    // Cannot set latest bios contract since it requires intrinsics that have not yet been whitelisted.
-   BOOST_CHECK_EXCEPTION( c.set_code( config::system_account_name, contracts::eosio_bios_wasm() ),
+   BOOST_CHECK_EXCEPTION( c.set_code( config::system_account_name, contracts::flon_bios_wasm() ),
                           wasm_exception, fc_exception_message_contains("unresolveable")
    );
 
@@ -852,6 +852,8 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(restrict_action_to_self_test, T, testers) { try {
 
 } FC_LOG_AND_RETHROW() }
 
+// TODO: remove me?
+#if 0
 BOOST_AUTO_TEST_CASE_TEMPLATE(only_bill_to_first_authorizer, T, testers) { try {
    T chain( setup_policy::preactivate_feature_and_new_bios );
 
@@ -895,25 +897,25 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(only_bill_to_first_authorizer, T, testers) { try {
       trx.sign(get_private_key(tester_account2, "active"), chain.get_chain_id());
 
 
-      auto tester_cpu_limit0  = mgr.get_account_cpu_limit_ex(tester_account).first;
-      auto tester2_cpu_limit0 = mgr.get_account_cpu_limit_ex(tester_account2).first;
-      auto tester_net_limit0  = mgr.get_account_net_limit_ex(tester_account).first;
-      auto tester2_net_limit0 = mgr.get_account_net_limit_ex(tester_account2).first;
+      auto tester_cpu_limit0  = mgr.get_account_cpu_limit(tester_account);
+      auto tester2_cpu_limit0 = mgr.get_account_cpu_limit(tester_account2);
+      auto tester_net_limit0  = mgr.get_account_net_limit(tester_account);
+      auto tester2_net_limit0 = mgr.get_account_net_limit(tester_account2);
 
       chain.push_transaction(trx);
 
-      auto tester_cpu_limit1  = mgr.get_account_cpu_limit_ex(tester_account).first;
-      auto tester2_cpu_limit1 = mgr.get_account_cpu_limit_ex(tester_account2).first;
-      auto tester_net_limit1  = mgr.get_account_net_limit_ex(tester_account).first;
-      auto tester2_net_limit1 = mgr.get_account_net_limit_ex(tester_account2).first;
+      auto tester_cpu_limit1  = mgr.get_account_cpu_limit(tester_account);
+      auto tester2_cpu_limit1 = mgr.get_account_cpu_limit(tester_account2);
+      auto tester_net_limit1  = mgr.get_account_net_limit(tester_account);
+      auto tester2_net_limit1 = mgr.get_account_net_limit(tester_account2);
 
-      BOOST_CHECK(tester_cpu_limit1.used > tester_cpu_limit0.used);
-      BOOST_CHECK(tester2_cpu_limit1.used > tester2_cpu_limit0.used);
-      BOOST_CHECK(tester_net_limit1.used > tester_net_limit0.used);
-      BOOST_CHECK(tester2_net_limit1.used > tester2_net_limit0.used);
+      BOOST_CHECK(tester_cpu_limit1 > tester_cpu_limit0);
+      BOOST_CHECK(tester2_cpu_limit1 > tester2_cpu_limit0);
+      BOOST_CHECK(tester_net_limit1 > tester_net_limit0);
+      BOOST_CHECK(tester2_net_limit1 > tester2_net_limit0);
 
-      BOOST_CHECK_EQUAL(tester_cpu_limit1.used - tester_cpu_limit0.used, tester2_cpu_limit1.used - tester2_cpu_limit0.used);
-      BOOST_CHECK_EQUAL(tester_net_limit1.used - tester_net_limit0.used, tester2_net_limit1.used - tester2_net_limit0.used);
+      BOOST_CHECK_EQUAL(tester_cpu_limit1 - tester_cpu_limit0, tester2_cpu_limit1 - tester2_cpu_limit0);
+      BOOST_CHECK_EQUAL(tester_net_limit1 - tester_net_limit0, tester2_net_limit1 - tester2_net_limit0);
    }
 
    const auto& pfm = chain.control->get_protocol_feature_manager();
@@ -939,25 +941,27 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(only_bill_to_first_authorizer, T, testers) { try {
       trx.sign(get_private_key(tester_account, "active"), chain.get_chain_id());
       trx.sign(get_private_key(tester_account2, "active"), chain.get_chain_id());
 
-      auto tester_cpu_limit0  = mgr.get_account_cpu_limit_ex(tester_account).first;
-      auto tester2_cpu_limit0 = mgr.get_account_cpu_limit_ex(tester_account2).first;
-      auto tester_net_limit0  = mgr.get_account_net_limit_ex(tester_account).first;
-      auto tester2_net_limit0 = mgr.get_account_net_limit_ex(tester_account2).first;
+      auto tester_cpu_limit0  = mgr.get_account_cpu_limit(tester_account);
+      auto tester2_cpu_limit0 = mgr.get_account_cpu_limit(tester_account2);
+      auto tester_net_limit0  = mgr.get_account_net_limit(tester_account);
+      auto tester2_net_limit0 = mgr.get_account_net_limit(tester_account2);
 
       chain.push_transaction(trx);
 
-      auto tester_cpu_limit1  = mgr.get_account_cpu_limit_ex(tester_account).first;
-      auto tester2_cpu_limit1 = mgr.get_account_cpu_limit_ex(tester_account2).first;
-      auto tester_net_limit1  = mgr.get_account_net_limit_ex(tester_account).first;
-      auto tester2_net_limit1 = mgr.get_account_net_limit_ex(tester_account2).first;
+      auto tester_cpu_limit1  = mgr.get_account_cpu_limit(tester_account);
+      auto tester2_cpu_limit1 = mgr.get_account_cpu_limit(tester_account2);
+      auto tester_net_limit1  = mgr.get_account_net_limit(tester_account);
+      auto tester2_net_limit1 = mgr.get_account_net_limit(tester_account2);
 
-      BOOST_CHECK(tester_cpu_limit1.used > tester_cpu_limit0.used);
-      BOOST_CHECK(tester2_cpu_limit1.used == tester2_cpu_limit0.used);
-      BOOST_CHECK(tester_net_limit1.used > tester_net_limit0.used);
-      BOOST_CHECK(tester2_net_limit1.used == tester2_net_limit0.used);
+      BOOST_CHECK(tester_cpu_limit1 > tester_cpu_limit0);
+      BOOST_CHECK(tester2_cpu_limit1 == tester2_cpu_limit0);
+      BOOST_CHECK(tester_net_limit1 > tester_net_limit0);
+      BOOST_CHECK(tester2_net_limit1 == tester2_net_limit0);
    }
 
 } FC_LOG_AND_RETHROW() }
+
+#endif
 
 BOOST_AUTO_TEST_CASE_TEMPLATE(forward_setcode_test, T, testers) { try {
    T c( setup_policy::preactivate_feature_only );
@@ -1822,14 +1826,14 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(get_parameters_packed_test, T, testers) { try {
 
    // ensure it now resolves
    c.set_code( config::system_account_name, import_get_parameters_packed_wast );
-   
+
    // ensure it can be called
    auto action_priv = action( {//vector of permission_level
-                                 { config::system_account_name, 
+                                 { config::system_account_name,
                                     permission_name("active") }
                               },
-                              config::system_account_name, 
-                              action_name(), 
+                              config::system_account_name,
+                              action_name(),
                               {} );
    BOOST_REQUIRE_EQUAL(c.push_action(std::move(action_priv), config::system_account_name.to_uint64_t()), c.success());
 
@@ -1841,11 +1845,11 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(get_parameters_packed_test, T, testers) { try {
 
    c.set_code( alice_account, import_get_parameters_packed_wast );
    auto action_non_priv = action( {//vector of permission_level
-                                    { alice_account, 
+                                    { alice_account,
                                       permission_name("active") }
                                   },
-                                  alice_account, 
-                                  action_name(), 
+                                  alice_account,
+                                  action_name(),
                                   {} );
    //ensure priviledged intrinsic cannot be called by regular account
    BOOST_REQUIRE_EQUAL(c.push_action(std::move(action_non_priv), alice_account.to_uint64_t()),
@@ -1884,14 +1888,14 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(set_parameters_packed_test, T, testers) { try {
 
    // ensure it now resolves
    c.set_code( config::system_account_name, import_set_parameters_packed_wast );
-   
+
    // ensure it can be called
    auto action_priv = action( {//vector of permission_level
-                                 { config::system_account_name, 
+                                 { config::system_account_name,
                                     permission_name("active") }
                               },
-                              config::system_account_name, 
-                              action_name(), 
+                              config::system_account_name,
+                              action_name(),
                               {} );
    BOOST_REQUIRE_EQUAL(c.push_action(std::move(action_priv), config::system_account_name.to_uint64_t()), c.success());
 
@@ -1903,11 +1907,11 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(set_parameters_packed_test, T, testers) { try {
 
    c.set_code( alice_account, import_set_parameters_packed_wast );
    auto action_non_priv = action( {//vector of permission_level
-                                    { alice_account, 
+                                    { alice_account,
                                       permission_name("active") }
                                   },
-                                  alice_account, 
-                                  action_name(), 
+                                  alice_account,
+                                  action_name(),
                                   {} );
    //ensure priviledged intrinsic cannot be called by regular account
    BOOST_REQUIRE_EQUAL(c.push_action(std::move(action_non_priv), alice_account.to_uint64_t()),

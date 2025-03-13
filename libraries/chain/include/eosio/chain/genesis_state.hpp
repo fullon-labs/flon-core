@@ -36,6 +36,9 @@ struct genesis_state {
       .max_inline_action_size               = config::default_max_inline_action_size,
       .max_inline_action_depth              = config::default_max_inline_action_depth,
       .max_authority_depth                  = config::default_max_auth_depth,
+      .gas_per_cpu_ms                       = config::default_gas_per_cpu_ms,
+      .gas_per_net_kb                       = config::default_gas_per_net_kb,
+      .gas_per_ram_kb                       = config::default_gas_per_ram_kb,
    };
 
    static constexpr wasm_config default_initial_wasm_configuration {

@@ -273,6 +273,10 @@ public:
 
       std::optional<asset>       core_liquid_balance;
 
+      bool                       is_res_unlimited = true;
+      uint64_t                   gas_reserved = 0;
+      uint64_t                   gas_max = 0;
+
       int64_t                    ram_quota  = 0;
       int64_t                    net_weight = 0;
       int64_t                    cpu_weight = 0;
@@ -1083,7 +1087,7 @@ FC_REFLECT( eosio::chain_apis::read_only::get_scheduled_transactions_result, (tr
 FC_REFLECT( eosio::chain_apis::read_only::account_resource_info, (used)(available)(max)(last_usage_update_time)(current_used) )
 FC_REFLECT( eosio::chain_apis::read_only::get_account_results,
             (account_name)(head_block_num)(head_block_time)(privileged)(last_code_update)(created)
-            (core_liquid_balance)(ram_quota)(net_weight)(cpu_weight)(net_limit)(cpu_limit)(ram_usage)(permissions)
+            (core_liquid_balance)(is_res_unlimited)(gas_reserved)(gas_max)(ram_quota)(net_weight)(cpu_weight)(net_limit)(cpu_limit)(ram_usage)(permissions)
             (total_resources)(self_delegated_bandwidth)(refund_request)(voter_info)(rex_info)
             (subjective_cpu_bill_limit) (eosio_any_linked_actions) )
 // @swap code_hash

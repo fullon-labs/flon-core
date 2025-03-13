@@ -16,9 +16,11 @@ bool include_delta(const chain::table_id_object& old, const chain::table_id_obje
 bool include_delta(const chain::resource_limits::resource_limits_object& old,
                    const chain::resource_limits::resource_limits_object& curr) {
    return                                   //
-       old.net_weight != curr.net_weight || //
-       old.cpu_weight != curr.cpu_weight || //
-       old.ram_bytes != curr.ram_bytes;
+       old.net_weight   != curr.net_weight   || //
+       old.cpu_weight   != curr.cpu_weight   || //
+       old.ram_bytes    != curr.ram_bytes    || //
+       old.gas          != curr.gas          || //
+       old.is_unlimited != curr.is_unlimited ;
 }
 
 bool include_delta(const chain::resource_limits::resource_limits_state_object& old,

@@ -389,6 +389,12 @@ namespace eosio { namespace chain {
       FC_DECLARE_DERIVED_EXCEPTION( leeway_deadline_exception, deadline_exception,
                                     3081001, "Transaction reached the deadline set due to leeway on account CPU limits" )
 
+      FC_DECLARE_DERIVED_EXCEPTION( tx_gas_exception, resource_exhausted_exception,
+                                    3082001, "Gas exception" )
+      FC_DECLARE_DERIVED_EXCEPTION( tx_gas_usage_exceeded, resource_exhausted_exception,
+                                    3082002, "Transaction exceeded the current gas usage limit imposed on the transaction" )
+
+
    FC_DECLARE_DERIVED_EXCEPTION( authorization_exception, chain_exception,
                                  3090000, "Authorization exception" )
       FC_DECLARE_DERIVED_EXCEPTION( tx_duplicate_sig,             authorization_exception,
@@ -673,4 +679,12 @@ namespace eosio { namespace chain {
                                  3260000, "Finalizer exception" )
       FC_DECLARE_DERIVED_EXCEPTION( finalizer_safety_exception, finalizer_exception,
                                     3260001, "Finalizer safety file exception" )
+
+   FC_DECLARE_DERIVED_EXCEPTION( calculation_exception, chain_exception,
+                                 3300000, "Calculation exception" )
+
+      FC_DECLARE_DERIVED_EXCEPTION( calc_overflow_exception, calculation_exception,
+                                    3300001, "Calculation overflow" )
+      FC_DECLARE_DERIVED_EXCEPTION( substraction_insufficent_exception, calculation_exception,
+                                    3300001, "Substraction insufficent" )
 } } // eosio::chain

@@ -1,8 +1,8 @@
-#include "eosio.bios.hpp"
+#include "flon.bios.hpp"
 #include <eosio/instant_finality.hpp>
 #include <unordered_set>
 
-namespace eosiobios {
+namespace flonbios {
 
 void bios::setabi( name account, const std::vector<char>& abi ) {
    abi_hash_table table(get_self(), get_self().value);
@@ -91,9 +91,9 @@ void bios::setpriv( name account, uint8_t is_priv ) {
    set_privileged( account, is_priv );
 }
 
-void bios::setalimits( name account, int64_t ram_bytes, int64_t net_weight, int64_t cpu_weight ) {
+void bios::setalimits( name account, uint64_t gas, bool is_unlimited ) {
    require_auth( get_self() );
-   set_resource_limits( account, ram_bytes, net_weight, cpu_weight );
+   set_resource_limits( account, is_unlimited, gas );
 }
 
 void bios::setprods( const std::vector<eosio::producer_authority>& schedule ) {

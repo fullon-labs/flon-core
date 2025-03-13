@@ -87,7 +87,7 @@ chain::transaction_trace_ptr make_transaction_trace( const packed_transaction_pt
          b_ptr ? b_ptr->calculate_id() : std::optional<block_id_type> {},
          chain::transaction_receipt_header{status},
          fc::microseconds(0),
-         0,
+         {},
          false,
          {}, // actions
          {},

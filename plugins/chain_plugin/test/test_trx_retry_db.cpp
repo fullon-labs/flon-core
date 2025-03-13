@@ -115,7 +115,7 @@ chain::transaction_trace_ptr make_transaction_trace( const packed_transaction_pt
          trx->id(), // block_id, doesn't matter what it is for this test as long as it is set
          chain::transaction_receipt_header{status},
          fc::microseconds(0),
-         0,
+         {},
          false,
          {}, // actions
          {},

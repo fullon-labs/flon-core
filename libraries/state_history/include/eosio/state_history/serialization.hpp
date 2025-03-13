@@ -349,6 +349,9 @@ datastream<ST>& operator<<(datastream<ST>& ds, const history_serial_wrapper_stat
    fc::raw::pack(ds, as_type<uint32_t>(obj.obj.max_inline_action_size));
    fc::raw::pack(ds, as_type<uint16_t>(obj.obj.max_inline_action_depth));
    fc::raw::pack(ds, as_type<uint16_t>(obj.obj.max_authority_depth));
+   fc::raw::pack(ds, as_type<uint32_t>(obj.obj.gas_per_cpu_ms));
+   fc::raw::pack(ds, as_type<uint32_t>(obj.obj.gas_per_net_kb));
+   fc::raw::pack(ds, as_type<uint32_t>(obj.obj.gas_per_ram_kb));
    fc::raw::pack(ds, as_type<uint32_t>(obj.obj.max_action_return_value_size));
    return ds;
 }
@@ -481,13 +484,13 @@ datastream<ST>& operator<<(datastream<ST>& ds, const history_serial_wrapper_stat
 
 template <typename ST>
 datastream<ST>& operator<<(datastream<ST>& ds, const history_serial_wrapper_stateless<eosio::chain::resource_limits::resource_limits_object>& obj) {
-   EOS_ASSERT(!obj.obj.pending, eosio::chain::plugin_exception,
-              "accepted_block sent while resource_limits_object in pending state");
    fc::raw::pack(ds, fc::unsigned_int(0));
    fc::raw::pack(ds, as_type<uint64_t>(obj.obj.owner.to_uint64_t()));
    fc::raw::pack(ds, as_type<int64_t>(obj.obj.net_weight));
    fc::raw::pack(ds, as_type<int64_t>(obj.obj.cpu_weight));
    fc::raw::pack(ds, as_type<int64_t>(obj.obj.ram_bytes));
+   fc::raw::pack(ds, as_type<uint64_t>(obj.obj.gas));
+   fc::raw::pack(ds, as_type<int64_t>(obj.obj.is_unlimited));
    return ds;
 }
 
@@ -504,8 +507,8 @@ template <typename ST>
 datastream<ST>& operator<<(datastream<ST>& ds, const history_serial_wrapper<eosio::chain::resource_limits::resource_usage_object>& obj) {
    fc::raw::pack(ds, fc::unsigned_int(0));
    fc::raw::pack(ds, as_type<uint64_t>(obj.obj.owner.to_uint64_t()));
-   fc::raw::pack(ds, make_history_serial_wrapper(as_type<eosio::chain::resource_limits::usage_accumulator>(obj.obj.net_usage)));
-   fc::raw::pack(ds, make_history_serial_wrapper(as_type<eosio::chain::resource_limits::usage_accumulator>(obj.obj.cpu_usage)));
+   fc::raw::pack(ds, as_type<uint64_t>(obj.obj.net_usage));
+   fc::raw::pack(ds, as_type<uint64_t>(obj.obj.cpu_usage));
    fc::raw::pack(ds, as_type<uint64_t>(obj.obj.ram_usage));
    return ds;
 }
@@ -551,6 +554,9 @@ operator<<(datastream<ST>& ds, const history_serial_wrapper<eosio::chain::resour
    fc::raw::pack(ds, make_history_serial_wrapper(obj.db, as_type<eosio::chain::resource_limits::elastic_limit_parameters>(obj.obj.net_limit_parameters)));
    fc::raw::pack(ds, as_type<uint32_t>(obj.obj.account_cpu_usage_average_window));
    fc::raw::pack(ds, as_type<uint32_t>(obj.obj.account_net_usage_average_window));
+   fc::raw::pack(ds, as_type<uint32_t>(obj.obj.gas_per_cpu_ms));
+   fc::raw::pack(ds, as_type<uint32_t>(obj.obj.gas_per_net_kb));
+   fc::raw::pack(ds, as_type<uint32_t>(obj.obj.gas_per_ram_kb));
    return ds;
 };
 
@@ -635,6 +641,17 @@ datastream<ST>& operator<<(datastream<ST>& ds, const history_context_wrapper_sta
 }
 
 template <typename ST>
+datastream<ST>& operator<<(datastream<ST>& ds, const history_serial_wrapper_stateless<eosio::chain::transaction_res_usage>& obj) {
+   fc::raw::pack(ds, fc::unsigned_int(0));
+   fc::raw::pack(ds, as_type<uint64_t>(obj.obj.payer.to_uint64_t()));
+   fc::raw::pack(ds, as_type<uint64_t>(obj.obj.net_usage));
+   fc::raw::pack(ds, as_type<uint64_t>(obj.obj.net_gas));
+   fc::raw::pack(ds, as_type<uint64_t>(obj.obj.cpu_usage));
+   fc::raw::pack(ds, as_type<uint64_t>(obj.obj.cpu_gas));
+   return ds;
+}
+
+template <typename ST>
 datastream<ST>& operator<<(datastream<ST>& ds, const history_context_wrapper_stateless<std::pair<uint8_t, bool>, eosio::state_history::augmented_transaction_trace>& obj) {
    auto& trace      = *obj.obj.trace;
    bool  debug_mode = obj.context.second;
@@ -653,7 +670,7 @@ datastream<ST>& operator<<(datastream<ST>& ds, const history_context_wrapper_sta
       fc::raw::pack(ds, fc::unsigned_int(0));
    }
    fc::raw::pack(ds, as_type<int64_t>(debug_mode ? trace.elapsed.count() : 0));
-   fc::raw::pack(ds, as_type<uint64_t>(trace.net_usage));
+   fc::raw::pack(ds, as_type<eosio::chain::transaction_res_usage>(trace.gas_usage));
    fc::raw::pack(ds, as_type<bool>(trace.scheduled));
    history_context_serialize_container(ds, debug_mode, as_type<std::vector<eosio::chain::action_trace>>(trace.action_traces));
 

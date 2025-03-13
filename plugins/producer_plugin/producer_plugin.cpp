@@ -601,7 +601,7 @@ public:
                                const fc::exception_ptr&      except_ptr,
                                uint32_t                      billed_cpu_us,
                                bool                          is_transient);
-   
+
    void        add_greylist_accounts(const producer_plugin::greylist_params& params) {
       EOS_ASSERT(params.accounts.size() > 0, chain::invalid_http_request, "At least one account is required");
 
@@ -1125,11 +1125,11 @@ public:
          }
 
          exhausted = pr.block_exhausted;
-         
+
          if ( !in_producing_mode() && pr.trx_exhausted )
             exhausted = true;  // report transaction exhausted if trx was exhausted in non-producing mode (so we will restart
                                // a speculative block to retry it immediately, instead of waiting to receive a new block)
-         
+
       } catch (const guard_exception& e) {
          chain_plugin::handle_guard_exception(e);
       } catch (boost::interprocess::bad_alloc&) {
@@ -1335,7 +1335,7 @@ if( options.count(op_name) ) { \
 }
 
 void producer_plugin_impl::plugin_initialize(const boost::program_options::variables_map& options)
-{ 
+{
    chain_plug = app().find_plugin<chain_plugin>();
    EOS_ASSERT(chain_plug, plugin_config_exception, "chain_plugin not found" );
    _options = &options;
@@ -1795,7 +1795,7 @@ producer_plugin::schedule_snapshot(const chain::snapshot_scheduler::snapshot_req
 
    // missing start/end is set to head block num, missing end to UINT32_MAX
    chain::snapshot_scheduler::snapshot_request_information sri = {
-      .block_spacing   = srp.block_spacing ? *srp.block_spacing : 0, 
+      .block_spacing   = srp.block_spacing ? *srp.block_spacing : 0,
       .start_block_num = srp.start_block_num ? *srp.start_block_num : head_block_num + 1,
       .end_block_num   = srp.end_block_num ? *srp.end_block_num : std::numeric_limits<uint32_t>::max(),
       .snapshot_description = srp.snapshot_description ? *srp.snapshot_description : ""
@@ -2478,7 +2478,7 @@ producer_plugin_impl::push_result producer_plugin_impl::push_transaction(const f
    auto prev_billed_cpu_time_us = trx->billed_cpu_time_us;
    if (in_producing_mode() && prev_billed_cpu_time_us > 0) {
       const auto& rl = chain.get_resource_limits_manager();
-      if (!subjective_bill.is_account_disabled(first_auth) && !rl.is_unlimited_cpu(first_auth)) {
+      if (!subjective_bill.is_account_disabled(first_auth) && !rl.is_account_unlimited(first_auth)) {
          int64_t prev_billed_plus100_us = prev_billed_cpu_time_us + EOS_PERCENT(prev_billed_cpu_time_us, 100 * config::percent_1);
          if (prev_billed_plus100_us < max_trx_time.count())
             max_trx_time = fc::microseconds(prev_billed_plus100_us);

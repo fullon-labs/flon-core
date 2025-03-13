@@ -159,7 +159,8 @@ void system_contract::buyram( name payer, name receiver, asset quant )
          res.ram_bytes += bytes_out;
       });
    }
-   set_resource_limits( res_itr->owner, res_itr->ram_bytes + ram_gift_bytes, res_itr->net_weight.amount, res_itr->cpu_weight.amount );
+   // TODO: fix me
+   // set_resource_limits( res_itr->owner, res_itr->ram_bytes + ram_gift_bytes, res_itr->net_weight.amount, res_itr->cpu_weight.amount );
 }
 
 /**
@@ -197,7 +198,7 @@ void system_contract::sellram( name account, int64_t bytes ) {
    userres.modify( res_itr, account, [&]( auto& res ) {
       res.ram_bytes -= bytes;
    });
-   set_resource_limits( res_itr->owner, res_itr->ram_bytes + ram_gift_bytes, res_itr->net_weight.amount, res_itr->cpu_weight.amount );
+   // set_resource_limits( res_itr->owner, res_itr->ram_bytes + ram_gift_bytes, res_itr->net_weight.amount, res_itr->cpu_weight.amount );
 
    INLINE_ACTION_SENDER(eosio::token, transfer)(
          token_account, { {ram_account, active_permission}, {account, active_permission} },
@@ -281,10 +282,10 @@ void system_contract::changebw( name from, name receiver,
       check( 0 <= tot_itr->net_weight.amount, "insufficient staked total net bandwidth" );
       check( 0 <= tot_itr->cpu_weight.amount, "insufficient staked total cpu bandwidth" );
 
-      int64_t ram_bytes, net, cpu;
-      get_resource_limits( receiver, ram_bytes, net, cpu );
+      // int64_t ram_bytes, net, cpu;
+      // get_resource_limits( receiver, ram_bytes, net, cpu );
 
-      set_resource_limits( receiver, std::max( tot_itr->ram_bytes + ram_gift_bytes, ram_bytes ), tot_itr->net_weight.amount, tot_itr->cpu_weight.amount );
+      // set_resource_limits( receiver, std::max( tot_itr->ram_bytes + ram_gift_bytes, ram_bytes ), tot_itr->net_weight.amount, tot_itr->cpu_weight.amount );
 
       if ( tot_itr->is_empty() ) {
          totals_tbl.erase( tot_itr );

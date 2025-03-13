@@ -116,7 +116,8 @@ void system_contract::setalimits( name account, int64_t ram, int64_t net, int64_
    user_resources_table userres( _self, account.value );
    auto ritr = userres.find( account.value );
    check( ritr == userres.end(), "only supports unlimited accounts" );
-   set_resource_limits( account, ram, net, cpu );
+   // TODO: fix me
+   // set_resource_limits( account, ram, net, cpu );
 }
 
 void system_contract::rmvproducer( name producer ) {
@@ -256,7 +257,7 @@ void native::newaccount( name              creator,
       res.cpu_weight = asset( 0, system_contract::get_core_symbol() );
    });
 
-   set_resource_limits( newact, 0, 0, 0 );
+   // set_resource_limits( newact, 0, 0, 0 );
 }
 
 void native::setabi( name acnt, const std::vector<char>& abi ) {
@@ -301,18 +302,18 @@ void system_contract::init( unsigned_int version, symbol core ) {
 } /// eosio.system
 
 
-EOSIO_DISPATCH( eosiosystem::system_contract,
-// native.hpp (newaccount definition is actually in eosio.system.cpp)
-(newaccount)(updateauth)(deleteauth)(linkauth)(unlinkauth)(canceldelay)(onerror)(setabi)
-// eosio.system.cpp
-      (init)(setram)(setramrate)(setparams)(setpriv)(setalimits)(rmvproducer)(updtrevision)(bidname)(bidrefund)
-// rex.cpp
-      (deposit)(withdraw)(buyrex)(unstaketorex)(sellrex)(cnclrexorder)(rentcpu)(rentnet)(fundcpuloan)(fundnetloan)
-      (defcpuloan)(defnetloan)(updaterex)(consolidate)(rexexec)(closerex)
-// delegate_bandwidth.cpp
-      (buyrambytes)(buyram)(sellram)(delegatebw)(undelegatebw)(refund)
-// voting.cpp
-      (regproducer)(unregprod)(voteproducer)(regproxy)
-// producer_pay.cpp
-      (onblock)(claimrewards)
-)
+// EOSIO_DISPATCH( eosiosystem::system_contract,
+// // native.hpp (newaccount definition is actually in eosio.system.cpp)
+// (newaccount)(updateauth)(deleteauth)(linkauth)(unlinkauth)(canceldelay)(onerror)(setabi)
+// // eosio.system.cpp
+//       (init)(setram)(setramrate)(setparams)(setpriv)(setalimits)(rmvproducer)(updtrevision)(bidname)(bidrefund)
+// // rex.cpp
+//       (deposit)(withdraw)(buyrex)(unstaketorex)(sellrex)(cnclrexorder)(rentcpu)(rentnet)(fundcpuloan)(fundnetloan)
+//       (defcpuloan)(defnetloan)(updaterex)(consolidate)(rexexec)(closerex)
+// // delegate_bandwidth.cpp
+//       (buyrambytes)(buyram)(sellram)(delegatebw)(undelegatebw)(refund)
+// // voting.cpp
+//       (regproducer)(unregprod)(voteproducer)(regproxy)
+// // producer_pay.cpp
+//       (onblock)(claimrewards)
+// )

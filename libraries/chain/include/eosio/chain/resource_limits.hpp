@@ -1,13 +1,16 @@
 #pragma once
 #include <eosio/chain/exceptions.hpp>
 #include <eosio/chain/types.hpp>
-#include <eosio/chain/config.hpp>
+#include <eosio/chain/chain_config.hpp>
 #include <eosio/chain/trace.hpp>
 #include <eosio/chain/snapshot.hpp>
 #include <eosio/chain/block_timestamp.hpp>
 #include <chainbase/chainbase.hpp>
 #include <set>
 
+#include <eosio/chain/contract_table_objects.hpp>
+#include <eosio/chain/asset.hpp>
+#include <eosio/chain/core_symbol.hpp>
 namespace eosio { namespace chain {
 
    class deep_mind_handler;
@@ -70,27 +73,30 @@ namespace eosio { namespace chain {
          }
 
          void add_indices();
-         void initialize_database();
+         void initialize_database(const chain_config& cfg);
          size_t expected_snapshot_row_count() const;
          void add_to_snapshot( const snapshot_writer_ptr& snapshot, snapshot_written_row_counter& row_counter ) const;
          void read_from_snapshot( const snapshot_reader_ptr& snapshot, std::atomic_size_t& read_row_count, boost::asio::io_context& ctx );
 
          void initialize_account( const account_name& account, bool is_trx_transient );
-         void set_block_parameters( const elastic_limit_parameters& cpu_limit_parameters, const elastic_limit_parameters& net_limit_parameters );
+         void set_block_parameters( const chain_config& cfg, const elastic_limit_parameters& cpu_limit_parameters, const elastic_limit_parameters& net_limit_parameters );
 
-         void update_account_usage( const flat_set<account_name>& accounts, uint32_t ordinal );
-         void add_transaction_usage( const flat_set<account_name>& accounts, uint64_t cpu_usage, uint64_t net_usage, uint32_t ordinal, bool is_trx_transient = false );
+         // void update_account_usage( const flat_set<account_name>& accounts, uint32_t ordinal );
+         void add_transaction_usage( transaction_res_usage& trx_res_usage, bool is_trx_transient = false );
+         void calc_transaction_gas_usage( transaction_res_usage& trx_res_usage);
+         void verify_transaction_gas_usage( transaction_res_usage& trx_res_usage, uint64_t reserved_gas, uint64_t convertible_gas);
 
-         void add_pending_ram_usage( const account_name account, int64_t ram_delta, bool is_trx_transient = false );
-         void verify_account_ram_usage( const account_name accunt )const;
+         void add_ram_usage( const account_name account, int64_t ram_delta, bool is_trx_transient = false );
 
-         /// set_account_limits returns true if new ram_bytes limit is more restrictive than the previously set one
-         bool set_account_limits( const account_name& account, int64_t ram_bytes, int64_t net_weight, int64_t cpu_weight, bool is_trx_transient);
-         void get_account_limits( const account_name& account, int64_t& ram_bytes, int64_t& net_weight, int64_t& cpu_weight) const;
+         void set_account_limits( const account_name& account, uint64_t gas, bool is_unlimited, bool is_trx_transient);
 
-         bool is_unlimited_cpu( const account_name& account ) const;
+         void get_account_limits( const account_name& account, uint64_t& gas, bool& is_unlimited ) const;
+         uint64_t get_account_convertible_gas( const account_name& account ) const;
+         uint64_t get_account_gas_max( const account_name& account, uint64_t reserved_gas ) const;
+         uint64_t get_account_gas( const account_name& account) const;
 
-         void process_account_limit_updates();
+         bool is_account_unlimited( const account_name& account ) const;
+
          void process_block_usage( uint32_t block_num );
 
          // accessors
@@ -103,20 +109,53 @@ namespace eosio { namespace chain {
          uint64_t get_block_cpu_limit() const;
          uint64_t get_block_net_limit() const;
 
-         std::pair<int64_t, bool> get_account_cpu_limit( const account_name& name, uint32_t greylist_limit = config::maximum_elastic_resource_multiplier ) const;
-         std::pair<int64_t, bool> get_account_net_limit( const account_name& name, uint32_t greylist_limit = config::maximum_elastic_resource_multiplier ) const;
+         uint64_t get_account_cpu_limit( const account_name& account) const;
+         uint64_t get_account_net_limit( const account_name& account) const;
 
-         std::pair<account_resource_limit, bool>
-         get_account_cpu_limit_ex( const account_name& name, uint32_t greylist_limit = config::maximum_elastic_resource_multiplier, const std::optional<block_timestamp_type>& current_time={} ) const;
-         std::pair<account_resource_limit, bool>
-         get_account_net_limit_ex( const account_name& name, uint32_t greylist_limit = config::maximum_elastic_resource_multiplier, const std::optional<block_timestamp_type>& current_time={} ) const;
 
-         int64_t get_account_ram_usage( const account_name& name ) const;
+         int64_t get_account_ram_usage( const account_name& account ) const;
 
+         uint64_t convert_cpu_to_gas(uint64_t gas) const ;
+         uint64_t convert_net_to_gas(uint64_t gas) const ;
+         uint64_t convert_gas_to_cpu(uint64_t gas) const ;
+         uint64_t convert_gas_to_net(uint64_t gas) const ;
       private:
          chainbase::database&         _db;
          std::function<deep_mind_handler*(bool is_trx_transient)> _get_deep_mind_logger;
    };
+
+
+   struct core_asset_account;
+   using core_asset_account_ptr = std::shared_ptr<core_asset_account>;
+   struct token_account_data {
+      asset                   balance;
+      vector<char>            remaining_data;
+
+      static token_account_data unpack_from(const key_value_object& obj);
+
+      void pack_to(key_value_object& obj);
+   };
+
+   struct core_asset_account {
+      const key_value_object&    table_obj;
+      token_account_data         acct_data;
+
+      core_asset_account( const key_value_object& table_obj, token_account_data acct_data)
+      :table_obj(table_obj), acct_data(acct_data) {}
+
+      static core_asset_account_ptr create(chainbase::database& db, const account_name& account);
+
+      void save(chainbase::database& db);
+
+      inline const asset& balance() const {
+         return acct_data.balance;
+      }
+      inline asset& balance() {
+         return acct_data.balance;
+      }
+
+   };
+
 } } } /// eosio::chain
 
 FC_REFLECT( eosio::chain::resource_limits::account_resource_limit, (used)(available)(max)(last_usage_update_time)(current_used) )

@@ -348,6 +348,9 @@ public:
          ("max_inline_action_size", 512*1024 + n)
          ("max_inline_action_depth", 4 + n)
          ("max_authority_depth", 6 + n)
+         ("gas_per_cpu_ms", 10000 + n)
+         ("gas_per_net_kb", 50000 + n)
+         ("gas_per_ram_kb", 50000 + n)
          ("max_ram_size", (n % 10 + 1) * 1024 * 1024)
          ("ram_reserve_ratio", 100 + n);
    }

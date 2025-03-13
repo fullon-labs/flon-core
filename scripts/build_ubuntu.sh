@@ -24,5 +24,5 @@ export CPU_CORES=${CPU_CORES:-$(nproc)}
 export BUILD_DIR=${BUILD_DIR:-"build"}
 mkdir -p ${BUILD_DIR}
 cd ${BUILD_DIR}
-cmake -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} -DCMAKE_PREFIX_PATH=/usr/lib/llvm-11 ..
+cmake -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} -DCMAKE_PREFIX_PATH=/usr/lib/llvm-11 $CMAKE_ARGS ..
 make -j "${CPU_CORES}" package
