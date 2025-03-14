@@ -7,7 +7,7 @@ set( SYSTEM_ACCOUNT_PREFIX          flon        )
 
 ## config core symbol
 set( CORE_SYMBOL_NAME               FLON        )
-set( CORE_SYMBOL_PRECISION          6           )
+set( CORE_SYMBOL_PRECISION          8           )
 
 ## config program name
 set( PROGRAM_ROOT_NAME              flon        )
