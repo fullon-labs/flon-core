@@ -759,6 +759,16 @@ chain::action create_action(const vector<permission_level>& authorization, const
    return chain::action{authorization, code, act, variant_to_bin(code, act, args)};
 }
 
+
+chain::action create_buygas(const name& payer, const name& receiver, const asset& quantity) {
+   fc::variant act_payload = fc::mutable_variant_object()
+         ("payer", payer.to_string())
+         ("receiver", receiver.to_string())
+         ("quant", quantity.to_string());
+   return create_action(get_account_permissions(tx_permission, {payer,config::active_name}),
+                        config::system_account_name, "buygas"_n, act_payload);
+}
+
 chain::action create_buyram(const name& creator, const name& newaccount, const asset& quantity) {
    fc::variant act_payload = fc::mutable_variant_object()
          ("payer", creator.to_string())
@@ -808,7 +818,7 @@ chain::action create_open(const string& contract, const name& owner, symbol sym,
    };
 }
 
-chain::action create_transfer(const string& contract, const name& sender, const name& recipient, asset amount, const string& memo ) {
+chain::action create_transfer(const name& contract, const name& sender, const name& recipient, asset amount, const string& memo ) {
 
    auto transfer = fc::mutable_variant_object
       ("from", sender)
@@ -820,6 +830,10 @@ chain::action create_transfer(const string& contract, const name& sender, const 
       get_account_permissions(tx_permission, {sender,config::active_name}),
       name(contract), "transfer"_n, variant_to_bin( name(contract), "transfer"_n, transfer )
    };
+}
+
+chain::action create_transfer(const string& contract, const name& sender, const name& recipient, asset amount, const string& memo ) {
+   return create_transfer(contract, sender, recipient, amount, memo);
 }
 
 chain::action create_setabi(const name& account, const bytes& abi) {
@@ -1200,19 +1214,16 @@ struct create_account_subcommand {
    string account_name;
    string owner_key_str;
    string active_key_str;
-   string stake_net;
-   string stake_cpu;
-   uint32_t buy_ram_bytes_in_kbytes = 0;
-   uint32_t buy_ram_bytes = 0;
-   string buy_ram_eos;
-   bool transfer = false;
+   string buy_gas_quant;
+   string transfer_quant;
+   string transfer_memo;
    bool simple = false;
 
    create_account_subcommand(CLI::App* actionRoot, bool s) : simple(s) {
       auto createAccount = actionRoot->add_subcommand(
                               (simple ? "account" : "newaccount"),
-                              (simple ? localized("Create a new account on the blockchain (assumes system contract does not restrict RAM usage)")
-                                      : localized("Create a new account on the blockchain with initial resources") )
+                              (simple ? localized("Create a new account on the blockchain (assumes system contract does not restrict resource usage)")
+                                      : localized("Create a new account on the blockchain with initial gas or core assets") )
       );
       createAccount->add_option("creator", creator, localized("The name of the account creating the new account"))->required();
       createAccount->add_option("name", account_name, localized("The name of the new account"))->required();
@@ -1220,18 +1231,12 @@ struct create_account_subcommand {
       createAccount->add_option("ActiveKey", active_key_str, localized("The active public key, permission level, or authority for the new account"));
 
       if (!simple) {
-         createAccount->add_option("--stake-net", stake_net,
-                                   (localized("The amount of tokens delegated for net bandwidth")))->required();
-         createAccount->add_option("--stake-cpu", stake_cpu,
-                                   (localized("The amount of tokens delegated for CPU bandwidth")))->required();
-         createAccount->add_option("--buy-ram-kbytes", buy_ram_bytes_in_kbytes,
-                                   (localized("The amount of RAM bytes to purchase for the new account in kibibytes (KiB)")));
-         createAccount->add_option("--buy-ram-bytes", buy_ram_bytes,
-                                   (localized("The amount of RAM bytes to purchase for the new account in bytes")));
-         createAccount->add_option("--buy-ram", buy_ram_eos,
-                                   (localized("The amount of RAM bytes to purchase for the new account in tokens")));
-         createAccount->add_flag("--transfer", transfer,
-                                 (localized("Transfer voting power and right to unstake tokens to receiver")));
+         createAccount->add_option("--gas-quant", buy_gas_quant,
+                                   (localized("The quantity of core asset for buying gas to new account")))->required();
+         createAccount->add_option("--transfer-quant", transfer_quant,
+                                   (localized("The amount for transfering core asset to new account")))->required();
+         createAccount->add_option("--transfer-memo", transfer_memo,
+                                   (localized("The memo for transfering core asset to the new account")));
       }
 
       add_standard_transaction_options_plus_signing(createAccount, "creator@active");
@@ -1268,23 +1273,31 @@ struct create_account_subcommand {
                } EOS_RETHROW_EXCEPTIONS( public_key_type_exception, "Invalid active public key: ${public_key}", ("public_key", active_key_str) );
             }
 
-            auto create = create_newaccount(name(creator), name(account_name), owner, active);
+            std::vector<chain::action> actions = {
+               create_newaccount(name(creator), name(account_name), owner, active)
+            };
+
             if (!simple) {
-               EOSC_ASSERT( buy_ram_eos.size() || buy_ram_bytes_in_kbytes || buy_ram_bytes, "ERROR: One of --buy-ram, --buy-ram-kbytes or --buy-ram-bytes should have non-zero value" );
-               EOSC_ASSERT( !buy_ram_bytes_in_kbytes || !buy_ram_bytes, "ERROR: --buy-ram-kbytes and --buy-ram-bytes cannot be set at the same time" );
-               action buyram = !buy_ram_eos.empty() ? create_buyram(name(creator), name(account_name), to_asset(buy_ram_eos))
-                  : create_buyrambytes(name(creator), name(account_name), (buy_ram_bytes_in_kbytes) ? (buy_ram_bytes_in_kbytes * 1024) : buy_ram_bytes);
-               auto net = to_asset(stake_net);
-               auto cpu = to_asset(stake_cpu);
-               if ( net.get_amount() != 0 || cpu.get_amount() != 0 ) {
-                  action delegate = create_delegate( name(creator), name(account_name), net, cpu, transfer);
-                  send_actions( { create, buyram, delegate }, signing_keys_opt.get_keys());
-               } else {
-                  send_actions( { create, buyram }, signing_keys_opt.get_keys());
+               EOSC_ASSERT( buy_gas_quant.size() || transfer_quant.size(), "ERROR: One of --buy-gas-quant or --transfer-quant should have value" );
+
+               // TODO: check core asset?
+               if (buy_gas_quant.size()) {
+                  auto quant = to_asset(buy_gas_quant);
+                  if (quant.get_amount() > 0) {
+                     actions.push_back(create_buygas(name(creator), name(account_name), quant));
+                  }
                }
-            } else {
-               send_actions( { create }, signing_keys_opt.get_keys());
+               if (transfer_quant.size()) {
+                  auto quant = to_asset(buy_gas_quant);
+                  if (quant.get_amount() > 0) {
+                     actions.push_back(create_transfer(config::token_account_name, name(creator), name(account_name), quant, transfer_memo));
+                  }
+               }
+               EOSC_ASSERT( actions.size() > 1, "ERROR: One of --buy-gas-quant or --transfer-quant should be positive" );
             }
+
+            send_actions( std::move(actions), signing_keys_opt.get_keys());
+
       });
    }
 };
