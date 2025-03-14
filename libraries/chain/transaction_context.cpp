@@ -135,7 +135,6 @@ namespace eosio::chain {
 
       // Possibly limit deadline to subjective max_transaction_time
       if( max_transaction_time_subjective != fc::microseconds::maximum() && max_transaction_time_subjective <= objective_duration_limit ) {
-         assert(explicit_billed_cpu_time);
          objective_duration_limit = max_transaction_time_subjective;
          initial_cpu_exception_code = tx_cpu_usage_exceeded::code_value;
          initial_tx_cpu_usage_reason = billed_cpu_time_us > 0 ?
