@@ -1232,9 +1232,9 @@ struct create_account_subcommand {
 
       if (!simple) {
          createAccount->add_option("--gas-quant", buy_gas_quant,
-                                   (localized("The quantity of core asset for buying gas to new account")))->required();
+                                   (localized("The quantity of core asset for buying gas to new account")));
          createAccount->add_option("--transfer-quant", transfer_quant,
-                                   (localized("The amount for transfering core asset to new account")))->required();
+                                   (localized("The amount for transfering core asset to new account")));
          createAccount->add_option("--transfer-memo", transfer_memo,
                                    (localized("The memo for transfering core asset to the new account")));
       }
@@ -1288,7 +1288,7 @@ struct create_account_subcommand {
                   }
                }
                if (transfer_quant.size()) {
-                  auto quant = to_asset(buy_gas_quant);
+                  auto quant = to_asset(transfer_quant);
                   if (quant.get_amount() > 0) {
                      actions.push_back(create_transfer(config::token_account_name, name(creator), name(account_name), quant, transfer_memo));
                   }
