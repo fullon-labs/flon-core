@@ -167,10 +167,10 @@ extern const char* const state_history_plugin_abi = R"({
         {
             "name": "transaction_res_usage_v0", "fields": [
                 { "name": "payer", "type": "name" },
-                { "name": "net_usage", "type": "uint64_t" },
-                { "name": "net_gas", "type": "uint64_t" },
-                { "name": "cpu_usage", "type": "uint64_t" },
-                { "name": "cpu_gas", "type": "uint64_t" }
+                { "name": "net_usage", "type": "uint64" },
+                { "name": "net_gas", "type": "uint64" },
+                { "name": "cpu_usage", "type": "uint64" },
+                { "name": "cpu_gas", "type": "uint64" }
             ]
         },
         {
