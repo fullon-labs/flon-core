@@ -51,7 +51,7 @@ namespace eosio::chain {
    ,executed_action_receipts(store_which)
    ,transaction_timer(std::move(tmr))
    ,trx_type(type)
-   ,net_usage(trace->gas_usage.net_usage)
+   ,net_usage(trace->res_usage.net_usage)
    ,pseudo_start(s)
    {
       if (!c.skip_db_sessions() && !is_read_only()) {
@@ -150,7 +150,7 @@ namespace eosio::chain {
       if ( !is_read_only() ) {
          bill_to_account = trx.first_authorizer();
          // TODO: check first_authorizer is valid?
-         trace->gas_usage.payer = bill_to_account;
+         trace->res_usage.payer = bill_to_account;
          // TODO: need to do?  validate_ram_usage.reserve( 1 );
       }
 
@@ -164,14 +164,14 @@ namespace eosio::chain {
 
       // add net usage
       if (initial_net_usage > 0) {
-         // net_usage is reference of trace->gas_usage.net_usage
+         // net_usage is reference of trace->res_usage.net_usage
          net_usage += initial_net_usage;
       }
 
       auto now = fc::time_point::now();
       if ( !is_read_only() && !control.skip_trx_checks() ) {
 
-         trace->gas_usage.cpu_usage = update_billed_cpu_time(now);
+         trace->res_usage.cpu_usage = update_billed_cpu_time(now);
 
          check_net_limit();
          check_cpu_limit(now, false);
@@ -181,18 +181,18 @@ namespace eosio::chain {
          rl.get_account_limits(bill_to_account, reserved_gas, is_unlimited);
          if (!is_unlimited) {
             auto convertible_gas = rl.get_account_convertible_gas(bill_to_account);
-            // the trace->gas_usage.cpu_usage and trace->gas_usage.net_usage have been set above
-            rl.calc_transaction_gas_usage( trace->gas_usage);
-            rl.verify_transaction_gas_usage(trace->gas_usage, reserved_gas, convertible_gas);
+            // the trace->res_usage.cpu_usage and trace->res_usage.net_usage have been set above
+            rl.calc_transaction_gas_usage( trace->res_usage);
+            rl.verify_transaction_gas_usage(trace->res_usage, reserved_gas, convertible_gas);
 
             if( !explicit_billed_cpu_time ) {
                // Calculate the highest network usage and CPU time that billed account(payer) can afford to be billed
                uint64_t gas_limit = reserved_gas + convertible_gas;
-               uint64_t used_gas = trace->gas_usage.cpu_gas + trace->gas_usage.net_gas;
+               uint64_t used_gas = trace->res_usage.cpu_gas + trace->res_usage.net_gas;
                EOS_ASSERT( gas_limit > used_gas,
                   tx_gas_usage_exceeded,
                   "authorizing account '${n}' has insufficient gas for cpu to execute this transaction",
-                  ("n", trace->gas_usage.payer));
+                  ("n", trace->res_usage.payer));
                uint64_t available_gas = gas_limit - used_gas;
                uint64_t account_cpu_limit = rl.convert_gas_to_cpu(available_gas);
 
@@ -210,7 +210,7 @@ namespace eosio::chain {
                      tx_gas_usage_exceeded,
                      "authorizing account '${n}' has insufficient gas for cpu to execute this transaction"
                      " with a subjective cpu of (${subjective} us",
-                     ("n", trace->gas_usage.payer)
+                     ("n", trace->res_usage.payer)
                      ("subjective", subjective_cpu_bill_us)
                   );
 
@@ -406,9 +406,9 @@ namespace eosio::chain {
 
       // validate_cpu_usage_to_bill( billed_cpu_time_us, account_cpu_limit, true, subjective_cpu_bill_us );
 
-      trace->gas_usage.cpu_usage = static_cast<uint64_t>(billed_cpu_time_us);
-      trace->gas_usage.net_usage = net_usage;
-      rl.add_transaction_usage( trace->gas_usage, is_transient() ); // Should never fail
+      trace->res_usage.cpu_usage = static_cast<uint64_t>(billed_cpu_time_us);
+      trace->res_usage.net_usage = net_usage;
+      rl.add_transaction_usage( trace->res_usage, is_transient() ); // Should never fail
    }
 
    void transaction_context::squash() {
@@ -427,11 +427,11 @@ namespace eosio::chain {
    }
 
    void transaction_context::set_transaction_usage(uint64_t cpu_usage, uint64_t net_usage) {
-      trace->gas_usage.cpu_usage = cpu_usage;
-      trace->gas_usage.net_usage = net_usage;
+      trace->res_usage.cpu_usage = cpu_usage;
+      trace->res_usage.net_usage = net_usage;
 
       auto& rl = control.get_mutable_resource_limits_manager();
-      rl.add_transaction_usage( trace->gas_usage);
+      rl.add_transaction_usage( trace->res_usage);
    }
 
    void transaction_context::check_cpu_limit(const fc::time_point& now, bool check_minimum) const {
@@ -505,8 +505,8 @@ namespace eosio::chain {
          rl.get_account_limits(bill_to_account, reserved_gas, is_unlimited);
          if (!is_unlimited) {
             auto convertible_gas = rl.get_account_convertible_gas(bill_to_account);
-            rl.calc_transaction_gas_usage( trace->gas_usage);
-            rl.verify_transaction_gas_usage(trace->gas_usage, reserved_gas, convertible_gas);
+            rl.calc_transaction_gas_usage( trace->res_usage);
+            rl.verify_transaction_gas_usage(trace->res_usage, reserved_gas, convertible_gas);
          }
       }
    }

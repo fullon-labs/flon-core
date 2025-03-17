@@ -316,8 +316,8 @@ BOOST_AUTO_TEST_CASE_TEMPLATE( db_insert_test, T, dry_run_trx_testers ) { try {
    auto res = chain.send_db_api_transaction("getage"_n, chain.getage_data, vector<permission_level>{{"alice"_n, config::active_name}}, transaction_metadata::trx_type::dry_run);
    BOOST_CHECK_EQUAL(res->receipt->status, transaction_receipt::executed);
    BOOST_CHECK_EQUAL(res->action_traces[0].return_value[0], 10);
-   BOOST_CHECK_GT(res->gas_usage.cpu_usage, 0u);
-   BOOST_CHECK_GT(res->gas_usage.net_usage, 0u);
+   BOOST_CHECK_GT(res->res_usage.cpu_usage, 0u);
+   BOOST_CHECK_GT(res->res_usage.net_usage, 0u);
    BOOST_CHECK_GT(res->elapsed.count(), 0u);
 } FC_LOG_AND_RETHROW() }
 

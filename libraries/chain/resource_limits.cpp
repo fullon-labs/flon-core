@@ -40,7 +40,7 @@ namespace res_utils {
                   std::string("Overflow when ") + description);
    }
 
-   uint64_t calc_transaction_gas_usage(  transaction_res_usage& trx_res_usage, const resource_limits_config_object& config );
+   uint64_t calc_transaction_gas_usage(  transaction_res_usage& res_usage, const resource_limits_config_object& config );
 
 
    template<typename Int, typename CalcInt>
@@ -266,27 +266,27 @@ void resource_limits_manager::set_block_parameters(const chain_config& cfg, cons
    });
 }
 
-void resource_limits_manager::add_transaction_usage(transaction_res_usage& trx_res_usage, bool is_trx_transient ) {
+void resource_limits_manager::add_transaction_usage(transaction_res_usage& res_usage, bool is_trx_transient ) {
 
    const auto& state = _db.get<resource_limits_state_object>();
    const auto& config = _db.get<resource_limits_config_object>();
 
-   const auto& usage = _db.get<resource_usage_object,by_owner>( trx_res_usage.payer );
-   const auto& cpu_usage = trx_res_usage.cpu_usage;
-   const auto& net_usage = trx_res_usage.net_usage;
+   const auto& usage = _db.get<resource_usage_object,by_owner>( res_usage.payer );
+   const auto& cpu_usage = res_usage.cpu_usage;
+   const auto& net_usage = res_usage.net_usage;
 
    uint64_t used_gas = 0;
-   auto acc_limits = res_utils::get_account_limits(_db, trx_res_usage.payer);
+   auto acc_limits = res_utils::get_account_limits(_db, res_usage.payer);
    if (!acc_limits.is_unlimited) {
       core_gas_accessor_ptr cgs;
 
       uint64_t reserved_gas      = acc_limits.gas;
       uint64_t convertible_gas   = 0;
 
-      used_gas = res_utils::calc_transaction_gas_usage(trx_res_usage, config);
+      used_gas = res_utils::calc_transaction_gas_usage(res_usage, config);
 
       if ( used_gas > reserved_gas ) {
-         cgs = core_gas_accessor::create(_db, trx_res_usage.payer);
+         cgs = core_gas_accessor::create(_db, res_usage.payer);
          convertible_gas = cgs->convertible_gas;
       }
 
@@ -297,12 +297,12 @@ void resource_limits_manager::add_transaction_usage(transaction_res_usage& trx_r
          tx_gas_usage_exceeded,
          "authorizing account '${n}' has insufficient gas for cpu and net usage of this transaction ,"
          "needs gas ${used_gas} , but has available gas ${gas}",
-         ("n", trx_res_usage.payer)
-         ("cpu_usage", trx_res_usage.cpu_usage)
-         ("net_usage", trx_res_usage.net_usage)
+         ("n", res_usage.payer)
+         ("cpu_usage", res_usage.cpu_usage)
+         ("net_usage", res_usage.net_usage)
          ("used_gas", used_gas)
-         ("cpu_gas", trx_res_usage.cpu_gas)
-         ("net_gas", trx_res_usage.net_gas)
+         ("cpu_gas", res_usage.cpu_gas)
+         ("net_gas", res_usage.net_gas)
          ("gas", gas_limit)
          ("reserved_gas", reserved_gas)
          ("convertible_gas", convertible_gas)
@@ -347,39 +347,39 @@ void resource_limits_manager::add_transaction_usage(transaction_res_usage& trx_r
    EOS_ASSERT( state.pending_net_usage <= config.net_limit_parameters.max, block_resource_exhausted, "Block has insufficient net resources" );
 }
 
-uint64_t res_utils::calc_transaction_gas_usage( transaction_res_usage& trx_res_usage,
+uint64_t res_utils::calc_transaction_gas_usage( transaction_res_usage& res_usage,
                                                 const resource_limits_config_object& config )
 {
-   // must set the trx_res_usage.cpu_usage and trx_res_usage.net_usage before here
-   trx_res_usage.cpu_gas = res_utils::convert_cpu_to_gas(config, trx_res_usage.cpu_usage);
-   trx_res_usage.net_gas = res_utils::convert_net_to_gas(config, trx_res_usage.net_usage);
+   // must set the res_usage.cpu_usage and res_usage.net_usage before here
+   res_usage.cpu_gas = res_utils::convert_cpu_to_gas(config, res_usage.cpu_usage);
+   res_usage.net_gas = res_utils::convert_net_to_gas(config, res_usage.net_usage);
 
-   res_utils::verify_add(trx_res_usage.cpu_gas, trx_res_usage.net_gas, "adding cpu gas and net gas of transaction");
-   return trx_res_usage.cpu_gas + trx_res_usage.net_gas;
+   res_utils::verify_add(res_usage.cpu_gas, res_usage.net_gas, "adding cpu gas and net gas of transaction");
+   return res_usage.cpu_gas + res_usage.net_gas;
 }
 
-void resource_limits_manager::calc_transaction_gas_usage( transaction_res_usage& trx_res_usage) {
+void resource_limits_manager::calc_transaction_gas_usage( transaction_res_usage& res_usage) {
    const auto& config = _db.get<resource_limits_config_object>();
-   res_utils::calc_transaction_gas_usage(trx_res_usage, config);
+   res_utils::calc_transaction_gas_usage(res_usage, config);
 }
 
-void resource_limits_manager::verify_transaction_gas_usage( transaction_res_usage& trx_res_usage, uint64_t reserved_gas, uint64_t convertible_gas) {
+void resource_limits_manager::verify_transaction_gas_usage( transaction_res_usage& res_usage, uint64_t reserved_gas, uint64_t convertible_gas) {
 
-   res_utils::verify_add(trx_res_usage.cpu_gas, trx_res_usage.net_gas, "adding cpu gas and net gas of transaction");
+   res_utils::verify_add(res_usage.cpu_gas, res_usage.net_gas, "adding cpu gas and net gas of transaction");
    res_utils::verify_add(reserved_gas, convertible_gas, "adding cpu gas and net gas of transaction");
-   uint64_t used_gas = trx_res_usage.cpu_gas + trx_res_usage.net_gas;
+   uint64_t used_gas = res_usage.cpu_gas + res_usage.net_gas;
    uint64_t gas_limit = reserved_gas + convertible_gas;
 
    EOS_ASSERT( used_gas <= reserved_gas + convertible_gas,
                tx_gas_usage_exceeded,
                "authorizing account '${n}' has insufficient gas for cpu usage ${cpu_usage} and net usage ${net_usage} of this transaction,"
                "needs gas ${used_gas} , but has available gas ${gas}",
-               ("n", trx_res_usage.payer)
-               ("cpu_usage", trx_res_usage.cpu_usage)
-               ("net_usage", trx_res_usage.net_usage)
+               ("n", res_usage.payer)
+               ("cpu_usage", res_usage.cpu_usage)
+               ("net_usage", res_usage.net_usage)
                ("used_gas", used_gas)
-               ("cpu_gas", trx_res_usage.cpu_gas)
-               ("net_gas", trx_res_usage.net_gas)
+               ("cpu_gas", res_usage.cpu_gas)
+               ("net_gas", res_usage.net_gas)
                ("gas", gas_limit)
                ("reserved_gas", reserved_gas)
                ("convertible_gas", convertible_gas)

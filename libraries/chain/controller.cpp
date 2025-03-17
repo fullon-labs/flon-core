@@ -870,7 +870,7 @@ struct pending_state {
             return vec;
          }
      }
-      
+
       if(std::holds_alternative<completed_block>(_block_stage)){
          auto& block = std::get<completed_block>(_block_stage);
          auto transactions = block.bsp.block()->transactions;
@@ -2683,7 +2683,7 @@ struct controller_impl {
 
          auto restore = make_block_restore_point();
          trace->receipt = push_receipt( gtrx.trx_id, transaction_receipt::soft_fail,
-                                        trx_context.billed_cpu_time_us, trace->gas_usage.net_usage );
+                                        trx_context.billed_cpu_time_us, trace->res_usage.net_usage );
 
          bb.action_receipt_digests().append(std::move(trx_context.executed_action_receipts));
 

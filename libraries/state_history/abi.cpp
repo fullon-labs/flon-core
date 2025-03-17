@@ -193,7 +193,7 @@ extern const char* const state_history_plugin_abi = R"({
                 { "name": "cpu_usage_us", "type": "uint32" },
                 { "name": "net_usage_words", "type": "varuint32" },
                 { "name": "elapsed", "type": "int64" },
-                { "name": "trx_res_usage", "type": "transaction_res_usage_v0" },
+                { "name": "res_usage", "type": "transaction_res_usage" },
                 { "name": "scheduled", "type": "bool" },
                 { "name": "action_traces", "type": "action_trace[]" },
                 { "name": "account_ram_delta", "type": "account_delta?" },

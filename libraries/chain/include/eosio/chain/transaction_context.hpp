@@ -212,7 +212,7 @@ namespace eosio::chain {
 
          action_digests_t                 executed_action_receipts;
          // flat_set<account_name>        bill_to_accounts;
-         // TODO: rename to payer, reference to trace->gas_usage.payer
+         // TODO: rename to payer, reference to trace->res_usage.payer
          account_name                     bill_to_account;
          // flat_set<account_name>           validate_ram_usage;
          flat_map<account_name, int64_t>  ram_deltas;

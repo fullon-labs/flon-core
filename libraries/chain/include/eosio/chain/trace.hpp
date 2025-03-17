@@ -106,7 +106,7 @@ namespace eosio::chain {
       std::optional<block_id_type>               producer_block_id;
       std::optional<transaction_receipt_header>  receipt;
       fc::microseconds                           elapsed;
-      transaction_res_usage                      gas_usage;
+      transaction_res_usage                      res_usage;
       bool                                       scheduled = false;
       vector<action_trace>                       action_traces;
       std::optional<account_delta>               account_ram_delta;
@@ -116,7 +116,7 @@ namespace eosio::chain {
       std::optional<uint64_t>                    error_code;
       std::exception_ptr                         except_ptr;
 
-      inline uint64_t net_usage() const { return gas_usage.net_usage; }
+      inline uint64_t net_usage() const { return res_usage.net_usage; }
    };
 
    /**
@@ -149,5 +149,5 @@ FC_REFLECT( eosio::chain::transaction_res_usage,
 
 // @ignore except_ptr
 FC_REFLECT( eosio::chain::transaction_trace, (id)(block_num)(block_time)(producer_block_id)
-                                             (receipt)(elapsed)(gas_usage)(scheduled)
+                                             (receipt)(elapsed)(res_usage)(scheduled)
                                              (action_traces)(account_ram_delta)(failed_dtrx_trace)(except)(error_code) )

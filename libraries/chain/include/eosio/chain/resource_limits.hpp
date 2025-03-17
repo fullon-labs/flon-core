@@ -82,9 +82,9 @@ namespace eosio { namespace chain {
          void set_block_parameters( const chain_config& cfg, const elastic_limit_parameters& cpu_limit_parameters, const elastic_limit_parameters& net_limit_parameters );
 
          // void update_account_usage( const flat_set<account_name>& accounts, uint32_t ordinal );
-         void add_transaction_usage( transaction_res_usage& trx_res_usage, bool is_trx_transient = false );
-         void calc_transaction_gas_usage( transaction_res_usage& trx_res_usage);
-         void verify_transaction_gas_usage( transaction_res_usage& trx_res_usage, uint64_t reserved_gas, uint64_t convertible_gas);
+         void add_transaction_usage( transaction_res_usage& res_usage, bool is_trx_transient = false );
+         void calc_transaction_gas_usage( transaction_res_usage& res_usage);
+         void verify_transaction_gas_usage( transaction_res_usage& res_usage, uint64_t reserved_gas, uint64_t convertible_gas);
 
          void add_ram_usage( const account_name account, int64_t ram_delta, bool is_trx_transient = false );
 
