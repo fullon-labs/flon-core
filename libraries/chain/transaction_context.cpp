@@ -168,9 +168,9 @@ namespace eosio::chain {
          net_usage += initial_net_usage;
       }
 
+      auto now = fc::time_point::now();
       if ( !is_read_only() && !control.skip_trx_checks() ) {
 
-         auto now = fc::time_point::now();
          trace->gas_usage.cpu_usage = update_billed_cpu_time(now);
 
          check_net_limit();

@@ -833,7 +833,7 @@ chain::action create_transfer(const name& contract, const name& sender, const na
 }
 
 chain::action create_transfer(const string& contract, const name& sender, const name& recipient, asset amount, const string& memo ) {
-   return create_transfer(contract, sender, recipient, amount, memo);
+   return create_transfer(name(contract), sender, recipient, amount, memo);
 }
 
 chain::action create_setabi(const name& account, const bytes& abi) {
