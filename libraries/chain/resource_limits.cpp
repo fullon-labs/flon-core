@@ -413,7 +413,9 @@ void resource_limits_manager::add_ram_usage( const account_name account, int64_t
 
          if ( used_gas > reserved_gas ) {
             cgs = core_gas_accessor::create(_db, account);
-            convertible_gas = cgs->convertible_gas;
+            if (cgs) {
+               convertible_gas = cgs->convertible_gas;
+            }
          }
 
          res_utils::verify_add(reserved_gas, convertible_gas, "adding gas limit with reserved gas and convertible gas");
@@ -431,7 +433,7 @@ void resource_limits_manager::add_ram_usage( const account_name account, int64_t
             ("convertible_gas", convertible_gas)
          );
 
-         if ( used_gas > reserved_gas ) {
+         if ( cgs != nullptr && convertible_gas > 0 ) {
             assert(cgs);
             cgs->pay_gas(_db, used_gas - reserved_gas);
             reserved_gas = 0; // reserved_gas must be used up.
@@ -657,16 +659,17 @@ core_gas_accessor_ptr core_gas_accessor::create(chainbase::database& db, const a
    core_asset_account_ptr payer_gas_account;
    uint64_t convertible_gas   = 0;
    payer_gas_account = core_asset_account::create(db, payer);
+   if (!payer_gas_account) return nullptr;
+
    convertible_gas = res_utils::convert_core_asset_to_gas(payer_gas_account->balance());
-   if (payer_gas_account && convertible_gas > 0) {
-      sys_gas_account = core_asset_account::create(db, config::gas_account_name);
-      if (sys_gas_account ) {
-         return std::make_shared<core_gas_accessor>(sys_gas_account, payer_gas_account, convertible_gas);
-      }
-      // else core asset account of system gas not exists,
-      // can not transfer core asset of converted_gas to system gas account
-   }
-   return nullptr;
+   if (convertible_gas == 0) return nullptr;
+
+   sys_gas_account = core_asset_account::create(db, config::gas_account_name);
+   // if the core asset account of system gas not exists,
+   // can not transfer core asset of converted_gas to system gas account
+   if (!sys_gas_account) return nullptr;
+
+   return std::make_shared<core_gas_accessor>(sys_gas_account, payer_gas_account, convertible_gas);
 }
 
 void core_gas_accessor::pay_gas(chainbase::database& db, uint64_t gas) {
