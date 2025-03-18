@@ -93,7 +93,7 @@ BOOST_FIXTURE_TEST_CASE(deep_mind, deep_mind_tester)
                ("account", "alice")
                ("permission", "test1")
                ("parent", "active")
-               ("auth", authority{{"eosio"_n, "active"_n}}));
+               ("auth", authority{{config::system_account_name, "active"_n}}));
    produce_block();
 
    // Update proposer schedule

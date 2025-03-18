@@ -34,6 +34,17 @@ using eosio::datastream;
 using eosio::check;
 using eosio::unsigned_int;
 
+
+#define TO_STRING(x) #x
+#define TO_NAME(x) eosio::name{TO_STRING(X)}
+
+#ifdef SYSTEM_ACCOUNT_NAME
+   static const eosio::name system_account_name = TO_NAME(SYSTEM_ACCOUNT_NAME);
+#else
+   #error "SYSTEM_ACCOUNT_NAME not defined"
+#endif
+
+
 struct [[eosio::table, eosio::contract("eosio.system")]] name_bid {
    name            newname;
    name            high_bidder;
@@ -305,7 +316,7 @@ public:
    system_contract( name s, name code, datastream<const char*> ds );
    ~system_contract();
 
-   static symbol get_core_symbol( name system_account = "eosio"_n ) {
+   static symbol get_core_symbol( name system_account = system_account_name ) {
       rammarket rm(system_account, system_account.value);
       const static auto sym = get_core_symbol( rm );
       return sym;

@@ -27,7 +27,7 @@ using namespace fc;
 
 static auto get_table_rows_full = [](chain_apis::read_only& plugin,
                                      chain_apis::read_only::get_table_rows_params& params,
-                                     const fc::time_point& deadline) -> chain_apis::read_only::get_table_rows_result {   
+                                     const fc::time_point& deadline) -> chain_apis::read_only::get_table_rows_result {
    auto res_nm_v =  plugin.get_table_rows(params, deadline)();
    BOOST_REQUIRE(!std::holds_alternative<fc::exception_ptr>(res_nm_v));
    return std::get<chain_apis::read_only::get_table_rows_result>(std::move(res_nm_v));
@@ -79,7 +79,7 @@ BOOST_FIXTURE_TEST_CASE( get_scope_test, validating_tester ) try {
 
    // create currency
    auto act = mutable_variant_object()
-         ("issuer",       "eosio")
+         ("issuer",       config::system_account_name)
          ("maximum_supply", eosio::chain::asset::from_string("1000000000.0000 SYS"));
    push_action("eosio.token"_n, "create"_n, "eosio.token"_n, act );
 
@@ -100,7 +100,7 @@ BOOST_FIXTURE_TEST_CASE( get_scope_test, validating_tester ) try {
       BOOST_REQUIRE_EQUAL(name("eosio.token"_n), result.rows[0].code);
       BOOST_REQUIRE_EQUAL(name("inita"_n), result.rows[0].scope);
       BOOST_REQUIRE_EQUAL(name("accounts"_n), result.rows[0].table);
-      BOOST_REQUIRE_EQUAL(name("eosio"_n), result.rows[0].payer);
+      BOOST_REQUIRE_EQUAL(name(config::system_account_name), result.rows[0].payer);
       BOOST_REQUIRE_EQUAL(1u, result.rows[0].count);
 
       BOOST_REQUIRE_EQUAL(name("initb"_n), result.rows[1].scope);
@@ -151,7 +151,7 @@ BOOST_FIXTURE_TEST_CASE( get_table_test, validating_tester ) try {
 
    // create currency
    auto act = mutable_variant_object()
-         ("issuer",       "eosio")
+         ("issuer",       config::system_account_name)
          ("maximum_supply", eosio::chain::asset::from_string("1000000000.0000 SYS"));
    push_action("eosio.token"_n, "create"_n, "eosio.token"_n, act );
 
@@ -163,7 +163,7 @@ BOOST_FIXTURE_TEST_CASE( get_table_test, validating_tester ) try {
 
    // create currency 2
    act = mutable_variant_object()
-         ("issuer",       "eosio")
+         ("issuer",       config::system_account_name)
          ("maximum_supply", eosio::chain::asset::from_string("1000000000.0000 AAA"));
    push_action("eosio.token"_n, "create"_n, "eosio.token"_n, act );
    // issue
@@ -174,7 +174,7 @@ BOOST_FIXTURE_TEST_CASE( get_table_test, validating_tester ) try {
 
    // create currency 3
    act = mutable_variant_object()
-         ("issuer",       "eosio")
+         ("issuer",       config::system_account_name)
          ("maximum_supply", eosio::chain::asset::from_string("1000000000.0000 CCC"));
    push_action("eosio.token"_n, "create"_n, "eosio.token"_n, act );
    // issue
@@ -185,7 +185,7 @@ BOOST_FIXTURE_TEST_CASE( get_table_test, validating_tester ) try {
 
    // create currency 3
    act = mutable_variant_object()
-         ("issuer",       "eosio")
+         ("issuer",       config::system_account_name)
          ("maximum_supply", eosio::chain::asset::from_string("1000000000.0000 BBB"));
    push_action("eosio.token"_n, "create"_n, "eosio.token"_n, act );
    // issue
@@ -203,7 +203,7 @@ BOOST_FIXTURE_TEST_CASE( get_table_test, validating_tester ) try {
    p.json = true;
    p.index_position = "primary";
    auto result = get_table_rows_full(plugin, p, fc::time_point::maximum());
-   
+
    BOOST_REQUIRE_EQUAL(4u, result.rows.size());
    BOOST_REQUIRE_EQUAL(false, result.more);
    if (result.rows.size() >= 4u) {
@@ -236,10 +236,10 @@ BOOST_FIXTURE_TEST_CASE( get_table_test, validating_tester ) try {
       BOOST_REQUIRE_EQUAL("8888.0000 BBB", result.rows[2]["data"]["balance"].as_string());
       BOOST_REQUIRE_EQUAL("7777.0000 CCC", result.rows[1]["data"]["balance"].as_string());
       BOOST_REQUIRE_EQUAL("10000.0000 SYS", result.rows[0]["data"]["balance"].as_string());
-      BOOST_REQUIRE_EQUAL("eosio", result.rows[0]["payer"].as_string());
-      BOOST_REQUIRE_EQUAL("eosio", result.rows[1]["payer"].as_string());
-      BOOST_REQUIRE_EQUAL("eosio", result.rows[2]["payer"].as_string());
-      BOOST_REQUIRE_EQUAL("eosio", result.rows[3]["payer"].as_string());
+      BOOST_REQUIRE_EQUAL(config::system_account_name.to_string(), result.rows[0]["payer"].as_string());
+      BOOST_REQUIRE_EQUAL(config::system_account_name.to_string(), result.rows[1]["payer"].as_string());
+      BOOST_REQUIRE_EQUAL(config::system_account_name.to_string(), result.rows[2]["payer"].as_string());
+      BOOST_REQUIRE_EQUAL(config::system_account_name.to_string(), result.rows[3]["payer"].as_string());
    }
    p.show_payer = false;
 
@@ -331,7 +331,7 @@ BOOST_FIXTURE_TEST_CASE( get_table_by_seckey_test, validating_tester ) try {
 
    // create currency
    auto act = mutable_variant_object()
-         ("issuer",       "eosio")
+         ("issuer",       config::system_account_name)
          ("maximum_supply", eosio::chain::asset::from_string("1000000000.0000 SYS"));
    push_action("eosio.token"_n, "create"_n, "eosio.token"_n, act );
 
@@ -351,7 +351,7 @@ BOOST_FIXTURE_TEST_CASE( get_table_by_seckey_test, validating_tester ) try {
 
    // bidname
    auto bidname = [this]( const account_name& bidder, const account_name& newname, const asset& bid ) {
-      return push_action( "eosio"_n, "bidname"_n, bidder, fc::mutable_variant_object()
+      return push_action( config::system_account_name, "bidname"_n, bidder, fc::mutable_variant_object()
                           ("bidder",  bidder)
                           ("newname", newname)
                           ("bid", bid)
@@ -367,8 +367,8 @@ BOOST_FIXTURE_TEST_CASE( get_table_by_seckey_test, validating_tester ) try {
    // get table: normal case
    eosio::chain_apis::read_only plugin(*(this->control), {}, {}, fc::microseconds::maximum(), fc::microseconds::maximum(), {});
    eosio::chain_apis::read_only::get_table_rows_params p;
-   p.code = "eosio"_n;
-   p.scope = "eosio";
+   p.code = config::system_account_name;
+   p.scope = config::system_account_name.to_string();
    p.table = "namebids"_n;
    p.json = true;
    p.index_position = "secondary"; // ordered by high_bid

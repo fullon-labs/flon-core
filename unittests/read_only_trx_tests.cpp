@@ -101,7 +101,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE( setcode_test, T, read_only_trx_testers ) { try {
 
    std::vector<uint8_t> code(10);
    action act = {
-      {}, setcode { "eosio"_n, 0, 0, bytes(code.begin(), code.end()) }
+      {}, setcode { config::system_account_name, 0, 0, bytes(code.begin(), code.end()) }
    };
 
    BOOST_CHECK_THROW( chain.send_action(act), action_validate_exception );

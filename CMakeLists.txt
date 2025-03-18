@@ -157,6 +157,8 @@ if ("${SYSTEM_ROOT_KEY}" STREQUAL "")
    set(SYSTEM_ROOT_KEY "${PUBLIC_KEY_LEGACY_PREFIX}6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV")
 endif()
 
+add_compile_definitions( SYSTEM_ACCOUNT_NAME=${SYSTEM_ACCOUNT_NAME} )
+
 message( STATUS "Using '${SYSTEM_ROOT_KEY}' as public key for '${SYSTEM_ACCOUNT_NAME}' account" )
 
 option(ENABLE_TCMALLOC "use tcmalloc (requires gperftools)" OFF)

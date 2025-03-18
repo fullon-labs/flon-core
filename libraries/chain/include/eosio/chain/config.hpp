@@ -20,9 +20,9 @@ const static auto default_state_size          = 1*1024*1024*1024ll;
 const static auto default_state_guard_size    =    128*1024*1024ll;
 
 
-extern name system_account_name;             //{ "eosio"_n };
-extern name null_account_name;               //{ "eosio.null"_n };
-extern name producers_account_name;          //{ "eosio.prods"_n };
+extern name system_account_name;
+extern name null_account_name;
+extern name producers_account_name;
 
 // Active permission of producers account requires greater than 2/3 of the producers to authorize
 const static name majority_producers_permission_name { "prod.major"_n }; // greater than 1/2 of producers needed to authorize

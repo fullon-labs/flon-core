@@ -894,7 +894,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(light_validation_skip_cfa, T, testers)  try {
    auto conf_genesis = tester::default_config( tempdir );
 
    auto& cfg = conf_genesis.first;
-   cfg.trusted_producers = { "eosio"_n }; // light validation
+   cfg.trusted_producers = { config::system_account_name }; // light validation
 
    T other( conf_genesis.first, conf_genesis.second );
    other.execute_setup_policy( setup_policy::full );
@@ -2947,7 +2947,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(resource_limits_tests, T, validating_testers) {
 
    chain.create_accounts( { "rlimits"_n, "testacnt"_n } );
    chain.set_code("rlimits"_n, resource_limits_wast);
-   chain.push_action( "eosio"_n, "setpriv"_n, "eosio"_n, mutable_variant_object()("account", "rlimits"_n)("is_priv", 1));
+   chain.push_action( config::system_account_name, "setpriv"_n, config::system_account_name, mutable_variant_object()("account", "rlimits"_n)("is_priv", 1));
    chain.produce_block();
 
    auto pushit = [&]{

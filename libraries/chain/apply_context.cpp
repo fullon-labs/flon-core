@@ -1099,7 +1099,7 @@ action_name apply_context::get_sender() const {
 // Compute trx         | baseline, OC for eosio.*
 // Read only trx       | OC
 bool apply_context::should_use_eos_vm_oc()const {
-   return receiver.prefix() == config::system_account_name // "eosio"_n, all cases use OC
+   return receiver.prefix() == config::system_account_name // system account name, all cases use OC
           || (is_applying_block() && !control.is_producer_node()) // validating/applying block
           || trx_context.is_read_only();
 }

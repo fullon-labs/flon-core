@@ -265,7 +265,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(test_deltas_permission_link, T, table_deltas_teste
    const auto spending_pub_key = spending_priv_key.get_public_key();
 
    chain.set_authority("newacc"_n, "spending"_n, authority{spending_pub_key}, "active"_n);
-   chain.link_authority("newacc"_n, "eosio"_n, "spending"_n, "reqauth"_n);
+   chain.link_authority("newacc"_n, config::system_account_name, "spending"_n, "reqauth"_n);
    chain.push_reqauth("newacc"_n, { permission_level{"newacc"_n, "spending"_n} }, { spending_priv_key });
 
 

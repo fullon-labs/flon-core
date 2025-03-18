@@ -15,9 +15,18 @@
 
 name global_receiver;
 
+#define TO_STRING(x) #x
+#define TO_NAME(x) eosio::name{TO_STRING(X)}
+
+#ifdef SYSTEM_ACCOUNT_NAME
+   static const name system_account_name = TO_NAME(SYSTEM_ACCOUNT_NAME);
+#else
+#error "SYSTEM_ACCOUNT_NAME not defined"
+#endif
+
 extern "C" {
    void apply( uint64_t receiver, uint64_t code, uint64_t action ) {
-      if( code == "eosio"_n.value && action == "onerror"_n.value ) {
+      if( code == system_account_name.value && action == "onerror"_n.value ) {
          auto error = eosio::onerror::from_current_action();
          eosio::print("onerror called\n");
          auto error_trx = error.unpack_sent_trx();

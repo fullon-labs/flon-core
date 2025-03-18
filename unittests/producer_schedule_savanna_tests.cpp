@@ -161,7 +161,7 @@ BOOST_FIXTURE_TEST_CASE( proposer_policy_progression_test, legacy_validating_tes
 
    // current proposer schedule stays the same as the one prior to IF transition
    vector<producer_authority> prev_sch = {
-                                 producer_authority{"eosio"_n, block_signing_authority_v0{1, {{get_public_key("eosio"_n, "active"), 1}}}}};
+                                 producer_authority{config::system_account_name, block_signing_authority_v0{1, {{get_public_key(config::system_account_name, "active"), 1}}}}};
    BOOST_CHECK_EQUAL( true, compare_schedules( prev_sch, control->active_producers() ) );
    BOOST_CHECK_EQUAL( 0u, control->active_producers().version );
 
@@ -461,7 +461,7 @@ BOOST_FIXTURE_TEST_CASE( proposed_and_pending_in_same_round_test, validating_tes
    // round 2
    produce_blocks(config::producer_repetitions - 1);
    b = produce_block();
-   BOOST_CHECK_EQUAL(b->producer, "eosio"_n); // producer still original `eosio`
+   BOOST_CHECK_EQUAL(b->producer, config::system_account_name); // producer still original `eosio`
 
    // round 3: the latest proposed policy (bob) becomes active because it was already proposed
    // 2 rounds before. Alice policy was skipped.
@@ -569,7 +569,7 @@ BOOST_FIXTURE_TEST_CASE( policy_transition_corner_case_test, validating_tester )
    // of round 2, and another to skip to the first block of round 3
    const auto time_to_skip = fc::milliseconds(2*config::block_interval_ms);
    b = produce_block(time_to_skip);
-   
+
    vector<producer_authority> alice_sch = {
       producer_authority{
          "alice"_n,

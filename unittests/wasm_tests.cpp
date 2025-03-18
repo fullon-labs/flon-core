@@ -2351,7 +2351,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE( memory_mapping_test, T, validating_testers ) try 
       chain.set_code(acct, contract_wast.c_str());
       chain.set_abi(acct, mem_map_abi);
 
-      chain.push_action(acct, "dothedew"_n, "eosio"_n, {});
+      chain.push_action(acct, "dothedew"_n, config::system_account_name, {});
 
       // do not put too many transactions in a single block
       if (i % 20 == 0 ) {

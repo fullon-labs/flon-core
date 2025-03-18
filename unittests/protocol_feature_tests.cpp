@@ -1609,7 +1609,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(producer_schedule_change_extension_test, T, tester
       // re-sign the bad block
       auto header_bmroot = digest_type::hash( std::make_pair( bad_block->digest(), remote.control->head_block_state_legacy()->blockroot_merkle ) );
       auto sig_digest = digest_type::hash( std::make_pair(header_bmroot, remote.control->head_block_state_legacy()->pending_schedule.schedule_hash) );
-      bad_block->producer_signature = remote.get_private_key("eosio"_n, "active").sign(sig_digest);
+      bad_block->producer_signature = remote.get_private_key(config::system_account_name, "active").sign(sig_digest);
 
       // ensure it is rejected as an unknown extension
       BOOST_REQUIRE_EXCEPTION(
@@ -1626,7 +1626,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(producer_schedule_change_extension_test, T, tester
       // re-sign the bad block
       auto header_bmroot = digest_type::hash( std::make_pair( bad_block->digest(), remote.control->head_block_state_legacy()->blockroot_merkle ) );
       auto sig_digest = digest_type::hash( std::make_pair(header_bmroot, remote.control->head_block_state_legacy()->pending_schedule.schedule_hash) );
-      bad_block->producer_signature = remote.get_private_key("eosio"_n, "active").sign(sig_digest);
+      bad_block->producer_signature = remote.get_private_key(config::system_account_name, "active").sign(sig_digest);
 
       // ensure it is accepted (but rejected because it doesn't match expected state)
       BOOST_REQUIRE_EXCEPTION(
@@ -1652,7 +1652,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(producer_schedule_change_extension_test, T, tester
       // re-sign the bad block
       auto header_bmroot = digest_type::hash( std::make_pair( bad_block->digest(), remote.control->head_block_state_legacy()->blockroot_merkle ) );
       auto sig_digest = digest_type::hash( std::make_pair(header_bmroot, remote.control->head_block_state_legacy()->pending_schedule.schedule_hash) );
-      bad_block->producer_signature = remote.get_private_key("eosio"_n, "active").sign(sig_digest);
+      bad_block->producer_signature = remote.get_private_key(config::system_account_name, "active").sign(sig_digest);
 
       // ensure it is rejected because it doesn't match expected state (but the extention was accepted)
       BOOST_REQUIRE_EXCEPTION(
@@ -1669,7 +1669,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(producer_schedule_change_extension_test, T, tester
       // re-sign the bad block
       auto header_bmroot = digest_type::hash( std::make_pair( bad_block->digest(), remote.control->head_block_state_legacy()->blockroot_merkle ) );
       auto sig_digest = digest_type::hash( std::make_pair(header_bmroot, remote.control->head_block_state_legacy()->pending_schedule.schedule_hash) );
-      bad_block->producer_signature = remote.get_private_key("eosio"_n, "active").sign(sig_digest);
+      bad_block->producer_signature = remote.get_private_key(config::system_account_name, "active").sign(sig_digest);
 
       // ensure it is rejected because the new_producers field is not null
       BOOST_REQUIRE_EXCEPTION(
@@ -1693,7 +1693,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(wtmsig_block_signing_inflight_legacy_test, T, test
 
    // activate the feature, and start an in-flight producer schedule change with the legacy format
    c.preactivate_protocol_features( {*d} );
-   vector<legacy::producer_key> sched = {{"eosio"_n, c.get_public_key("eosio"_n, "bsk")}};
+   vector<legacy::producer_key> sched = {{config::system_account_name, c.get_public_key(config::system_account_name, "bsk")}};
    c.push_action(config::system_account_name, "setprods"_n, config::system_account_name, fc::mutable_variant_object()("schedule", sched));
    c.produce_block();
 
@@ -1708,7 +1708,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(wtmsig_block_signing_inflight_legacy_test, T, test
    BOOST_REQUIRE_EXCEPTION( c.produce_block(), no_block_signatures, fc_exception_message_is( "Signer returned no signatures" ));
    c.control->abort_block();
 
-   c.block_signing_private_keys.emplace(get_public_key("eosio"_n, "bsk"), get_private_key("eosio"_n, "bsk"));
+   c.block_signing_private_keys.emplace(get_public_key(config::system_account_name, "bsk"), get_private_key(config::system_account_name, "bsk"));
    c.produce_block();
 
 } FC_LOG_AND_RETHROW() }
@@ -1727,7 +1727,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(wtmsig_block_signing_inflight_extension_test, T, t
    c.produce_block();
 
    // start an in-flight producer schedule change before the activation is availble to header only validators
-   vector<legacy::producer_key> sched = {{"eosio"_n, c.get_public_key("eosio"_n, "bsk")}};
+   vector<legacy::producer_key> sched = {{config::system_account_name, c.get_public_key(config::system_account_name, "bsk")}};
    c.push_action(config::system_account_name, "setprods"_n, config::system_account_name, fc::mutable_variant_object()("schedule", sched));
    c.produce_block();
 
@@ -1744,7 +1744,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(wtmsig_block_signing_inflight_extension_test, T, t
    BOOST_REQUIRE_EXCEPTION( c.produce_block(), no_block_signatures, fc_exception_message_is( "Signer returned no signatures" ));
    c.control->abort_block();
 
-   c.block_signing_private_keys.emplace(get_public_key("eosio"_n, "bsk"), get_private_key("eosio"_n, "bsk"));
+   c.block_signing_private_keys.emplace(get_public_key(config::system_account_name, "bsk"), get_private_key(config::system_account_name, "bsk"));
    c.produce_block();
 
 } FC_LOG_AND_RETHROW() }

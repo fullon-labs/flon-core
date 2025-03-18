@@ -149,15 +149,15 @@ BOOST_AUTO_TEST_CASE(name_prefix_tests)
    BOOST_CHECK_EQUAL("abc.xyz.qrt"_n.prefix(), "abc.xyz"_n);
    BOOST_CHECK_EQUAL("."_n.prefix(), ""_n);
 
-   BOOST_CHECK_EQUAL("eosio.any"_n.prefix(), "eosio"_n);
-   BOOST_CHECK_EQUAL("eosio"_n.prefix(), "eosio"_n);
-   BOOST_CHECK_EQUAL("eosio"_n.prefix(), config::system_account_name);
-   BOOST_CHECK_EQUAL("eosio."_n.prefix(), "eosio"_n);
-   BOOST_CHECK_EQUAL("eosio.evm"_n.prefix(), "eosio"_n);
+   BOOST_CHECK_EQUAL("eosio.any"_n.prefix(), config::system_account_name);
+   BOOST_CHECK_EQUAL(config::system_account_name.prefix(), config::system_account_name);
+   BOOST_CHECK_EQUAL(config::system_account_name.prefix(), config::system_account_name);
+   BOOST_CHECK_EQUAL("eosio."_n.prefix(), config::system_account_name);
+   BOOST_CHECK_EQUAL("eosio.evm"_n.prefix(), config::system_account_name);
    BOOST_CHECK_EQUAL(".eosio"_n.prefix(), ""_n);
-   BOOST_CHECK_NE("eosi"_n.prefix(), "eosio"_n);
-   BOOST_CHECK_NE("eosioeosio"_n.prefix(), "eosio"_n);
-   BOOST_CHECK_NE("eosioe"_n.prefix(), "eosio"_n);
+   BOOST_CHECK_NE("eosi"_n.prefix(), config::system_account_name);
+   BOOST_CHECK_NE("eosioeosio"_n.prefix(), config::system_account_name);
+   BOOST_CHECK_NE("eosioe"_n.prefix(), config::system_account_name);
 }
 
 /// Test processing of unbalanced strings

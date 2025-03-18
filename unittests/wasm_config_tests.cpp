@@ -30,12 +30,12 @@ struct wasm_config_tester : T {
    }
    void set_wasm_params(const wasm_config& params) {
       signed_transaction trx;
-      trx.actions.emplace_back(vector<permission_level>{{"eosio"_n,config::active_name}}, "eosio"_n, "setwparams"_n,
+      trx.actions.emplace_back(vector<permission_level>{{config::system_account_name,config::active_name}}, config::system_account_name, "setwparams"_n,
                                bios_abi_ser.variant_to_binary("setwparams", fc::mutable_variant_object()("cfg", params),
                                                               abi_serializer::create_yield_function( T::abi_serializer_max_time )));
-      trx.actions[0].authorization = vector<permission_level>{{"eosio"_n,config::active_name}};
+      trx.actions[0].authorization = vector<permission_level>{{config::system_account_name,config::active_name}};
       T::set_transaction_headers(trx);
-      trx.sign(T::get_private_key("eosio"_n, "active"), T::get_chain_id());
+      trx.sign(T::get_private_key(config::system_account_name, "active"), T::get_chain_id());
       T::push_transaction(trx);
    }
    // Pushes an empty action
@@ -1138,13 +1138,13 @@ BOOST_AUTO_TEST_CASE_TEMPLATE( reset_chain_tests, T, wasm_config_testers ) {
    {
       signed_transaction trx;
       auto make_setcode = [](const std::vector<uint8_t>& code) {
-         return setcode{ "eosio"_n, 0, 0, bytes(code.begin(), code.end()) };
+         return setcode{ config::system_account_name, 0, 0, bytes(code.begin(), code.end()) };
       };
-      trx.actions.push_back({ { { "eosio"_n, config::active_name} }, make_setcode(wast_to_wasm(min_set_parameters_wast)) });
-      trx.actions.push_back({ { { "eosio"_n, config::active_name} }, "eosio"_n, ""_n, fc::raw::pack(genesis_state::default_initial_wasm_configuration) });
-      trx.actions.push_back({ { { "eosio"_n, config::active_name} }, make_setcode(contracts::flon_bios_wasm()) });
+      trx.actions.push_back({ { { config::system_account_name, config::active_name} }, make_setcode(wast_to_wasm(min_set_parameters_wast)) });
+      trx.actions.push_back({ { { config::system_account_name, config::active_name} }, config::system_account_name, ""_n, fc::raw::pack(genesis_state::default_initial_wasm_configuration) });
+      trx.actions.push_back({ { { config::system_account_name, config::active_name} }, make_setcode(contracts::flon_bios_wasm()) });
       chain.set_transaction_headers(trx);
-      trx.sign(chain.get_private_key("eosio"_n, "active"), chain.get_chain_id());
+      trx.sign(chain.get_private_key(config::system_account_name, "active"), chain.get_chain_id());
       chain.push_transaction(trx);
    }
    chain.produce_block();

@@ -12,6 +12,7 @@
 #include <fc/bitutil.hpp>
 
 using namespace eosio;
+using namespace eosio::chain;
 using namespace eosio::trace_api;
 using namespace eosio::trace_api::test_common;
 using eosio::chain::name;
@@ -379,7 +380,7 @@ BOOST_AUTO_TEST_SUITE(block_extraction)
          {
             {
                0,
-               "eosio.token"_n, "eosio"_n, "onerror"_n,
+               "eosio.token"_n, config::system_account_name, "onerror"_n,
                {{ "alice"_n, "active"_n }},
                make_onerror_data( chain::onerror{ 1, "test ", 4 } )
             },
