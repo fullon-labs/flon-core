@@ -115,7 +115,7 @@ int main(int argc, char* argv[]) {
             rapidjson::Document result_document;
             result_document.Parse(result_type.bin_to_json(is).c_str());
 
-            eosio::check(!result_document.HasParseError(),                                      "Failed to parse result JSON from abieos");
+            eosio::check(!result_document.HasParseError(),                                      "Failed to parse result JSON from lib abi");
             eosio::check(result_document.IsArray(),                                             "result should have been an array (variant) but it's not");
             eosio::check(result_document.Size() == 2,                                           "result was an array but did not contain 2 items like a variant should");
             eosio::check(std::string(result_document[0].GetString()) == request_result_types[num_requests%2].get_status_result, "result type doesn't look like expected get_status_result_vX");
