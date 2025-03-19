@@ -190,20 +190,20 @@ add_subdirectory( plugins )
 add_subdirectory( programs )
 add_subdirectory( scripts )
 add_subdirectory( tools )
-add_subdirectory( benchmark )
 
 option(BUILD_TESTS "Build unit tests" OFF)
+option(DISABLE_WASM_SPEC_TESTS "disable building of wasm spec unit tests" OFF)
 
 if(BUILD_TESTS)
   message(STATUS "Building tests.")
   add_subdirectory( tests )
+  message(STATUS "Building unittests.")
   add_subdirectory( unittests )
+  message(STATUS "Building benchmark.")
+  add_subdirectory( benchmark )
 else()
   message(STATUS "Tests will not be built. To build tests, set BUILD_TESTS to ON.")
 endif()
-
-
-option(DISABLE_WASM_SPEC_TESTS "disable building of wasm spec unit tests" OFF)
 
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/flon.version.in ${CMAKE_CURRENT_BINARY_DIR}/flon.version.hpp)
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/flon.version.hpp DESTINATION ${CMAKE_INSTALL_FULL_INCLUDEDIR} COMPONENT dev EXCLUDE_FROM_ALL)
