@@ -161,7 +161,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE( linkauth_test, T, read_only_trx_testers ) { try {
    chain.produce_block();
 
    name account = "alice"_n;
-   name code = "eosio_token"_n;
+   name code = config::token_account_name;
    name type = "transfer"_n;
    name requirement = "first"_n;
    action act = {
@@ -178,7 +178,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE( unlinkauth_test, T, read_only_trx_testers ) { try
    chain.produce_block();
 
    name account = "alice"_n;
-   name code = "eosio_token"_n;
+   name code = config::token_account_name;
    name type = "transfer"_n;
    action act = {
       vector<permission_level>{{config::system_account_name,config::active_name}},

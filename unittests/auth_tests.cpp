@@ -568,11 +568,11 @@ BOOST_AUTO_TEST_CASE_TEMPLATE( delete_auth, TESTER, validating_testers ) { try {
    const auto& tester_account = "tester"_n;
 
    chain.produce_block();
-   chain.create_account("eosio.token"_n);
+   chain.create_account(config::token_account_name);
    chain.produce_block();
 
-   chain.set_code("eosio.token"_n, test_contracts::system_token_wasm());
-   chain.set_abi("eosio.token"_n, test_contracts::system_token_abi());
+   chain.set_code(config::token_account_name, test_contracts::system_token_wasm());
+   chain.set_abi(config::token_account_name, test_contracts::system_token_abi());
 
    chain.produce_block();
    chain.create_account("tester"_n);
@@ -603,27 +603,27 @@ BOOST_AUTO_TEST_CASE_TEMPLATE( delete_auth, TESTER, validating_testers ) { try {
    // link auth
    chain.push_action(config::system_account_name, linkauth::get_name(), tester_account, fc::mutable_variant_object()
            ("account", "tester")
-           ("code", "eosio.token")
+           ("code", config::token_account_name)
            ("type", "transfer")
            ("requirement", "first"));
 
    // create CUR token
    chain.produce_block();
-   chain.push_action("eosio.token"_n, "create"_n, "eosio.token"_n, mutable_variant_object()
-           ("issuer", "eosio.token" )
+   chain.push_action(config::token_account_name, "create"_n, config::token_account_name, mutable_variant_object()
+           ("issuer", config::token_account_name )
            ("maximum_supply", "9000000.0000 CUR" )
    );
 
-   // issue to account "eosio.token"
-   chain.push_action("eosio.token"_n, name("issue"), "eosio.token"_n, fc::mutable_variant_object()
-           ("to",       "eosio.token")
+   // issue to account config::token_account_name
+   chain.push_action(config::token_account_name, name("issue"), config::token_account_name, fc::mutable_variant_object()
+           ("to",       config::token_account_name)
            ("quantity", "1000000.0000 CUR")
            ("memo", "for stuff")
    );
 
-   // transfer from eosio.token to tester
-   trace = chain.push_action("eosio.token"_n, name("transfer"), "eosio.token"_n, fc::mutable_variant_object()
-       ("from", "eosio.token")
+   // transfer from token account to tester
+   trace = chain.push_action(config::token_account_name, name("transfer"), config::token_account_name, fc::mutable_variant_object()
+       ("from", config::token_account_name)
        ("to", "tester")
        ("quantity", "100.0000 CUR")
        ("memo", "hi" )
@@ -632,12 +632,12 @@ BOOST_AUTO_TEST_CASE_TEMPLATE( delete_auth, TESTER, validating_testers ) { try {
 
    chain.produce_block();
 
-   auto liquid_balance = chain.get_currency_balance("eosio.token"_n, symbol(SY(4,CUR)), "eosio.token"_n);
+   auto liquid_balance = chain.get_currency_balance(config::token_account_name, symbol(SY(4,CUR)), config::token_account_name);
    BOOST_REQUIRE_EQUAL(asset::from_string("999900.0000 CUR"), liquid_balance);
-   liquid_balance = chain.get_currency_balance("eosio.token"_n, symbol(SY(4,CUR)), "tester"_n);
+   liquid_balance = chain.get_currency_balance(config::token_account_name, symbol(SY(4,CUR)), "tester"_n);
    BOOST_REQUIRE_EQUAL(asset::from_string("100.0000 CUR"), liquid_balance);
 
-   trace = chain.push_action("eosio.token"_n, name("transfer"), "tester"_n, fc::mutable_variant_object()
+   trace = chain.push_action(config::token_account_name, name("transfer"), "tester"_n, fc::mutable_variant_object()
        ("from", "tester")
        ("to", "tester2")
        ("quantity", "1.0000 CUR")
@@ -646,11 +646,11 @@ BOOST_AUTO_TEST_CASE_TEMPLATE( delete_auth, TESTER, validating_testers ) { try {
 
    BOOST_REQUIRE_EQUAL(transaction_receipt::executed, trace->receipt->status);
 
-   liquid_balance = chain.get_currency_balance("eosio.token"_n, symbol(SY(4,CUR)), "eosio.token"_n);
+   liquid_balance = chain.get_currency_balance(config::token_account_name, symbol(SY(4,CUR)), config::token_account_name);
    BOOST_REQUIRE_EQUAL(asset::from_string("999900.0000 CUR"), liquid_balance);
-   liquid_balance = chain.get_currency_balance("eosio.token"_n, symbol(SY(4,CUR)), "tester"_n);
+   liquid_balance = chain.get_currency_balance(config::token_account_name, symbol(SY(4,CUR)), "tester"_n);
    BOOST_REQUIRE_EQUAL(asset::from_string("99.0000 CUR"), liquid_balance);
-   liquid_balance = chain.get_currency_balance("eosio.token"_n, symbol(SY(4,CUR)), "tester2"_n);
+   liquid_balance = chain.get_currency_balance(config::token_account_name, symbol(SY(4,CUR)), "tester2"_n);
    BOOST_REQUIRE_EQUAL(asset::from_string("1.0000 CUR"), liquid_balance);
 
    // can't delete auth because it's linked
@@ -667,7 +667,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE( delete_auth, TESTER, validating_testers ) { try {
    // unlink auth
    trace = chain.push_action(config::system_account_name, unlinkauth::get_name(), tester_account, fc::mutable_variant_object()
            ("account", "tester")
-           ("code", "eosio.token")
+           ("code", config::token_account_name)
            ("type", "transfer"));
    BOOST_REQUIRE_EQUAL(transaction_receipt::executed, trace->receipt->status);
 
@@ -680,7 +680,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE( delete_auth, TESTER, validating_testers ) { try {
 
    chain.produce_block();;
 
-   trace = chain.push_action("eosio.token"_n, name("transfer"), "tester"_n, fc::mutable_variant_object()
+   trace = chain.push_action(config::token_account_name, name("transfer"), "tester"_n, fc::mutable_variant_object()
        ("from", "tester")
        ("to", "tester2")
        ("quantity", "3.0000 CUR")
@@ -690,9 +690,9 @@ BOOST_AUTO_TEST_CASE_TEMPLATE( delete_auth, TESTER, validating_testers ) { try {
 
    chain.produce_block();
 
-   liquid_balance = chain.get_currency_balance("eosio.token"_n, symbol(SY(4,CUR)), "tester"_n);
+   liquid_balance = chain.get_currency_balance(config::token_account_name, symbol(SY(4,CUR)), "tester"_n);
    BOOST_REQUIRE_EQUAL(asset::from_string("96.0000 CUR"), liquid_balance);
-   liquid_balance = chain.get_currency_balance("eosio.token"_n, symbol(SY(4,CUR)), "tester2"_n);
+   liquid_balance = chain.get_currency_balance(config::token_account_name, symbol(SY(4,CUR)), "tester2"_n);
    BOOST_REQUIRE_EQUAL(asset::from_string("4.0000 CUR"), liquid_balance);
 
 } FC_LOG_AND_RETHROW() }/// delete_auth

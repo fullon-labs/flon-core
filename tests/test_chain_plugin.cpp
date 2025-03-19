@@ -23,6 +23,8 @@ using namespace fc;
 
 using mvo = fc::mutable_variant_object;
 
+static const name token_name = config::token_account_name;
+
 class chain_plugin_tester : public validating_tester {
 public:
 
@@ -45,7 +47,7 @@ public:
     }
 
     void transfer( name from, name to, const asset& amount, name manager = config::system_account_name ) {
-      base_tester::push_action( "eosio.token"_n, "transfer"_n, manager, mutable_variant_object()
+      base_tester::push_action( token_name, "transfer"_n, manager, mutable_variant_object()
                                 ("from",    from)
                                 ("to",      to )
                                 ("quantity", amount)
@@ -68,7 +70,7 @@ public:
     }
 
     asset get_balance( const account_name& act ) {
-      vector<char> data = get_row_by_account( "eosio.token"_n, act, "accounts"_n, name(symbol(CORE_SYMBOL).to_symbol_code().value) );
+      vector<char> data = get_row_by_account( token_name, act, "accounts"_n, name(symbol(CORE_SYMBOL).to_symbol_code().value) );
       return data.empty() ? asset(0, symbol(CORE_SYMBOL)) : token_abi_ser.binary_to_variant("account", data, abi_serializer::create_yield_function( abi_serializer_max_time ))["balance"].as<asset>();
     }
 
@@ -182,27 +184,27 @@ public:
     }
 
     void issue( name to, const asset& amount, name manager = config::system_account_name ) {
-        base_tester::push_action( "eosio.token"_n, "issue"_n, manager, mutable_variant_object()
+        base_tester::push_action( token_name, "issue"_n, manager, mutable_variant_object()
                 ("to",      to )
                 ("quantity", amount )
                 ("memo", "")
         );
     }
     void setup_system_accounts(){
-       create_accounts({ "eosio.token"_n, "eosio.ram"_n, "eosio.ramfee"_n, "eosio.stake"_n,
+       create_accounts({ token_name, "eosio.ram"_n, "eosio.ramfee"_n, "eosio.stake"_n,
                          "eosio.bpay"_n, "eosio.vpay"_n, "eosio.saving"_n, "eosio.names"_n, "eosio.rex"_n });
 
-       set_code( "eosio.token"_n, test_contracts::system_token_wasm() );
-       set_abi( "eosio.token"_n, test_contracts::system_token_abi() );
+       set_code( token_name, test_contracts::system_token_wasm() );
+       set_abi( token_name, test_contracts::system_token_abi() );
 
        {
-           const auto& accnt = control->db().get<account_object,by_name>( "eosio.token"_n );
+           const auto& accnt = control->db().get<account_object,by_name>( token_name );
            abi_def abi;
            BOOST_CHECK_EQUAL(abi_serializer::to_abi(accnt.abi, abi), true);
            token_abi_ser.set_abi(std::move(abi), abi_serializer::create_yield_function( abi_serializer_max_time ));
        }
 
-       create_currency( "eosio.token"_n, config::system_account_name, core_from_string("10000000000.0000") );
+       create_currency( token_name, config::system_account_name, core_from_string("10000000000.0000") );
        issue(config::system_account_name,      core_from_string("1000000000.0000"));
        BOOST_CHECK_EQUAL( core_from_string("1000000000.0000"), get_balance( name("eosio") ) );
 

@@ -16,6 +16,8 @@ using namespace eosio::testing;
 
 using mvo = fc::mutable_variant_object;
 
+static const name token_name = config::token_account_name;
+
 template<class Tester>
 class whitelist_blacklist_tester {
    public:
@@ -37,15 +39,15 @@ class whitelist_blacklist_tester {
 
          if( !bootstrap ) return;
 
-         chain->create_accounts({"eosio.token"_n, "alice"_n, "bob"_n, "charlie"_n});
-         chain->set_code("eosio.token"_n, test_contracts::system_token_wasm() );
-         chain->set_abi("eosio.token"_n, test_contracts::system_token_abi() );
-         chain->push_action( "eosio.token"_n, "create"_n, "eosio.token"_n, mvo()
-              ( "issuer", "eosio.token" )
+         chain->create_accounts({token_name, "alice"_n, "bob"_n, "charlie"_n});
+         chain->set_code(token_name, test_contracts::system_token_wasm() );
+         chain->set_abi(token_name, test_contracts::system_token_abi() );
+         chain->push_action( token_name, "create"_n, token_name, mvo()
+              ( "issuer", token_name )
               ( "maximum_supply", "1000000.00 TOK" )
          );
-         chain->push_action( "eosio.token"_n, "issue"_n, "eosio.token"_n, mvo()
-              ( "to", "eosio.token" )
+         chain->push_action( token_name, "issue"_n, token_name, mvo()
+              ( "to", token_name )
               ( "quantity", "1000000.00 TOK" )
               ( "memo", "issue" )
          );
@@ -61,7 +63,7 @@ class whitelist_blacklist_tester {
       }
 
       transaction_trace_ptr transfer( account_name from, account_name to, string quantity = "1.00 TOK" ) {
-         return chain->push_action( "eosio.token"_n, "transfer"_n, from, mvo()
+         return chain->push_action( token_name, "transfer"_n, from, mvo()
             ( "from", from )
             ( "to", to )
             ( "quantity", quantity )
@@ -105,10 +107,10 @@ BOOST_AUTO_TEST_SUITE(whitelist_blacklist_tests)
 BOOST_AUTO_TEST_CASE_TEMPLATE( actor_whitelist, T, whitelist_blacklist_validating_testers ) { try {
 
    T test;
-   test.actor_whitelist = {config::system_account_name, "eosio.token"_n, "alice"_n};
+   test.actor_whitelist = {config::system_account_name, token_name, "alice"_n};
    test.init();
 
-   test.transfer( "eosio.token"_n, "alice"_n, "1000.00 TOK" );
+   test.transfer( token_name, "alice"_n, "1000.00 TOK" );
 
    test.transfer( "alice"_n, "bob"_n,  "100.00 TOK" );
 
@@ -118,7 +120,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE( actor_whitelist, T, whitelist_blacklist_validatin
                        );
    signed_transaction trx;
    trx.actions.emplace_back( vector<permission_level>{{"alice"_n,config::active_name}, {"bob"_n,config::active_name}},
-                             "eosio.token"_n, "transfer"_n,
+                             token_name, "transfer"_n,
                              fc::raw::pack(transfer_args{
                                .from  = "alice"_n,
                                .to    = "bob"_n,
@@ -141,7 +143,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE( actor_blacklist, T, whitelist_blacklist_validatin
    test.actor_blacklist = {"bob"_n};
    test.init();
 
-   test.transfer( "eosio.token"_n, "alice"_n, "1000.00 TOK" );
+   test.transfer( token_name, "alice"_n, "1000.00 TOK" );
 
    test.transfer( "alice"_n, "bob"_n,  "100.00 TOK" );
 
@@ -152,7 +154,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE( actor_blacklist, T, whitelist_blacklist_validatin
 
    signed_transaction trx;
    trx.actions.emplace_back( vector<permission_level>{{"alice"_n,config::active_name}, {"bob"_n,config::active_name}},
-                             "eosio.token"_n, "transfer"_n,
+                             token_name, "transfer"_n,
                              fc::raw::pack(transfer_args{
                                 .from  = "alice"_n,
                                 .to    = "bob"_n,
@@ -172,12 +174,12 @@ BOOST_AUTO_TEST_CASE_TEMPLATE( actor_blacklist, T, whitelist_blacklist_validatin
 
 BOOST_AUTO_TEST_CASE_TEMPLATE( contract_whitelist, T, whitelist_blacklist_validating_testers ) { try {
    T test;
-   test.contract_whitelist = {config::system_account_name, "eosio.token"_n, "bob"_n};
+   test.contract_whitelist = {config::system_account_name, token_name, "bob"_n};
    test.init();
 
-   test.transfer( "eosio.token"_n, "alice"_n, "1000.00 TOK" );
+   test.transfer( token_name, "alice"_n, "1000.00 TOK" );
 
-   test.transfer( "alice"_n, "eosio.token"_n );
+   test.transfer( "alice"_n, token_name );
 
    test.transfer( "alice"_n, "bob"_n );
    test.transfer( "alice"_n, "charlie"_n, "100.00 TOK" );
@@ -224,9 +226,9 @@ BOOST_AUTO_TEST_CASE_TEMPLATE( contract_blacklist, T, whitelist_blacklist_valida
    test.contract_blacklist = {"charlie"_n};
    test.init();
 
-   test.transfer( "eosio.token"_n, "alice"_n, "1000.00 TOK" );
+   test.transfer( token_name, "alice"_n, "1000.00 TOK" );
 
-   test.transfer( "alice"_n, "eosio.token"_n );
+   test.transfer( "alice"_n, token_name );
 
    test.transfer( "alice"_n, "bob"_n );
    test.transfer( "alice"_n, "charlie"_n, "100.00 TOK" );
@@ -270,11 +272,11 @@ BOOST_AUTO_TEST_CASE_TEMPLATE( contract_blacklist, T, whitelist_blacklist_valida
 
 BOOST_AUTO_TEST_CASE_TEMPLATE( action_blacklist, T, whitelist_blacklist_validating_testers ) { try {
    T test;
-   test.contract_whitelist = {config::system_account_name, "eosio.token"_n, "bob"_n, "charlie"_n};
+   test.contract_whitelist = {config::system_account_name, token_name, "bob"_n, "charlie"_n};
    test.action_blacklist = {{"charlie"_n, "create"_n}};
    test.init();
 
-   test.transfer( "eosio.token"_n, "alice"_n, "1000.00 TOK" );
+   test.transfer( token_name, "alice"_n, "1000.00 TOK" );
 
    test.chain->produce_block();
 

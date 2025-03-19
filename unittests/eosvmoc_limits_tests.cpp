@@ -25,14 +25,14 @@ void limit_violated_test(const eosvmoc::config& eosvmoc_config) {
       use_genesis
    );
 
-   chain.create_accounts({"eosio.token"_n});
-   chain.set_code("eosio.token"_n, test_contracts::system_token_wasm());
-   chain.set_abi("eosio.token"_n, test_contracts::system_token_abi());
+   chain.create_accounts({token_name});
+   chain.set_code(token_name, test_contracts::system_token_wasm());
+   chain.set_abi(token_name, test_contracts::system_token_abi());
 
    if (chain.control->is_eos_vm_oc_enabled()) {
       BOOST_CHECK_EXCEPTION(
-         chain.push_action( "eosio.token"_n, "create"_n, "eosio.token"_n, mvo()
-            ( "issuer", "eosio.token" )
+         chain.push_action( token_name, "create"_n, token_name, mvo()
+            ( "issuer", token_name )
             ( "maximum_supply", "1000000.00 TOK" )),
          eosio::chain::wasm_execution_error,
          [](const eosio::chain::wasm_execution_error& e) {
@@ -40,8 +40,8 @@ void limit_violated_test(const eosvmoc::config& eosvmoc_config) {
          }
       );
    } else {
-      chain.push_action( "eosio.token"_n, "create"_n, "eosio.token"_n, mvo()
-         ( "issuer", "eosio.token" )
+      chain.push_action( token_name, "create"_n, token_name, mvo()
+         ( "issuer", token_name )
          ( "maximum_supply", "1000000.00 TOK" )
       );
    }
@@ -61,12 +61,12 @@ void limit_not_violated_test(const eosvmoc::config& eosvmoc_config) {
       use_genesis
    );
 
-   chain.create_accounts({"eosio.token"_n});
-   chain.set_code("eosio.token"_n, test_contracts::system_token_wasm());
-   chain.set_abi("eosio.token"_n, test_contracts::system_token_abi());
+   chain.create_accounts({token_name});
+   chain.set_code(token_name, test_contracts::system_token_wasm());
+   chain.set_abi(token_name, test_contracts::system_token_abi());
 
-   chain.push_action( "eosio.token"_n, "create"_n, "eosio.token"_n, mvo()
-      ( "issuer", "eosio.token" )
+   chain.push_action( token_name, "create"_n, token_name, mvo()
+      ( "issuer", token_name )
       ( "maximum_supply", "1000000.00 TOK" )
    );
 }

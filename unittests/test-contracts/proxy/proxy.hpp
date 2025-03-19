@@ -4,9 +4,17 @@
 #include <eosio/singleton.hpp>
 #include <eosio/asset.hpp>
 
-// Extacted from eosio.token contract:
+#define TO_STRING(x) #x
+
+#ifdef SYSTEM_ACCOUNT_PREFIX
+   static const eosio::name token_account_name = eosio::name{TO_STRING(SYSTEM_ACCOUNT_PREFIX ) ".token"};
+#else
+#error "SYSTEM_ACCOUNT_PREFIX not defined"
+#endif
+
+// Extacted from token contract:
 namespace eosio {
-   class [[eosio::contract("eosio.token")]] token : public eosio::contract {
+   class [[eosio::contract]] token : public eosio::contract {
    public:
       using eosio::contract::contract;
 
@@ -27,13 +35,13 @@ public:
    [[eosio::action]]
    void setowner( eosio::name owner, uint32_t delay );
 
-   [[eosio::on_notify("eosio.token::transfer")]]
+   [[eosio::on_notify("*::transfer")]]
    void on_transfer( eosio::name        from,
                      eosio::name        to,
                      eosio::asset       quantity,
                      const std::string& memo );
 
-   [[eosio::on_notify("eosio::onerror")]]
+   [[eosio::on_notify("*::onerror")]]
    void on_error( uint128_t sender_id, eosio::ignore<std::vector<char>> sent_trx );
 
    struct [[eosio::table]] config {

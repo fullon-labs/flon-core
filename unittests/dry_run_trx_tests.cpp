@@ -11,6 +11,7 @@ using namespace eosio::testing;
 using namespace fc;
 
 using mvo = fc::mutable_variant_object;
+static const name token_name = config::token_account_name;
 
 template<typename T>
 struct dry_run_trx_tester : T {
@@ -222,9 +223,9 @@ BOOST_AUTO_TEST_CASE_TEMPLATE( linkauth_test, T, dry_run_trx_testers ) { try {
 
    chain.produce_block();
 
-   chain.create_account("eosio.token"_n);
-   chain.set_code("eosio.token"_n, test_contracts::system_token_wasm());
-   chain.set_abi("eosio.token"_n, test_contracts::system_token_abi());
+   chain.create_account(token_name);
+   chain.set_code(token_name, test_contracts::system_token_wasm());
+   chain.set_abi(token_name, test_contracts::system_token_abi());
 
    chain.create_accounts( {"alice"_n} );
 
@@ -237,7 +238,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE( linkauth_test, T, dry_run_trx_testers ) { try {
    );
 
    name account = "alice"_n;
-   name code = "eosio_token"_n;
+   name code = config::token_account_name;
    name type = "transfer"_n;
    name requirement = "first"_n;
    action act = {
@@ -254,9 +255,9 @@ BOOST_AUTO_TEST_CASE_TEMPLATE( unlinkauth_test, T, dry_run_trx_testers ) { try {
 
    chain.produce_block();
 
-   chain.create_account("eosio.token"_n);
-   chain.set_code("eosio.token"_n, test_contracts::system_token_wasm());
-   chain.set_abi("eosio.token"_n, test_contracts::system_token_abi());
+   chain.create_account(token_name);
+   chain.set_code(token_name, test_contracts::system_token_wasm());
+   chain.set_abi(token_name, test_contracts::system_token_abi());
 
    chain.create_accounts( {"alice"_n} );
 
@@ -271,12 +272,12 @@ BOOST_AUTO_TEST_CASE_TEMPLATE( unlinkauth_test, T, dry_run_trx_testers ) { try {
    // link auth
    chain.push_action(config::system_account_name, linkauth::get_name(), "alice"_n, fc::mutable_variant_object()
            ("account", "alice")
-           ("code", "eosio.token")
+           ("code", token_name)
            ("type", "transfer")
            ("requirement", "first"));
 
    name account = "alice"_n;
-   name code = "eosio_token"_n;
+   name code = config::token_account_name;
    name type = "transfer"_n;
    action act = {
       vector<permission_level>{{"alice"_n, config::active_name}},

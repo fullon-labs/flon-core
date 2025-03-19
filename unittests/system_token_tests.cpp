@@ -17,22 +17,24 @@ using namespace std;
 
 using mvo = fc::mutable_variant_object;
 
+static const name token_name = config::token_account_name;
+
 template<typename T>
-class eosio_token_tester : public T {
+class system_token_tester : public T {
 public:
 
-   eosio_token_tester() {
+   system_token_tester() {
       T::produce_block();
 
-      T::create_accounts( { "alice"_n, "bob"_n, "carol"_n, "eosio.token"_n } );
+      T::create_accounts( { "alice"_n, "bob"_n, "carol"_n, token_name } );
       T::produce_block();
 
-      T::set_code( "eosio.token"_n, test_contracts::system_token_wasm() );
-      T::set_abi( "eosio.token"_n, test_contracts::system_token_abi() );
+      T::set_code( token_name, test_contracts::system_token_wasm() );
+      T::set_abi( token_name, test_contracts::system_token_abi() );
 
       T::produce_block();
 
-      const auto& accnt = T::control->db().template get<account_object,by_name>( "eosio.token"_n );
+      const auto& accnt = T::control->db().template get<account_object,by_name>( token_name );
       abi_def abi;
       BOOST_REQUIRE_EQUAL(abi_serializer::to_abi(accnt.abi, abi), true);
       abi_ser.set_abi(std::move(abi), abi_serializer::create_yield_function( T::abi_serializer_max_time ));
@@ -42,7 +44,7 @@ public:
       string action_type_name = abi_ser.get_action_type(name);
 
       action act;
-      act.account = "eosio.token"_n;
+      act.account = token_name;
       act.name    = name;
       act.data    = abi_ser.variant_to_binary( action_type_name, data, abi_serializer::create_yield_function( T::abi_serializer_max_time ) );
 
@@ -53,7 +55,7 @@ public:
    {
       auto symb = eosio::chain::symbol::from_string(symbolname);
       auto symbol_code = symb.to_symbol_code().value;
-      vector<char> data = T::get_row_by_account( "eosio.token"_n, name(symbol_code), "stat"_n, name(symbol_code) );
+      vector<char> data = T::get_row_by_account( token_name, name(symbol_code), "stat"_n, name(symbol_code) );
       return data.empty() ? fc::variant() : abi_ser.binary_to_variant( "currency_stats", data, abi_serializer::create_yield_function( T::abi_serializer_max_time ) );
    }
 
@@ -61,14 +63,14 @@ public:
    {
       auto symb = eosio::chain::symbol::from_string(symbolname);
       auto symbol_code = symb.to_symbol_code().value;
-      vector<char> data = T::get_row_by_account( "eosio.token"_n, acc, "accounts"_n, name(symbol_code) );
+      vector<char> data = T::get_row_by_account( token_name, acc, "accounts"_n, name(symbol_code) );
       return data.empty() ? fc::variant() : abi_ser.binary_to_variant( "account", data, abi_serializer::create_yield_function( T::abi_serializer_max_time ) );
    }
 
    T::action_result create( account_name issuer,
                 asset        maximum_supply ) {
 
-      return push_action( "eosio.token"_n, "create"_n, mvo()
+      return push_action( token_name, "create"_n, mvo()
            ( "issuer", issuer)
            ( "maximum_supply", maximum_supply)
       );
@@ -97,8 +99,8 @@ public:
    abi_serializer abi_ser;
 };
 
-using eosio_token_testers = boost::mpl::list<eosio_token_tester<legacy_tester>,
-                                             eosio_token_tester<savanna_tester>>;
+using eosio_token_testers = boost::mpl::list<system_token_tester<legacy_tester>,
+                                             system_token_tester<savanna_tester>>;
 
 BOOST_AUTO_TEST_SUITE(eosio_token_tests)
 

@@ -22,6 +22,8 @@ using namespace eosio::chain;
 using namespace eosio::testing;
 using namespace std::literals;
 
+static const name token_name = config::token_account_name;
+
 extern const char* const state_history_plugin_abi;
 
 bool operator==(const eosio::checksum256& lhs, const transaction_id_type& rhs) {
@@ -389,21 +391,21 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(test_deltas_resources_history, T, table_deltas_tes
    T chain;
    chain.produce_block();
 
-   chain.create_accounts({ "eosio.token"_n, "eosio.ram"_n, "eosio.ramfee"_n, "eosio.stake"_n, "eosio.rex"_n});
+   chain.create_accounts({ token_name, "eosio.ram"_n, "eosio.ramfee"_n, "eosio.stake"_n, "eosio.rex"_n});
 
    chain.produce_block();
 
-   chain.set_code( "eosio.token"_n, test_contracts::system_token_wasm() );
-   chain.set_abi( "eosio.token"_n, test_contracts::system_token_abi() );
+   chain.set_code( token_name, test_contracts::system_token_wasm() );
+   chain.set_abi( token_name, test_contracts::system_token_abi() );
 
    chain.produce_block();
 
-   chain.push_action("eosio.token"_n, "create"_n, "eosio.token"_n, mutable_variant_object()
-      ("issuer", "eosio.token" )
+   chain.push_action(token_name, "create"_n, token_name, mutable_variant_object()
+      ("issuer", token_name )
       ("maximum_supply", core_from_string("1000000000.0000") )
    );
 
-   chain.push_action("eosio.token"_n, "issue"_n, "eosio.token"_n, fc::mutable_variant_object()
+   chain.push_action(token_name, "issue"_n, token_name, fc::mutable_variant_object()
       ("to",       "eosio")
       ("quantity", core_from_string("90.0000"))
       ("memo", "for stuff")
