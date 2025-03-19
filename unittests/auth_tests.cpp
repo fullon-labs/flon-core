@@ -571,8 +571,8 @@ BOOST_AUTO_TEST_CASE_TEMPLATE( delete_auth, TESTER, validating_testers ) { try {
    chain.create_account("eosio.token"_n);
    chain.produce_block();
 
-   chain.set_code("eosio.token"_n, test_contracts::eosio_token_wasm());
-   chain.set_abi("eosio.token"_n, test_contracts::eosio_token_abi());
+   chain.set_code("eosio.token"_n, test_contracts::system_token_wasm());
+   chain.set_abi("eosio.token"_n, test_contracts::system_token_abi());
 
    chain.produce_block();
    chain.create_account("tester"_n);

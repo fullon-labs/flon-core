@@ -1157,9 +1157,9 @@ BOOST_AUTO_TEST_CASE_TEMPLATE( noop, T, validating_testers ) try {
 
  } FC_LOG_AND_RETHROW()
 
-// abi_serializer::to_variant failed because eosio_system_abi modified via chain.set_abi.
+// abi_serializer::to_variant failed because system_contract_abi modified via chain.set_abi.
 // This test also verifies that_initializer::eos_contract_abi() does not conflict
-// with eosio_system_abi as they are not allowed to contain duplicates.
+// with system_contract_abi as they are not allowed to contain duplicates.
 BOOST_AUTO_TEST_CASE_TEMPLATE( eosio_abi, T, validating_testers ) try {
    T chain;
 

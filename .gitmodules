@@ -40,3 +40,6 @@
 [submodule "tests/flon_abi"]
 	path = tests/flon_abi
 	url = https://github.com/fullon-labs/flon.abi
+[submodule "unittests/system_contracts"]
+	path = unittests/system_contracts
+	url = https://github.com/fullon-labs/flon.contracts.git

@@ -223,8 +223,8 @@ BOOST_AUTO_TEST_CASE_TEMPLATE( linkauth_test, T, dry_run_trx_testers ) { try {
    chain.produce_block();
 
    chain.create_account("eosio.token"_n);
-   chain.set_code("eosio.token"_n, test_contracts::eosio_token_wasm());
-   chain.set_abi("eosio.token"_n, test_contracts::eosio_token_abi());
+   chain.set_code("eosio.token"_n, test_contracts::system_token_wasm());
+   chain.set_abi("eosio.token"_n, test_contracts::system_token_abi());
 
    chain.create_accounts( {"alice"_n} );
 
@@ -255,8 +255,8 @@ BOOST_AUTO_TEST_CASE_TEMPLATE( unlinkauth_test, T, dry_run_trx_testers ) { try {
    chain.produce_block();
 
    chain.create_account("eosio.token"_n);
-   chain.set_code("eosio.token"_n, test_contracts::eosio_token_wasm());
-   chain.set_abi("eosio.token"_n, test_contracts::eosio_token_abi());
+   chain.set_code("eosio.token"_n, test_contracts::system_token_wasm());
+   chain.set_abi("eosio.token"_n, test_contracts::system_token_abi());
 
    chain.create_accounts( {"alice"_n} );
 

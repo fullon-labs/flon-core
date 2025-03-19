@@ -28,10 +28,10 @@ static void create_accounts(validating_tester& chain) {
          ("account", "eosio.msig")
          ("is_priv", 1) );
 
-   chain.set_code("eosio.token"_n, test_contracts::eosio_token_wasm());
-   chain.set_abi("eosio.token"_n, test_contracts::eosio_token_abi());
-   chain.set_code("eosio.msig"_n, test_contracts::eosio_msig_wasm());
-   chain.set_abi("eosio.msig"_n, test_contracts::eosio_msig_abi());
+   chain.set_code("eosio.token"_n, test_contracts::system_token_wasm());
+   chain.set_abi("eosio.token"_n, test_contracts::system_token_abi());
+   chain.set_code("eosio.msig"_n, test_contracts::system_msig_wasm());
+   chain.set_abi("eosio.msig"_n, test_contracts::system_msig_abi());
 
    chain.produce_block();
    chain.create_account("tester"_n);
@@ -1372,8 +1372,8 @@ BOOST_AUTO_TEST_CASE( canceldelay_test ) { try {
    chain.create_account("eosio.token"_n);
    chain.produce_block();
 
-   chain.set_code("eosio.token"_n, test_contracts::eosio_token_wasm());
-   chain.set_abi("eosio.token"_n, test_contracts::eosio_token_abi());
+   chain.set_code("eosio.token"_n, test_contracts::system_token_wasm());
+   chain.set_abi("eosio.token"_n, test_contracts::system_token_abi());
 
    chain.produce_block();
    chain.create_account("tester"_n);
@@ -1614,8 +1614,8 @@ BOOST_AUTO_TEST_CASE( canceldelay_test2 ) { try {
    chain.create_account("eosio.token"_n);
    chain.produce_block();
 
-   chain.set_code("eosio.token"_n, test_contracts::eosio_token_wasm());
-   chain.set_abi("eosio.token"_n, test_contracts::eosio_token_abi());
+   chain.set_code("eosio.token"_n, test_contracts::system_token_wasm());
+   chain.set_abi("eosio.token"_n, test_contracts::system_token_abi());
 
    chain.produce_block();
    chain.create_account("tester"_n);

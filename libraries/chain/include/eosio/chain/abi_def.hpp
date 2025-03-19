@@ -133,7 +133,7 @@ struct abi_def {
    may_not_exist<vector<action_result_def>>  action_results;
 };
 
-abi_def eosio_contract_abi(const abi_def& eosio_system_abi);
+abi_def eosio_contract_abi(const abi_def& system_contract_abi);
 vector<type_def> common_type_defs();
 
 extern unsigned char eosio_abi_bin[2132];

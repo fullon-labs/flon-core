@@ -1360,7 +1360,7 @@ namespace eosio::testing {
       for (auto name : names)
          input.finalizers.emplace_back(name, 1);
 
-      // same as reference-contracts/.../contracts/eosio.system/src/finalizer_key.cpp#L73
+      // same as finalizer_key.cpp#L73 of system_contract
       input.threshold = (names.size() * 2) / 3 + 1;
       return set_finalizers(input);
    }

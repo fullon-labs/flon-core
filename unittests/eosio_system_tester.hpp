@@ -34,8 +34,8 @@ public:
 
       T::produce_block();
 
-      T::set_code( "eosio.token"_n, test_contracts::eosio_token_wasm() );
-      T::set_abi( "eosio.token"_n, test_contracts::eosio_token_abi() );
+      T::set_code( "eosio.token"_n, test_contracts::system_token_wasm() );
+      T::set_abi( "eosio.token"_n, test_contracts::system_token_abi() );
 
       {
          const auto& accnt = T::control->db().template get<account_object,by_name>( "eosio.token"_n );
@@ -48,8 +48,8 @@ public:
       issue(config::system_account_name,      core_from_string("1000000000.0000"));
       BOOST_REQUIRE_EQUAL( core_from_string("1000000000.0000"), get_balance( name("eosio") ) );
 
-      T::set_code( config::system_account_name, test_contracts::eosio_system_wasm() );
-      T::set_abi( config::system_account_name, test_contracts::eosio_system_abi() );
+      T::set_code( config::system_account_name, test_contracts::system_contract_wasm() );
+      T::set_abi( config::system_account_name, test_contracts::system_contract_abi() );
 
       base_tester::push_action(config::system_account_name, "init"_n,
                             config::system_account_name,  mutable_variant_object()
@@ -510,8 +510,8 @@ public:
                                                ("is_priv", 1)
          );
 
-         T::set_code( "eosio.msig"_n, test_contracts::eosio_msig_wasm() );
-         T::set_abi( "eosio.msig"_n, test_contracts::eosio_msig_abi() );
+         T::set_code( "eosio.msig"_n, test_contracts::system_msig_wasm() );
+         T::set_abi( "eosio.msig"_n, test_contracts::system_msig_abi() );
 
          T::produce_block();
          const auto& accnt = T::control->db().template get<account_object,by_name>( "eosio.msig"_n );

@@ -189,10 +189,19 @@ add_subdirectory( libraries )
 add_subdirectory( plugins )
 add_subdirectory( programs )
 add_subdirectory( scripts )
-add_subdirectory( unittests )
-add_subdirectory( tests )
 add_subdirectory( tools )
 add_subdirectory( benchmark )
+
+option(BUILD_TESTS "Build unit tests" OFF)
+
+if(BUILD_TESTS)
+  message(STATUS "Building tests.")
+  add_subdirectory( tests )
+  add_subdirectory( unittests )
+else()
+  message(STATUS "Tests will not be built. To build tests, set BUILD_TESTS to ON.")
+endif()
+
 
 option(DISABLE_WASM_SPEC_TESTS "disable building of wasm spec unit tests" OFF)
 

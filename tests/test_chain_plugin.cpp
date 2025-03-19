@@ -192,8 +192,8 @@ public:
        create_accounts({ "eosio.token"_n, "eosio.ram"_n, "eosio.ramfee"_n, "eosio.stake"_n,
                          "eosio.bpay"_n, "eosio.vpay"_n, "eosio.saving"_n, "eosio.names"_n, "eosio.rex"_n });
 
-       set_code( "eosio.token"_n, test_contracts::eosio_token_wasm() );
-       set_abi( "eosio.token"_n, test_contracts::eosio_token_abi() );
+       set_code( "eosio.token"_n, test_contracts::system_token_wasm() );
+       set_abi( "eosio.token"_n, test_contracts::system_token_abi() );
 
        {
            const auto& accnt = control->db().get<account_object,by_name>( "eosio.token"_n );
@@ -206,8 +206,8 @@ public:
        issue(config::system_account_name,      core_from_string("1000000000.0000"));
        BOOST_CHECK_EQUAL( core_from_string("1000000000.0000"), get_balance( name("eosio") ) );
 
-       set_code( config::system_account_name, test_contracts::eosio_system_wasm() );
-       set_abi( config::system_account_name, test_contracts::eosio_system_abi() );
+       set_code( config::system_account_name, test_contracts::system_contract_wasm() );
+       set_abi( config::system_account_name, test_contracts::system_contract_abi() );
 
        base_tester::push_action(config::system_account_name, "init"_n,
                                 config::system_account_name,  mutable_variant_object()

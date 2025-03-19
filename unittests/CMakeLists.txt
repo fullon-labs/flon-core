@@ -1,21 +1,28 @@
 ### Build contracts with cdt if available ###
 include(ExternalProject)
 
-if( EOSIO_COMPILE_TEST_CONTRACTS )
-   set(EOSIO_WASM_OLD_BEHAVIOR "Off")
-   if( USE_EOSIO_CDT_1_7_X OR USE_EOSIO_CDT_1_8_X )
-      find_package( eosio.cdt REQUIRED )
-      set(CMAKE_ARGS_VAL -DCMAKE_TOOLCHAIN_FILE=${EOSIO_CDT_ROOT}/lib/cmake/eosio.cdt/EosioWasmToolchain.cmake -DEOSIO_COMPILE_TEST_CONTRACTS=${EOSIO_COMPILE_TEST_CONTRACTS} )
-   else()
-      find_package( cdt REQUIRED )
-      set(CMAKE_ARGS_VAL -DCMAKE_TOOLCHAIN_FILE=${CDT_ROOT}/lib/cmake/cdt/CDTWasmToolchain.cmake -DEOSIO_COMPILE_TEST_CONTRACTS=${EOSIO_COMPILE_TEST_CONTRACTS} )
-   endif()
+set(EOSIO_WASM_OLD_BEHAVIOR "Off")
+find_package( cdt REQUIRED )
+set(CMAKE_ARGS_VAL -DCMAKE_TOOLCHAIN_FILE=${CDT_ROOT}/lib/cmake/cdt/CDTWasmToolchain.cmake -DEOSIO_COMPILE_TEST_CONTRACTS=${EOSIO_COMPILE_TEST_CONTRACTS} )
 
-   if( USE_EOSIO_CDT_1_7_X )
-      list(APPEND CMAKE_ARGS_VAL -DUSE_EOSIO_CDT_1_7_X=${USE_EOSIO_CDT_1_7_X})
-   elseif( USE_EOSIO_CDT_1_8_X )
-      list(APPEND CMAKE_ARGS_VAL -DUSE_EOSIO_CDT_1_8_X=${USE_EOSIO_CDT_1_8_X})
-   endif()
+message( STATUS "Building contracts in directory `./unittests/system_contracts/contracts/`" )
+ExternalProject_Add(
+  system_contracts_project
+  SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/system_contracts/contracts
+  BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR}/system_contracts
+  CMAKE_ARGS ${CMAKE_ARGS_VAL}
+             -DSYSTEM_ACCOUNT_NAME=${SYSTEM_ACCOUNT_NAME}
+             -DCMAKE_BUILD_TYPE=Release
+             -DSYSTEM_CONFIGURABLE_WASM_LIMITS=On
+             -DSYSTEM_BLOCKCHAIN_PARAMETERS=On
+             -DBUILD_TESTS=Off
+  UPDATE_COMMAND ""
+  PATCH_COMMAND ""
+  TEST_COMMAND ""
+  INSTALL_COMMAND ""
+  BUILD_ALWAYS 1)
+
+if( EOSIO_COMPILE_TEST_CONTRACTS )
 
    message( STATUS "Building contracts in directory `./unittests/contracts/`" )
    ExternalProject_Add(

@@ -27,8 +27,8 @@ public:
       T::create_accounts( { "alice"_n, "bob"_n, "carol"_n, "eosio.token"_n } );
       T::produce_block();
 
-      T::set_code( "eosio.token"_n, test_contracts::eosio_token_wasm() );
-      T::set_abi( "eosio.token"_n, test_contracts::eosio_token_abi() );
+      T::set_code( "eosio.token"_n, test_contracts::system_token_wasm() );
+      T::set_abi( "eosio.token"_n, test_contracts::system_token_abi() );
 
       T::produce_block();
 
