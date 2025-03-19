@@ -679,7 +679,7 @@ void core_gas_accessor::pay_gas(chainbase::database& db, uint64_t gas) {
    res_utils::verify_sub_core_asset(payer_gas_account->balance(), quant, "substracting core asset of converted gas from payer account");
    res_utils::verify_add_core_asset(sys_gas_account->balance(), quant, "adding core asset of converted gas to system gas account");
    payer_gas_account->balance() -= quant;
-   sys_gas_account->balance() -= quant;
+   sys_gas_account->balance() += quant;
    payer_gas_account->save(db);
    sys_gas_account->save(db);
 }
