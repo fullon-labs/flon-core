@@ -471,7 +471,7 @@ public:
    }
 
    asset get_token_supply() {
-      return get_stats("4," CORE_SYMBOL_NAME)["supply"].template as<asset>();
+      return get_stats(config::core_symbol)["supply"].template as<asset>();
    }
 
    uint64_t microseconds_since_epoch_of_iso_string( const fc::variant& v ) {

@@ -4,7 +4,6 @@
 #pragma once
 
 #define CLIENT_EXECUTABLE_NAME                  "${CLI_CLIENT_EXECUTABLE_NAME}"
-#define SYSTEM_ACCOUNT_NAME                     "${SYSTEM_ACCOUNT_NAME}"
 
 namespace eosio { namespace client { namespace config {
    constexpr char    locale_path[]              {"${LOCALEDIR}"                  };

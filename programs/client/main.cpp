@@ -120,6 +120,9 @@ using namespace eosio::client::http;
 using namespace eosio::client::localize;
 using namespace eosio::client::config;
 
+#define STRX(x) #x
+#define STR(x) STRX(x)
+
 FC_DECLARE_EXCEPTION( explained_exception, 9000000, "explained exception, see error log" );
 FC_DECLARE_EXCEPTION( localized_exception, 10000000, "an error occured" );
 #define EOSC_ASSERT( TEST, ... ) \
@@ -2389,9 +2392,9 @@ struct activate_subcommand {
 
    activate_subcommand(CLI::App* actionRoot) {
       auto activate = actionRoot->add_subcommand("activate", localized("Activate protocol feature by name"));
-      activate->add_option("feature",  feature_name_str, localized("The name, can be found from \"" CLIENT_EXECUTABLE_NAME " get supported_protoctol_features\" command"))->required();
-      activate->add_option("-a,--account", account_str, localized("The contract account name, default is " SYSTEM_ACCOUNT_NAME));
-      activate->add_option("-p,--permission", permission_str, localized("The permission level to authorize, default is " SYSTEM_ACCOUNT_NAME));
+      activate->add_option("feature",  feature_name_str, localized("The name, can be found from \"" STR(CLIENT_EXECUTABLE_NAME) " get supported_protoctol_features\" command"))->required();
+      activate->add_option("-a,--account", account_str, localized("The contract account name, default is " STR(SYSTEM_ACCOUNT_NAME)));
+      activate->add_option("-p,--permission", permission_str, localized("The permission level to authorize, default is " STR(SYSTEM_ACCOUNT_NAME)));
       activate->fallthrough(false);
 
       activate->callback([this] {

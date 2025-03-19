@@ -288,11 +288,11 @@ BOOST_AUTO_TEST_CASE_TEMPLATE( test_symbol, T, validating_testers ) try {
       BOOST_REQUIRE_EQUAL(4, sys.decimals());
    }
 
-   // default is "4,${CORE_SYMBOL_NAME}"
+   // default is config::core_symbol
    {
       symbol def;
-      BOOST_REQUIRE_EQUAL(4, def.decimals());
-      BOOST_REQUIRE_EQUAL(CORE_SYMBOL_NAME, def.name());
+      BOOST_REQUIRE_EQUAL(config::core_symbol.decimals(), def.decimals());
+      BOOST_REQUIRE_EQUAL(config::core_symbol.name(), def.name());
    }
    // from string
    {

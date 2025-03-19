@@ -10,7 +10,7 @@ if( EOSIO_COMPILE_TEST_CONTRACTS )
         find_package( cdt REQUIRED )
     endif()
     add_compile_options(-no-missing-ricardian-clause)
-    add_compile_definitions( SYSTEM_ACCOUNT_NAME=${SYSTEM_ACCOUNT_NAME} SYSTEM_ACCOUNT_PREFIX=${SYSTEM_ACCOUNT_PREFIX} )
+    add_compile_definitions( ${CHAIN_CONFIG_DEFINITIONS} )
 endif()
 
 if ("${CMAKE_GENERATOR}" STREQUAL "Ninja")
