@@ -247,9 +247,7 @@ void application_base::set_program_options()
          ("config-dir", bpo::value<std::string>(), "Directory containing configuration files such as config.ini")
          ("config,c", bpo::value<std::string>()->default_value( "config.ini" ), "Configuration file name relative to config-dir")
          ("logconf,l", bpo::value<std::string>()->default_value( "logging.json" ),
-            "Logging configuration file name/path for library users (absolute path or relative to application config dir)")
-         ("compatible-chain-eos", bpo::value<bool>()->default_value(false),
-            "Compatible with eos chain, such as public key prefix and system account name");
+            "Logging configuration file name/path for library users (absolute path or relative to application config dir)");
 
    my->_cfg_options.add(app_cfg_opts);
    my->_app_options.add(app_cfg_opts);
@@ -290,11 +288,6 @@ bool application_base::initialize_impl(int argc, char** argv, vector<abstract_pl
       print_default_config(cout);
       return false;
    }
-
-   if (options["compatible-chain-eos"].as<bool>() && compatible_chain_eos_handler != nullptr) {
-      compatible_chain_eos_handler();
-   }
-
 
    if( options.count( "data-dir" ) ) {
       // Workaround for 10+ year old Boost defect

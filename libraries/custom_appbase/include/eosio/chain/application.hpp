@@ -153,20 +153,3 @@ using application = application_t<priority_queue_executor>;
 }
 
 #include <appbase/application_instance.hpp>
-
-namespace appbase {
-
-class scoped_app_tester: public scoped_app {
-public:
-   explicit scoped_app_tester();
-};
-
-class custom_scoped_app: public scoped_app {
-public:
-   explicit custom_scoped_app();
-};
-
-
-void compatible_chain_eos();
-
-}// namespace appbase

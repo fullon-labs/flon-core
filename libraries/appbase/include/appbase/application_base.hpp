@@ -27,8 +27,6 @@ struct priority {
 
 class application_base {
 public:
-   std::function<void()> compatible_chain_eos_handler;
-public:
    ~application_base();
 
 

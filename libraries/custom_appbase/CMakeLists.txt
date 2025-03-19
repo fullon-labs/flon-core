@@ -1,7 +1,5 @@
-file(GLOB HEADERS "include/eosio/chain/*.hpp" )
-
-add_library(custom_appbase application.cpp ${HEADERS} )
-target_include_directories(custom_appbase PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include")
-target_link_libraries(custom_appbase PUBLIC appbase eosio_chain fc )
+add_library(custom_appbase INTERFACE)
+target_include_directories(custom_appbase INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/include")
+target_link_libraries(custom_appbase INTERFACE appbase)
 
 add_subdirectory(tests)

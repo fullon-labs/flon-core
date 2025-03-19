@@ -87,7 +87,7 @@ enum return_codes {
 int main(int argc, char** argv)
 {
    try {
-      appbase::custom_scoped_app app;
+      appbase::scoped_app app;
 
       app->set_version_string(eosio::version::version_client());
       app->set_full_version_string(eosio::version::version_full());

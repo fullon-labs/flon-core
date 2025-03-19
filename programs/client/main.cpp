@@ -2793,14 +2793,6 @@ struct set_url_no_trailing_slash {
    }
 };
 
-struct set_compatible_chain_eos {
-   void operator()(const bool& is_compatible_chain_eos) const {
-      if (is_compatible_chain_eos) {
-         appbase::compatible_chain_eos();
-      }
-   }
-};
-
 struct get_block_params {
    string blockArg;
    bool get_bhs = false;
@@ -2849,7 +2841,6 @@ int main( int argc, char** argv ) {
    app.add_flag("--print-response", http_config.print_response, localized("Print HTTP response to STDERR"));
    app.add_flag("--http-verbose", http_config.verbose, localized("Print HTTP verbose information to STDERR"));
    app.add_flag("--http-trace", http_config.trace, localized("Print HTTP debug trace information to STDERR"));
-   app.add_flag_function("--compatible-chain-eos", set_compatible_chain_eos(), localized("Compatible with eos chain, such as public key prefix and system account name"));
 
    auto version = app.add_subcommand("version", localized("Retrieve version information"));
    version->require_subcommand();

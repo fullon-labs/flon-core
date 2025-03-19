@@ -158,7 +158,7 @@ int main(int argc, char** argv)
    ilog("${name} started", ("name", node::config::node_executable_name));
 
    try {
-      appbase::custom_scoped_app app;
+      appbase::scoped_app app;
       fc::scoped_exit<std::function<void()>> on_exit = [&]() {
          ilog("${name} version ${ver} ${fv}",
               ("name", node::config::node_executable_name)("ver", app->version_string())
@@ -176,7 +176,7 @@ int main(int argc, char** argv)
       app->set_version_string(eosio::version::version_client());
       app->set_full_version_string(eosio::version::version_full());
 
-      auto set_default_config = [&app]() {
+      {
          auto root = fc::app_path();
          app->set_default_data_dir(root / chain::config::system_account_name.to_string() / node::config::node_executable_name / "data" );
          app->set_default_config_dir(root / chain::config::system_account_name.to_string() / node::config::node_executable_name / "config" );
@@ -185,14 +185,7 @@ int main(int argc, char** argv)
             .default_http_port = 8888,
             .server_header = node::config::node_executable_name + "/" + app->version_string()
          });
-      };
-      set_default_config();
-
-      app->compatible_chain_eos_handler = [&app, &set_default_config]() {
-         ilog("application compatible with eos chain");
-         appbase::compatible_chain_eos();
-         set_default_config();
-      };
+      }
 
       if(!app->initialize<chain_plugin, net_plugin, producer_plugin, resource_monitor_plugin>(argc, argv, initialize_logging)) {
          const auto& opts = app->get_options();

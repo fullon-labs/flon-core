@@ -49,7 +49,7 @@ enum class app_init_status { failed, succeeded };
 
 void test_configs_common(std::vector<const char*>& specific_args, app_init_status expected_status) {
    fc::temp_directory temp;
-   scoped_app_tester app;
+   appbase::scoped_app app;
    auto temp_dir_str = temp.path().string();
 
    fc::logger::get(DEFAULT_LOGGER).set_log_level(fc::log_level::debug);
@@ -89,7 +89,7 @@ void test_trxs_common(std::vector<const char*>& specific_args, bool test_disable
 
       using namespace std::chrono_literals;
       fc::temp_directory temp;
-      scoped_app_tester app;
+      appbase::scoped_app app;
       auto temp_dir_str = temp.path().string();
       producer_plugin::set_test_mode(true);
 

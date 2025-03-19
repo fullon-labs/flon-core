@@ -56,7 +56,7 @@ BOOST_AUTO_TEST_CASE(snapshot_scheduler_test) {
    {
       fc::temp_directory temp_dir;
       const auto& temp = temp_dir.path();
-      scoped_app_tester app;
+      appbase::scoped_app app;
 
       try {
          std::promise<std::tuple<producer_plugin*, chain_plugin*>> plugin_promise;
