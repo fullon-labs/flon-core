@@ -79,15 +79,15 @@ namespace eosio::chain {
    using block_1024_option_t = boost::container::deque_options< boost::container::block_size<1024u> >::type;
    template<typename T>
    using deque = boost::container::deque< T, void, block_1024_option_t >;
-   
+
    struct void_t{};
 
    using chainbase::allocator;
    using shared_string = chainbase::shared_string;
-   
+
    template<typename T>
    using shared_vector = chainbase::shared_vector<T>;
-   
+
    template<typename K, typename V>
    using shared_flat_multimap = boost::interprocess::flat_multimap< K, V, std::less<K>, allocator< std::pair<K,V> > >;
 

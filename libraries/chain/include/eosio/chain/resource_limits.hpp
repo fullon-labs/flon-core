@@ -10,7 +10,7 @@
 
 #include <eosio/chain/contract_table_objects.hpp>
 #include <eosio/chain/asset.hpp>
-#include <eosio/chain/core_symbol.hpp>
+
 namespace eosio { namespace chain {
 
    class deep_mind_handler;

@@ -19,30 +19,31 @@ const static auto chain_head_filename         = "chain_head.dat";
 const static auto default_state_size          = 1*1024*1024*1024ll;
 const static auto default_state_guard_size    =    128*1024*1024ll;
 
+#define SYS_NAME(n)  string_to_name(STR(SYSTEM_ACCOUNT_PREFIX) "." STR(n))
 
-extern name system_account_name;
-extern name null_account_name;
-extern name producers_account_name;
+const static name system_account_name     { NAME(SYSTEM_ACCOUNT_NAME) };
+const static name null_account_name       { SYS_NAME(null) }; // "[pre].null"
+const static name producers_account_name  { SYS_NAME(prods) }; // "[pre].prods"
 
 // Active permission of producers account requires greater than 2/3 of the producers to authorize
 const static name majority_producers_permission_name { "prod.major"_n }; // greater than 1/2 of producers needed to authorize
 const static name minority_producers_permission_name { "prod.minor"_n }; // greater than 1/3 of producers needed to authorize0
 
-extern name eosio_auth_scope;     //{ "eosio.auth"_n };
-extern name eosio_all_scope;      //{ "eosio.all"_n };
+const static name eosio_auth_scope        { SYS_NAME(auth) }; // "[pre].auth"
+const static name eosio_all_scope         { SYS_NAME(all) }; // "[pre].all"
 
-const static name active_name     { "active"_n };
-const static name owner_name      { "owner"_n };
-extern name eosio_any_name;       //{ "eosio.any"_n };
-extern name eosio_code_name;      //{ "eosio.code"_n };
+const static name active_name             { "active"_n };
+const static name owner_name              { "owner"_n };
+const static name eosio_any_name          { SYS_NAME(any) }; // "[pre].any"
+const static name eosio_code_name         { SYS_NAME(code) }; // "[pre].code"
 
-extern name token_account_name;
-extern name msig_account_name;
-extern name wrap_account_name;
-extern name gas_account_name;
+const static name token_account_name      { SYS_NAME(token) }; // "[pre].token"
+const static name msig_account_name       { SYS_NAME(msig) }; // "[pre].msig"
+const static name wrap_account_name       { SYS_NAME(wrap) }; // "[pre].wrap"
+const static name gas_account_name        { SYS_NAME(gas) }; // "[pre].gas"
 
-extern symbol core_symbol;
-extern symbol_code core_symbol_code;
+const static symbol core_symbol           { CORE_SYMBOL };
+const static symbol_code core_symbol_code { core_symbol.to_symbol_code() };
 
 const static int      block_interval_ms = 500;
 const static int      block_interval_us = block_interval_ms*1000;

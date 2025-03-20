@@ -3,6 +3,13 @@
 #include <fc/reflect/reflect.hpp>
 #include <iosfwd>
 
+#ifndef STRX
+#define STRX(x) #x
+#endif
+#ifndef STR
+#define STR(x) STRX(x)
+#endif
+
 namespace eosio::chain {
   struct name;
 }
@@ -120,6 +127,8 @@ namespace eosio::chain {
    {
       return name( string_to_uint64_t( str ) );
    }
+
+   #define NAME(s) string_to_name(STR(s))
 
    inline namespace literals {
 #if defined(__clang__)

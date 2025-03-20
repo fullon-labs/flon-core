@@ -2,9 +2,15 @@
 #include <fc/exception/exception.hpp>
 #include <eosio/chain/exceptions.hpp>
 #include <eosio/chain/types.hpp>
-#include <eosio/chain/core_symbol.hpp>
 #include <string>
 #include <functional>
+
+#ifndef STRX
+#define STRX(x) #x
+#endif
+#ifndef STR
+#define STR(x) STRX(x)
+#endif
 
 namespace eosio::chain {
 
@@ -31,7 +37,27 @@ namespace eosio::chain {
          return result;
       }
 
-#define SY(P,X) ::eosio::chain::string_to_symbol_c(P,#X)
+      static constexpr uint64_t is_symbol_valid(uint8_t precision, const char* str) {
+         if (precision > 18)
+            return false;
+         uint32_t len = 0;
+         const char* p = str;
+         while (*p) {
+            len++;
+            if (len > 7)
+               return false;
+            if (*p < 'A' || *p > 'Z')
+               return false;
+            p++;
+         }
+         return len > 0;
+      }
+
+   #define SY(P,X) ::eosio::chain::string_to_symbol_c(P,#X)
+   #define CORE_SYMBOL  ::eosio::chain::string_to_symbol_c(CORE_SYMBOL_PRECISION, STR(CORE_SYMBOL_NAME))
+
+   static_assert(is_symbol_valid(CORE_SYMBOL_PRECISION, STR(CORE_SYMBOL_NAME)),
+               "Invalid symbol: " STR(CORE_SYMBOL_PRECISION) "," STR(CORE_SYMBOL_NAME));
 
       static uint64_t string_to_symbol(uint8_t precision, const char* str) {
          try {

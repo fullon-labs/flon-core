@@ -1,11 +1,8 @@
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/config.cpp.in ${CMAKE_CURRENT_BINARY_DIR}/config.cpp)
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/include/eosio/chain/core_symbol.hpp.in ${CMAKE_CURRENT_BINARY_DIR}/include/eosio/chain/core_symbol.hpp)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/genesis_state_root_key.cpp.in ${CMAKE_CURRENT_BINARY_DIR}/genesis_state_root_key.cpp)
 
 file(GLOB HEADERS "include/eosio/chain/*.hpp"
                   "include/eosio/chain/webassembly/*.hpp"
-                  "include/eosio/chain/finality/*.hpp"
-                  "${CMAKE_CURRENT_BINARY_DIR}/include/eosio/chain/core_symbol.hpp" )
+                  "include/eosio/chain/finality/*.hpp" )
 
 if((APPLE AND UNIX) OR (${CMAKE_SYSTEM_NAME} STREQUAL "FreeBSD"))
    set(PLATFORM_TIMER_IMPL platform_timer_kqueue.cpp)
@@ -112,7 +109,6 @@ add_library( eosio_chain
              chain_config.cpp
              chain_id_type.cpp
              genesis_state.cpp
-             ${CMAKE_CURRENT_BINARY_DIR}/config.cpp
              ${CMAKE_CURRENT_BINARY_DIR}/genesis_state_root_key.cpp
 
               wast_to_wasm.cpp
@@ -194,4 +190,4 @@ install( DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/eosio/chain/
       COMPONENT dev EXCLUDE_FROM_ALL
       FILES_MATCHING PATTERN "*.hpp" PATTERN "*.h" EXCLUDE
 )
-install(FILES ${CMAKE_CURRENT_BINARY_DIR}/include/eosio/chain/core_symbol.hpp DESTINATION ${CMAKE_INSTALL_FULL_INCLUDEDIR}/eosio/chain COMPONENT dev EXCLUDE_FROM_ALL)
+
