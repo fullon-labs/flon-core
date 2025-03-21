@@ -1233,7 +1233,7 @@ struct create_account_subcommand {
       if (!simple) {
          createAccount->add_option("--gas-quant", buy_gas_quant,
                                    (localized("The quantity of core asset for buying gas to new account")));
-         createAccount->add_option("--transfer-quant", transfer_quant,
+         createAccount->add_option("--fund-account", transfer_quant,
                                    (localized("The amount for transfering core asset to new account")));
          createAccount->add_option("--transfer-memo", transfer_memo,
                                    (localized("The memo for transfering core asset to the new account")));
@@ -1278,7 +1278,7 @@ struct create_account_subcommand {
             };
 
             if (!simple) {
-               EOSC_ASSERT( buy_gas_quant.size() || transfer_quant.size(), "ERROR: One of --buy-gas-quant or --transfer-quant should have value" );
+               EOSC_ASSERT( buy_gas_quant.size() || transfer_quant.size(), "ERROR: One of --fund-gas or --fund-account should have value" );
 
                // TODO: check core asset?
                if (buy_gas_quant.size()) {
@@ -1293,7 +1293,7 @@ struct create_account_subcommand {
                      actions.push_back(create_transfer(config::token_account_name, name(creator), name(account_name), quant, transfer_memo));
                   }
                }
-               EOSC_ASSERT( actions.size() > 1, "ERROR: One of --buy-gas-quant or --transfer-quant should be positive" );
+               EOSC_ASSERT( actions.size() > 1, "ERROR: One of --fund-gas or --fund-account should be positive" );
             }
 
             send_actions( std::move(actions), signing_keys_opt.get_keys());
