@@ -2,8 +2,8 @@
 include(ExternalProject)
 
 set(EOSIO_WASM_OLD_BEHAVIOR "Off")
-find_package( cdt REQUIRED )
-set(CMAKE_ARGS_VAL -DCMAKE_TOOLCHAIN_FILE=${CDT_ROOT}/lib/cmake/cdt/CDTWasmToolchain.cmake -DEOSIO_COMPILE_TEST_CONTRACTS=${EOSIO_COMPILE_TEST_CONTRACTS} )
+find_package( flon.cdt REQUIRED )
+set(CMAKE_ARGS_VAL -DCMAKE_TOOLCHAIN_FILE=${CDT_TOOLCHAIN_FILE} -DEOSIO_COMPILE_TEST_CONTRACTS=${EOSIO_COMPILE_TEST_CONTRACTS} )
 
 message( STATUS "Building contracts in directory `./unittests/system_contracts/contracts/`" )
 ExternalProject_Add(

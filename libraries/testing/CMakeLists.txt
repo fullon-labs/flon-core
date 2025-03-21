@@ -3,19 +3,8 @@ include(ExternalProject)
 
 if( EOSIO_COMPILE_TEST_CONTRACTS )
     set(EOSIO_WASM_OLD_BEHAVIOR "Off")
-    if( USE_EOSIO_CDT_1_7_X OR USE_EOSIO_CDT_1_8_X )
-        find_package( eosio.cdt REQUIRED )
-        set(CMAKE_ARGS_VAL -DCMAKE_TOOLCHAIN_FILE=${EOSIO_CDT_ROOT}/lib/cmake/eosio.cdt/EosioWasmToolchain.cmake -DEOSIO_COMPILE_TEST_CONTRACTS=${EOSIO_COMPILE_TEST_CONTRACTS} )
-    else()
-        find_package( cdt REQUIRED )
-        set(CMAKE_ARGS_VAL -DCMAKE_TOOLCHAIN_FILE=${CDT_ROOT}/lib/cmake/cdt/CDTWasmToolchain.cmake -DEOSIO_COMPILE_TEST_CONTRACTS=${EOSIO_COMPILE_TEST_CONTRACTS} )
-    endif()
-
-    if( USE_EOSIO_CDT_1_7_X )
-        list(APPEND CMAKE_ARGS_VAL -DUSE_EOSIO_CDT_1_7_X=${USE_EOSIO_CDT_1_7_X})
-    elseif( USE_EOSIO_CDT_1_8_X )
-        list(APPEND CMAKE_ARGS_VAL -DUSE_EOSIO_CDT_1_8_X=${USE_EOSIO_CDT_1_8_X})
-    endif()
+    find_package( flon.cdt REQUIRED )
+    set(CMAKE_ARGS_VAL -DCMAKE_TOOLCHAIN_FILE=${CDT_TOOLCHAIN_FILE} -DEOSIO_COMPILE_TEST_CONTRACTS=${EOSIO_COMPILE_TEST_CONTRACTS} )
 
     message( STATUS "Building contracts in directory `./libraries/contracts/`" )
     ExternalProject_Add(
