@@ -18,6 +18,8 @@ import shutil
 import sys
 from pathlib import Path
 
+from . import chain_config
+
 ###########################################################################################
 
 def addEnum(enumClassType, type):
@@ -59,17 +61,17 @@ class Utils:
     testBinPath = Path(__file__).resolve().parents[2] / 'bin'
 
     ClientName=str("focli")
-    ClientPath=str(testBinPath / "focli")
+    ClientPath=str(testBinPath / chain_config.CLIENT_EXECUTABLE_NAME)
     MiscEosClientArgs="--no-auto-wallet"
 
-    SysAccount=str("flon")
-    TokenAccount=str("flon.token")
-    SpringClientPath=str(testBinPath / "flon-util")
+    SysAccount=str(chain_config.SYSTEM_ACCOUNT_NAME)
+    TokenAccount=str(chain_config.TOKEN_ACCOUNT)
+    SpringClientPath=str(testBinPath / chain_config.UTIL_EXECUTABLE_NAME)
 
-    EosWalletName="fowal"
+    EosWalletName=chain_config.KEY_STORE_EXECUTABLE_NAME
     EosWalletPath=str(testBinPath / EosWalletName)
 
-    EosServerName="fonod"
+    EosServerName=chain_config.NODE_EXECUTABLE_NAME
     NodeServerPath=str(testBinPath / EosServerName)
 
     ShuttingDown=False
