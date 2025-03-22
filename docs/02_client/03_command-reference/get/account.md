@@ -13,7 +13,7 @@ Retrieves an account from the blockchain
 ### Get formatted data for user **eosio**
 
 ```sh
-focli get account eosio
+fucli get account eosio
 ```
 ```console
 privileged: true
@@ -38,7 +38,7 @@ producers:     <not voted>
 ### Get JSON data for user **eosio**
 
 ```sh
-focli get account eosio --json
+fucli get account eosio --json
 ```
 ```json
 {

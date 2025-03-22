@@ -6,7 +6,7 @@ Beware that only the account which originally delegated resource can undelegate
 
 ## Before you begin
 
-* Install the currently supported version of `focli`
+* Install the currently supported version of `fucli`
 
 * Ensure the reference system contracts from `eosio.contracts` repository is deployed and used to manage system resources
 
@@ -20,7 +20,7 @@ Beware that only the account which originally delegated resource can undelegate
 Undelegate 0.01 SYS network bandwidth from account `alice` back to account `bob`:
 
 ```sh
-focli system undelegatebw bob alice "0 SYS" "0.01 SYS"
+fucli system undelegatebw bob alice "0 SYS" "0.01 SYS"
 ```
 
 You should see something below:

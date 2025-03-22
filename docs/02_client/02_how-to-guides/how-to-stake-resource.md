@@ -4,7 +4,7 @@ Stake resource for your account
 
 ## Before you begin
 
-* Install the currently supported version of `focli`
+* Install the currently supported version of `fucli`
 
 * Ensure the reference system contracts from `eosio.contracts` repository is deployed and used to manage system resources
 
@@ -18,11 +18,11 @@ Stake resource for your account
 Stake 0.01 SYS network bandwidth for `alice`
 
 ```sh
-focli system delegatebw alice alice "0 SYS" "0.01 SYS"
+fucli system delegatebw alice alice "0 SYS" "0.01 SYS"
 ```
 
 Stake 0.01 SYS CPU bandwidth for `alice`:
 
 ```sh
-focli system delegatebw alice alice "0.01 SYS" "0 SYS"
+fucli system delegatebw alice alice "0.01 SYS" "0 SYS"
 ```

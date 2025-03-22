@@ -3,7 +3,7 @@ content_title: Fowal Usage
 ---
 
 [[info | Recommended Usage]]
-| For most users, the easiest way to use `fowal` is to have `focli` launch it automatically. Wallet files will be created in the default directory (`~/eosio-wallet`).
+| For most users, the easiest way to use `fowal` is to have `fucli` launch it automatically. Wallet files will be created in the default directory (`~/eosio-wallet`).
 
 ## Launching fowal manually
 

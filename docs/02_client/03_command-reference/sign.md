@@ -3,7 +3,7 @@ Sign a transaction
 
 ## Usage
 ```sh
-focli sign [OPTIONS] transaction
+fucli sign [OPTIONS] transaction
 ```
 
 ## Positional Parameters

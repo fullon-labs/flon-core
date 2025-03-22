@@ -7,5 +7,5 @@ none
 ## Usage
 
 ```sh
-focli version client
+fucli version client
 ```

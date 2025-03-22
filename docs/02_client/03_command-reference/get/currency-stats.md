@@ -11,7 +11,7 @@ There are no options for this subcommand
 Get stats of the SYS token from the eosio.token contract.
 
 ```sh
-focli get currency stats eosio.token SYS
+fucli get currency stats eosio.token SYS
 ```
 ```json
 {

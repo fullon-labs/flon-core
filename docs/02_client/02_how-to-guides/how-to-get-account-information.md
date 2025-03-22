@@ -4,18 +4,18 @@ This how-to guide provides instructions on how to query infomation of an FullOn 
 
 ## Before you begin
 
-* Install the currently supported version of `focli`
+* Install the currently supported version of `fucli`
 
 [[info | Note]]
-| The focli tool is bundled with the FullOn software. [Installing FullOn](../../00_install/index.md) will also install the focli tool.
+| The fucli tool is bundled with the FullOn software. [Installing FullOn](../../00_install/index.md) will also install the fucli tool.
 
 * Acquire functional understanding of [FullOn Accounts and Permissions](/protocol-guides/04_accounts_and_permissions.md)
 
 ## Command Reference
 
-See the following reference guide for command line usage and related options for the focli command:
+See the following reference guide for command line usage and related options for the fucli command:
 
-* [`focli get account`](../03_command-reference/get/account.md) command and its parameters
+* [`fucli get account`](../03_command-reference/get/account.md) command and its parameters
 
 ## Procedure
 
@@ -24,7 +24,7 @@ The following step shows how to query information of the `flonian` account:
 1. Run the following command:
 
 ```sh
-focli get account flonian
+fucli get account flonian
 ```
 **Where**:
 

@@ -20,5 +20,5 @@
 
 
 ```sh
-focli system rex rentnet accountname1 accountname2 "1 EOS" 0
+fucli system rex rentnet accountname1 accountname2 "1 EOS" 0
 ```

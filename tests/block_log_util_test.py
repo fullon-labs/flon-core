@@ -43,7 +43,7 @@ walletMgr=WalletMgr(True, port=walletPort)
 testSuccessful=False
 
 WalletdName=Utils.EosWalletName
-ClientName="focli"
+ClientName="fucli"
 
 try:
     TestHelper.printSystemInfo("BEGIN")

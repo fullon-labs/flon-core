@@ -5,7 +5,7 @@ Sets or updates the blockchain state.
 Set or update blockchain state
 
 ```console
-Usage: focli set [OPTIONS] SUBCOMMAND
+Usage: fucli set [OPTIONS] SUBCOMMAND
 
 Options:
   -h,--help                   Print this help message and exit

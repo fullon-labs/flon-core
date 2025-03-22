@@ -5,15 +5,15 @@ This how-to guide provides instructions on how to create a keypair consisting of
 ## Before you begin
 
 Make sure you meet the following requirements:
-* Install the currently supported version of `focli`
+* Install the currently supported version of `fucli`
 [[info | Note]]
-| The focli tool is bundled with the FullOn software. [Installing FullOn](../../00_install/index.md) will also install the focli tool.
+| The fucli tool is bundled with the FullOn software. [Installing FullOn](../../00_install/index.md) will also install the fucli tool.
 * Learn about asymmetric cryptography (public and private keypair) in the context of an FullOn blockchain.
 
 ## Command Reference
 
-See the following reference guide for `focli` command line usage and related options:
-* [`focli create key`](../03_command-reference/create/key.md) command and its parameters
+See the following reference guide for `fucli` command line usage and related options:
+* [`fucli create key`](../03_command-reference/create/key.md) command and its parameters
 
 ## Procedure
 
@@ -22,7 +22,7 @@ The following steps show how to create a public/private keypair, display them on
 1. Create a public/private keypair and print them to the console:
 
 ```sh
-focli create key --to-console
+fucli create key --to-console
 ```
 
 **Where**:
@@ -39,7 +39,7 @@ Public key: EOS4wSiQ2jbYGrqiiKCm8oWR88NYoqnmK4nNL1RCtSQeSFkGtqsNc
 2. Create a public/private keypair and save it to a file:
 
 ```sh
-focli create key --file pw.txt
+fucli create key --file pw.txt
 ```
 **Where**:
 

@@ -23,5 +23,5 @@ excerpt: "Deposit tokens to REX fund and use the tokens to buy REX"
 
 
 ```sh
-focli system rex lendrex accountname1 "1 REX"
+fucli system rex lendrex accountname1 "1 REX"
 ```

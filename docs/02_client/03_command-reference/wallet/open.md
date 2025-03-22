@@ -10,11 +10,11 @@ None
 
 
 ```sh
-focli wallet open
+fucli wallet open
 ```
 or
 ```sh
-focli wallet open -n second-wallet
+fucli wallet open -n second-wallet
 ```
 
 ## Outputs

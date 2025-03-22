@@ -6,12 +6,12 @@ Create a wallet using `fowal`.
 
 Make sure you meet the following requirements:
 
-* Familiarize with the [`focli wallet create`](../03_command-reference/wallet/create.md) command and its parameters.
-* Familiarize with the other [`focli wallet`](../03_command-reference/wallet/index.md) commands.
-* Install the currently supported version of `focli`.
+* Familiarize with the [`fucli wallet create`](../03_command-reference/wallet/create.md) command and its parameters.
+* Familiarize with the other [`fucli wallet`](../03_command-reference/wallet/index.md) commands.
+* Install the currently supported version of `fucli`.
 
 [[info | Note]]
-| `focli` is bundled with the FullOn software. [Installing FullOn](../../00_install/index.md) will also install `focli`.
+| `fucli` is bundled with the FullOn software. [Installing FullOn](../../00_install/index.md) will also install `fucli`.
 
 * Understand what an [account](/glossary.md#account) is and its role in the blockchain.
 * Understand [Accounts and Permissions](/protocol-guides/04_accounts_and_permissions.md) in the protocol documents.
@@ -24,7 +24,7 @@ Perform the step below:
 Create a default or named wallet and save the wallet password to a file:
 
 ```sh
-focli wallet create [-n named_wallet] -f <file_to_save_pwd>
+fucli wallet create [-n named_wallet] -f <file_to_save_pwd>
 ```
 
 Where `file_to_save_pwd` is the name of the file to write the wallet password to and `named_wallet` is an optional parameter to assign a name to the wallet.
@@ -36,7 +36,7 @@ Some examples are provided below:
 **Example Output**
 
 ```sh
-focli wallet create -f default_wallet.pwd
+fucli wallet create -f default_wallet.pwd
 ```
 ```console
 Creating wallet: default
@@ -50,7 +50,7 @@ saving password to default_wallet.pwd
 **Example Output**
 
 ```sh
-focli wallet create -n my_wallet -f my_wallet.pwd
+fucli wallet create -n my_wallet -f my_wallet.pwd
 ```
 ```console
 Creating wallet: my_wallet

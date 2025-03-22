@@ -4,14 +4,14 @@ content_title: Local Multi-Node Testnet
 
 ## Goal
 
-This section describes how to set up a multi-node blockchain configuration running on a single host.  This is referred to as a _**single host, multi-node testnet**_.  We will set up two nodes on your local computer and have them communicate with each other.  The examples in this section rely on three command-line applications, `fonod`, `fowal`, and `focli`.  The following diagram depicts the desired testnet configuration.
+This section describes how to set up a multi-node blockchain configuration running on a single host.  This is referred to as a _**single host, multi-node testnet**_.  We will set up two nodes on your local computer and have them communicate with each other.  The examples in this section rely on three command-line applications, `fonod`, `fowal`, and `fucli`.  The following diagram depicts the desired testnet configuration.
 
 ![Single host multi node testnet](single-host-multi-node-testnet.png)
 
 ## Before you begin
 
 * [Install the FullOn software](../../../00_install/index.md) before starting this section.
-* It is assumed that `fonod`, `focli`, and `fowal` are accessible through the path.
+* It is assumed that `fonod`, `fucli`, and `fowal` are accessible through the path.
 * Know how to pass [fonod options](../../02_usage/00_fonod-options.md) to enable or disable functionality.
 
 ## Steps
@@ -49,13 +49,13 @@ When `fowal` is running correctly, leave that window open with the wallet app ru
 
 ### 2. Create a Default Wallet
 
-In the next terminal window, use `focli`, the command-line utility, to create the default wallet.
+In the next terminal window, use `fucli`, the command-line utility, to create the default wallet.
 
 ```sh
-focli --wallet-url http://127.0.0.1:8899  wallet create --to-console
+fucli --wallet-url http://127.0.0.1:8899  wallet create --to-console
 ```
 
-`focli` will indicate that it created the "default" wallet, and will provide a password for future wallet access. As the message says, be sure to preserve this password for future use. Here is an example of this output:
+`fucli` will indicate that it created the "default" wallet, and will provide a password for future wallet access. As the message says, be sure to preserve this password for future use. Here is an example of this output:
 
 ```console
 Creating wallet: default
@@ -64,14 +64,14 @@ Without password imported keys will not be retrievable.
 "PW5JsmfYz2wrdUEotTzBamUCAunAA8TeRZGT57Ce6PkvM12tre8Sm"
 ```
 
-`fowal` will generate some status output in its window. We will continue to use this second window for subsequent `focli` commands.
+`fowal` will generate some status output in its window. We will continue to use this second window for subsequent `fucli` commands.
 
 ### 3. Loading the FullOn Key
 
 The private blockchain launched in the steps above is created with a default initial key which must be loaded into the wallet.
 
 ```sh
-focli --wallet-url http://127.0.0.1:8899 wallet import --private-key 5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3
+fucli --wallet-url http://127.0.0.1:8899 wallet import --private-key 5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3
 ```
 
 ```console
@@ -96,7 +96,7 @@ This creates a special producer, known as the "bios" producer. Assuming everythi
 To start additional nodes, you must first load the `eosio.bios` contract. This contract enables you to have direct control over the resource allocation of other accounts and to access other privileged API calls. Return to the second terminal window and run the following command to load the contract:
 
 ```sh
-focli --wallet-url http://127.0.0.1:8899 set contract eosio build/contracts/eosio.bios
+fucli --wallet-url http://127.0.0.1:8899 set contract eosio build/contracts/eosio.bios
 ```
 
 We will create an account to become a producer, using the account name `inita`.  To create the account, we need to generate keys to associate with the account, and import those into our wallet.
@@ -104,11 +104,11 @@ We will create an account to become a producer, using the account name `inita`. 
 Run the create key command:
 
 ```sh
-focli create key
+fucli create key
 ```
 
 [[caution | Caution]]
-| The command line instructions that follow use the private/public keys shown below. In order to be able to cut-and-paste the command line instructions directly from this tutorial, use those keys instead of the ones generated from your `focli create key` command. If you still want to use your newly generated keys, you need to replace the key values with yours in the commands that follow.
+| The command line instructions that follow use the private/public keys shown below. In order to be able to cut-and-paste the command line instructions directly from this tutorial, use those keys instead of the ones generated from your `fucli create key` command. If you still want to use your newly generated keys, you need to replace the key values with yours in the commands that follow.
 
 This will report newly generated public and private keypairs that will look similar to the following.
 
@@ -120,7 +120,7 @@ Public key: EOS6hMjoWRF2L8x9YpeqtUEcsDKAyxSuM1APicxgRU1E3oyV5sDEg
 Now import the private key portion into your wallet. If successful, the matching public key will be reported. This should match the previously generated public key:
 
 ```sh
-focli --wallet-url http://127.0.0.1:8899 wallet import 5JgbL2ZnoEAhTudReWH1RnMuQS6DBeLZt4ucV6t8aymVEuYg7sr
+fucli --wallet-url http://127.0.0.1:8899 wallet import 5JgbL2ZnoEAhTudReWH1RnMuQS6DBeLZt4ucV6t8aymVEuYg7sr
 ```
 
 ```console
@@ -130,7 +130,7 @@ imported private key for: EOS6hMjoWRF2L8x9YpeqtUEcsDKAyxSuM1APicxgRU1E3oyV5sDEg
 Create the `inita` account that we will use to become a producer. The `create account` command requires two public keys, one for the account's owner key and one for its active key.  In this example, the newly created public key is used twice, as both the owner key and the active key. Example output from the create command is shown:
 
 ```sh
-focli --wallet-url http://127.0.0.1:8899 create account eosio inita EOS6hMjoWRF2L8x9YpeqtUEcsDKAyxSuM1APicxgRU1E3oyV5sDEg EOS6hMjoWRF2L8x9YpeqtUEcsDKAyxSuM1APicxgRU1E3oyV5sDEg
+fucli --wallet-url http://127.0.0.1:8899 create account eosio inita EOS6hMjoWRF2L8x9YpeqtUEcsDKAyxSuM1APicxgRU1E3oyV5sDEg EOS6hMjoWRF2L8x9YpeqtUEcsDKAyxSuM1APicxgRU1E3oyV5sDEg
 ```
 
 ```console
@@ -163,7 +163,7 @@ The output from this new node will show a little activity but will stop reportin
 At this point, the second `fonod` is an idle producer. To turn it into an active producer, `inita` needs to be registered as a producer with the bios node, and the bios node needs to perform an action to update the producer schedule.
 
 ```sh
-focli --wallet-url http://127.0.0.1:8899 push action eosio setprods "{ \"schedule\": [{\"producer_name\": \"inita\",\"block_signing_key\": \"EOS6hMjoWRF2L8x9YpeqtUEcsDKAyxSuM1APicxgRU1E3oyV5sDEg\"}]}" -p eosio@active
+fucli --wallet-url http://127.0.0.1:8899 push action eosio setprods "{ \"schedule\": [{\"producer_name\": \"inita\",\"block_signing_key\": \"EOS6hMjoWRF2L8x9YpeqtUEcsDKAyxSuM1APicxgRU1E3oyV5sDEg\"}]}" -p eosio@active
 ```
 
 ```console
@@ -178,7 +178,7 @@ Congratulations, you have now configured a two-node testnet! You can see that th
 Get info about the first node:
 
 ```sh
-focli get info
+fucli get info
 ```
 
 This should produce output that looks similar to this:
@@ -197,7 +197,7 @@ This should produce output that looks similar to this:
 Now for the second node:
 
 ```sh
-focli --url http://127.0.0.1:8889 get info
+fucli --url http://127.0.0.1:8889 get info
 ```
 
 This should produce output that looks similar to this:

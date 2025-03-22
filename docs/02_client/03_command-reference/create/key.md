@@ -5,7 +5,7 @@ Creates a new keypair and prints the public and private keys
 ## Usage
 
 ```console
-Usage: focli create key [OPTIONS]
+Usage: fucli create key [OPTIONS]
 
 Options:
   -h,--help                   Print this help message and exit
@@ -17,7 +17,7 @@ Options:
 ## Command
 
 ```sh
-focli create key -f passwd
+fucli create key -f passwd
 ```
 
 ## Output

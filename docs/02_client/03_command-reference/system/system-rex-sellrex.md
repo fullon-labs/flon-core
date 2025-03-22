@@ -16,5 +16,5 @@
 
 
 ```sh
-focli system rex sellrex accountname1 "1 REX"
+fucli system rex sellrex accountname1 "1 REX"
 ```

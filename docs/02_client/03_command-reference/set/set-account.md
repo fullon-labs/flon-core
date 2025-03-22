@@ -41,18 +41,18 @@ To modify the permissions of an account, you must have the authority over the ac
 The first example associates a new key to the active permissions of an account.
 
 ```sh
-focli set account permission test active '{"threshold":1,"keys":[{"key":"EOS8X7Mp7apQWtL6T2sfSZzBcQNUqZB7tARFEm9gA9Tn9nbMdsvBB","weight":1}],"accounts":[{"permission":{"actor":"acc2","permission":"active"},"weight":50}]}' owner
+fucli set account permission test active '{"threshold":1,"keys":[{"key":"EOS8X7Mp7apQWtL6T2sfSZzBcQNUqZB7tARFEm9gA9Tn9nbMdsvBB","weight":1}],"accounts":[{"permission":{"actor":"acc2","permission":"active"},"weight":50}]}' owner
 ```
 This second example modifies the same account permission, but removes the key set in the last example, and grants active authority of the test account to another account.
 
 ```sh
-focli set account permission test active '{"threshold":1,"keys":[],"accounts":[{"permission":{"actor":"acc1","permission":"active"},"weight":50},{"permission":{"actor":"sandwich","permission":"active"},"weight":1}]}' owner
+fucli set account permission test active '{"threshold":1,"keys":[],"accounts":[{"permission":{"actor":"acc1","permission":"active"},"weight":50},{"permission":{"actor":"sandwich","permission":"active"},"weight":1}]}' owner
 ```
 
 The third example demonstrates how to set up permissions for multisig.
 
 ```sh
-focli set account permission test active '{"threshold" : 100, "keys" : [{"key":"EOS8X7Mp7apQWtL6T2sfSZzBcQNUqZB7tARFEm9gA9Tn9nbMdsvBB","weight":25}], "accounts" : [{"permission":{"actor":"sandwich","permission":"active"},"weight":75}]}' owner
+fucli set account permission test active '{"threshold" : 100, "keys" : [{"key":"EOS8X7Mp7apQWtL6T2sfSZzBcQNUqZB7tARFEm9gA9Tn9nbMdsvBB","weight":25}], "accounts" : [{"permission":{"actor":"sandwich","permission":"active"},"weight":75}]}' owner
 ```
 The JSON object used in this command is actually composed of two different types of objects
 

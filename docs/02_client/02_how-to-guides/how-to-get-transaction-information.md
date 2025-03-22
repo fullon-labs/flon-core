@@ -7,15 +7,15 @@ The example in this how-to retrieves transaction information associated with the
 ## Before you begin
 
 Make sure you meet the following requirements:
-* Install the currently supported version of `focli`.
+* Install the currently supported version of `fucli`.
 [[info | Note]]
-| `focli` is bundled with the FullOn software. [Installing FullOn](../../00_install/index.md) will also install `focli`.
+| `fucli` is bundled with the FullOn software. [Installing FullOn](../../00_install/index.md) will also install `fucli`.
 * Understand how transactions work in an FullOn blockchain. For more information on transactions, see the [Transactions Protocol](/protocol-guides/02_transactions_protocol.md) section.
 
 ## Command Reference
 
-See the following reference guide for `focli` command line usage and related options:
-* [`focli get transaction`](../03_command-reference/get/transaction.md) command and its parameters
+See the following reference guide for `fucli` command line usage and related options:
+* [`fucli get transaction`](../03_command-reference/get/transaction.md) command and its parameters
 
 ## Procedure
 
@@ -23,13 +23,13 @@ The following step shows how to retrieve transaction information associated with
 
 1. Retrieve transaction information by transaction ID:
 ```sh
-focli get transaction 870a6b6e3882061ff0f64016e1eedfdd9439e2499bf978c3fb29fcedadada9b1
+fucli get transaction 870a6b6e3882061ff0f64016e1eedfdd9439e2499bf978c3fb29fcedadada9b1
 ```
 * Where `870a6b6e38...dada9b1`= The transaction ID associated with the creation of account **bob**.
 
 **Example Output**
 
-The `focli` command returns detailed information of the transaction:
+The `fucli` command returns detailed information of the transaction:
 
 ```json
 {
@@ -183,10 +183,10 @@ By following these instructions, you are able to retrieve transaction informatio
 
 ## Trobleshooting
 
-If the [history plugin](../../01_node/03_plugins/history_plugin/index.md) and [history API plugin](../../01_node/03_plugins/history_api_plugin/index.md) are not enabled in the `fonod` **config.ini file**, the `focli get transaction id` command will result in an error as shown below:
+If the [history plugin](../../01_node/03_plugins/history_plugin/index.md) and [history API plugin](../../01_node/03_plugins/history_api_plugin/index.md) are not enabled in the `fonod` **config.ini file**, the `fucli get transaction id` command will result in an error as shown below:
 
 ```sh
-focli get transaction 509eee3aa8988d533a336fec7a4c8b067ae3205cd97e2d27b3e9a2da61ef460c
+fucli get transaction 509eee3aa8988d533a336fec7a4c8b067ae3205cd97e2d27b3e9a2da61ef460c
 ```
 ```console
 Error 3110003: Missing History API Plugin

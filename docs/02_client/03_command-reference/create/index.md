@@ -7,7 +7,7 @@ Create various items, on and off the blockchain
 
 ```console
 Create various items, on and off the blockchain
-Usage: focli create SUBCOMMAND
+Usage: fucli create SUBCOMMAND
 
 Subcommands:
   key                         Create a new keypair and print the public and private keys

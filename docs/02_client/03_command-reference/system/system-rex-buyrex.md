@@ -23,5 +23,5 @@ excerpt: "Buy REX using tokens in owner's REX fund"
 
 
 ```sh
-focli system rex buyrex accountname1 "1 REX"
+fucli system rex buyrex accountname1 "1 REX"
 ```

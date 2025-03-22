@@ -6,12 +6,12 @@ Retrieve accounts which are servants of a given account
 **Command**
 
 ```sh
-focli get servants
+fucli get servants
 ```
 **Output**
 
 ```console
-Usage: focli get servants account
+Usage: fucli get servants account
 
 Positionals:
   account TEXT                The name of the controlling account
@@ -20,7 +20,7 @@ Positionals:
 ## Command
 
 ```sh
-focli get servants inita
+fucli get servants inita
 ```
 
 ## Output

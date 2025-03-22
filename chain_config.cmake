@@ -11,7 +11,7 @@ set( CORE_SYMBOL_PRECISION          8           )
 
 ## config program name
 set( PROGRAM_ROOT_NAME              flon        )
-set( CLIENT_EXECUTABLE_NAME         focli       )
+set( CLIENT_EXECUTABLE_NAME         fucli       )
 set( NODE_EXECUTABLE_NAME           fonod       )
 set( KEY_STORE_EXECUTABLE_NAME      fowal       )
 set( UTIL_EXECUTABLE_NAME           flon-util   )

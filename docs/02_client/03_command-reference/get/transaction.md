@@ -10,14 +10,14 @@ Retrieves a transaction from the blockchain
 **Command**
 
 ```sh
-focli get transaction
+fucli get transaction
 ```
 **Output**
 
 ## Example
 
 ```sh
-focli get transaction eb4b94b72718a369af09eb2e7885b3f494dd1d8a20278a6634611d5edd76b703
+fucli get transaction eb4b94b72718a369af09eb2e7885b3f494dd1d8a20278a6634611d5edd76b703
 ```
 ```json
 {

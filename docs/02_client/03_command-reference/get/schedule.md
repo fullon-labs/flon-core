@@ -12,7 +12,7 @@ Retrieve the producer schedule
 ## Example
 
 ```sh
-focli get schedule
+fucli get schedule
 ```
 
 This command simply returns the current producer schedule.

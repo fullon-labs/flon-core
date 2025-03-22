@@ -1,6 +1,6 @@
 ## Command
 ```sh
-focli net connect [OPTIONS] host
+fucli net connect [OPTIONS] host
 ```
 
 **Where:**
@@ -17,7 +17,7 @@ focli net connect [OPTIONS] host
 Start a new connection to a specified peer. A node operator can use this command to instruct a node to connect to another peer without restarting the node.
 
 ## Command Usage
-The following information shows the different positionals and options you can use with the `focli net connect` command:
+The following information shows the different positionals and options you can use with the `fucli net connect` command:
 
 ### Positionals
 * `host` _TEXT_ REQUIRED - The hostname:port to connect to
@@ -28,17 +28,17 @@ The following information shows the different positionals and options you can us
 ## Requirements
 Make sure you meet the following requirements:
 
-* Install the currently supported version of `focli`.
+* Install the currently supported version of `fucli`.
 [[info | Note]]
-| `focli` is bundled with the FullOn software. [Installing FullOn](../../../00_install/index.md) will also install the `focli` and `focli` command line tools.
+| `fucli` is bundled with the FullOn software. [Installing FullOn](../../../00_install/index.md) will also install the `fucli` and `fucli` command line tools.
 * You have access to a producing node instance with the [`net_api_plugin`](../../../01_node/03_plugins/net_api_plugin/index.md) loaded.
 
 ## Examples
-The following examples demonstrate how to use the `focli net connect` command:
+The following examples demonstrate how to use the `fucli net connect` command:
 
 * Instruct default local node (listening at default http address `http://127.0.0.1:8888`) to connect to peer node listening at p2p address `localhost:9002`:
 ```sh
-focli net connect localhost:9002
+fucli net connect localhost:9002
 ```
 **Output:**
 ```console
@@ -47,14 +47,14 @@ focli net connect localhost:9002
 
 * Instruct local node listening at http address `http://127.0.0.1:8001` to connect to peer node listening at p2p address `localhost:9002`:
 ```sh
-focli -u http://127.0.0.1:8001 net connect localhost:9002
+fucli -u http://127.0.0.1:8001 net connect localhost:9002
 ```
 **Output:**
 ```console
 "added connection"
 ```
 
-**Note:** If any of the above commands are re-executed, `focli` returns the following message as expected:
+**Note:** If any of the above commands are re-executed, `fucli` returns the following message as expected:
 ```console
 "already connected"
 ```

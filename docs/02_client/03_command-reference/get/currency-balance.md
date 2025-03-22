@@ -16,7 +16,7 @@ There are no options for this subcommand
 Get balance of eosio from eosio.token contract for SYS symbol.
 
 ```sh
-focli get currency balance eosio.token eosio SYS
+fucli get currency balance eosio.token eosio SYS
 ```
 ```console
 999999920.0000 SYS

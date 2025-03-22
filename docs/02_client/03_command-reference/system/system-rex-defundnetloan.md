@@ -25,5 +25,5 @@ Withdraw from a Network loan fund
 
 
 ```sh
-focli system rex defundnetloan accountname1 abc123 "1 EOS"
+fucli system rex defundnetloan accountname1 abc123 "1 EOS"
 ```

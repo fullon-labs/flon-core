@@ -35,7 +35,7 @@ A transaction is considered confirmed when a `fonod` instance has received, proc
 
 ### Head Mode
 
-Clients such as `focli` and the RPC API will see database state as of the current head block of the chain.  Since current head block is not yet irreversible and short-lived forks are possible, state read in this mode may become inaccurate  if `fonod` switches to a better fork.
+Clients such as `fucli` and the RPC API will see database state as of the current head block of the chain.  Since current head block is not yet irreversible and short-lived forks are possible, state read in this mode may become inaccurate  if `fonod` switches to a better fork.
 
 In this mode `fonod` is able to execute transactions which have TaPoS pointing to any valid block in a fork considered to be the best fork by this node.
 
@@ -43,11 +43,11 @@ In this mode `fonod` is able to execute transactions which have TaPoS pointing t
 
 When `fonod` is configured to be in irreversible read mode, it will still track the most up-to-date blocks in the fork database, but the state will lag behind the current best head block, sometimes referred to as the fork DB head, to always reflect the state of the last irreversible block.
 
-Clients such as `focli` and the RPC API will see database state as of the current head block of the chain. It **will not** include changes made by transactions known to this node but not included in the chain, such as unconfirmed transactions.
+Clients such as `fucli` and the RPC API will see database state as of the current head block of the chain. It **will not** include changes made by transactions known to this node but not included in the chain, such as unconfirmed transactions.
 
 ### Speculative Mode ( Deprecated )
 
-Clients such as `focli` and the RPC API, will see database state as of the current head block plus changes made by all transactions known to this node but potentially not included in the chain, unconfirmed transactions for example.
+Clients such as `fucli` and the RPC API, will see database state as of the current head block plus changes made by all transactions known to this node but potentially not included in the chain, unconfirmed transactions for example.
 
 Speculative mode is low latency but fragile, there is no guarantee that the transactions reflected in the state will be included in the chain OR that they will reflected in the same order the state implies.
 

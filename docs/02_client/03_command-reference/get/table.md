@@ -34,7 +34,7 @@ Retrieves the contents of a database table
 Get the data from the accounts table for the eosio.token contract, for user eosio,
 
 ```sh
-focli get table eosio.token eosio accounts
+fucli get table eosio.token eosio accounts
 ```
 ```json
 {

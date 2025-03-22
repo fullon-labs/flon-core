@@ -21,5 +21,5 @@ excerpt: "Deposit into owner's REX fund by transfering from owner's liquid token
 
 
 ```sh
-focli system rex deposit accountname1 "1 SYS"
+fucli system rex deposit accountname1 "1 SYS"
 ```

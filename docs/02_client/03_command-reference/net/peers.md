@@ -1,6 +1,6 @@
 ## Command
 ```sh
-focli net peers [OPTIONS]
+fucli net peers [OPTIONS]
 ```
 
 **Where:**
@@ -14,7 +14,7 @@ focli net peers [OPTIONS]
 Returns a list with the status of all peer connections. This command allows a node operator to check the status of a node's peer connections.
 
 ## Command Usage
-The following information shows the different positionals and options you can use with the `focli net peers` command:
+The following information shows the different positionals and options you can use with the `fucli net peers` command:
 
 ### Positionals
 * `host` _TEXT_ REQUIRED - The hostname:port to disconnect from
@@ -25,18 +25,18 @@ The following information shows the different positionals and options you can us
 ## Requirements
 Make sure you meet the following requirements:
 
-* Install the currently supported version of `focli`.
+* Install the currently supported version of `fucli`.
 [[info | Note]]
-| `focli` is bundled with the FullOn software. [Installing FullOn](../../../00_install/index.md) will also install the `focli` and `fowal` command line tools.
+| `fucli` is bundled with the FullOn software. [Installing FullOn](../../../00_install/index.md) will also install the `fucli` and `fowal` command line tools.
 * You have access to a producing node instance with the [`net_api_plugin`](../../../01_node/03_plugins/net_api_plugin/index.md) loaded.
 
 ## Examples
-The following examples demonstrate how to use the `focli net peers` command:
+The following examples demonstrate how to use the `fucli net peers` command:
 
 * List the status of all peer connections for a local node listening at http address `http://127.0.0.1:8001`:
 
 ```sh
-focli -u http://127.0.0.1:8001 net peers
+fucli -u http://127.0.0.1:8001 net peers
 ```
 **Output:**
 ```json

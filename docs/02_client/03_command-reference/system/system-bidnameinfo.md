@@ -12,5 +12,5 @@ Returns data about a particular name and it's bidding status
 ## Usage
 
 ```sh
-focli system bidnameinfo bob
+fucli system bidnameinfo bob
 ```

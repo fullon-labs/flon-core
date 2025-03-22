@@ -20,5 +20,5 @@
 
 
 ```sh
-focli system rex unstaketorex accountname1 accountname2 "1 EOS" 0
+fucli system rex unstaketorex accountname1 accountname2 "1 EOS" 0
 ```

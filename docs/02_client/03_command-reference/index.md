@@ -1,4 +1,4 @@
-Documentation for all `focli` main commands
+Documentation for all `fucli` main commands
 
 ## Commands
 - [version](version) - Retrieve version information

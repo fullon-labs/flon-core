@@ -11,11 +11,11 @@ None
 
 
 ```sh
-focli wallet lock
+fucli wallet lock
 ```
 or
 ```sh
-focli wallet lock -n second-wallet
+fucli wallet lock -n second-wallet
 ```
 
 ## Outputs

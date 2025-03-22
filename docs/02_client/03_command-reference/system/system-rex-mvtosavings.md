@@ -24,5 +24,5 @@ excerpt: "Move REX tokens to savings bucket"
 
 
 ```sh
-focli system rex mvtosavings accountname1 "1 REX"
+fucli system rex mvtosavings accountname1 "1 REX"
 ```

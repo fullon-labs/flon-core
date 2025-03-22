@@ -12,7 +12,7 @@ None
 
 
 ```sh
-focli wallet list
+fucli wallet list
 ```
 
 ## Outputs

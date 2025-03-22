@@ -1,30 +1,30 @@
 ---
-content_title: focli
+content_title: fucli
 ---
 
 ## Introduction
 
-`focli` is a command line tool that interfaces with the REST API exposed by `fonod`. Developers can also use `focli` to deploy and test FullOn smart contracts.
+`fucli` is a command line tool that interfaces with the REST API exposed by `fonod`. Developers can also use `fucli` to deploy and test FullOn smart contracts.
 
 ## Installation
 
-`focli` is distributed as part of the [FullOn software suite](https://github.com/fullon-labs/flon-core). To install `focli` just visit the [FullOn Software Installation](../00_install/index.md) section.
+`fucli` is distributed as part of the [FullOn software suite](https://github.com/fullon-labs/flon-core). To install `fucli` just visit the [FullOn Software Installation](../00_install/index.md) section.
 
-## Using focli
+## Using fucli
 
-To use `focli`, you need the end point (IP address and port number) of a running `fonod` instance. Also, the `fonod` instance must be configured to load the `eosio::chain_api_plugin` when launched. This allows `fonod` to respond to the RPC requests coming from `focli`.
+To use `fucli`, you need the end point (IP address and port number) of a running `fonod` instance. Also, the `fonod` instance must be configured to load the `eosio::chain_api_plugin` when launched. This allows `fonod` to respond to the RPC requests coming from `fucli`.
 
-### focli Commands
+### fucli Commands
 
-For a list of all `focli` commands, run:
+For a list of all `fucli` commands, run:
 
 ```sh
-focli --help
+fucli --help
 ```
 
 ```console
 Command Line Interface to FullOn Client
-Usage: focli [OPTIONS] SUBCOMMAND
+Usage: fucli [OPTIONS] SUBCOMMAND
 
 Options:
   -h,--help                   Print this help message and exit
@@ -55,17 +55,17 @@ Subcommands:
   system                      Send eosio.system contract action to the blockchain.
 ```
 
-### focli Subcommands
+### fucli Subcommands
 
-To get help with any particular subcommand, run `focli SUBCOMMAND --help`. For instance:
+To get help with any particular subcommand, run `fucli SUBCOMMAND --help`. For instance:
 
 ```sh
-focli create --help
+fucli create --help
 ```
 
 ```console
 Create various items, on and off the blockchain
-Usage: focli create SUBCOMMAND
+Usage: fucli create SUBCOMMAND
 
 Subcommands:
   key                         Create a new keypair and print the public and private keys
@@ -73,15 +73,15 @@ Subcommands:
                               (assumes system contract does not restrict RAM usage)
 ```
 
-`focli` can also provide usage help for subcommands within subcommands. For instance:
+`fucli` can also provide usage help for subcommands within subcommands. For instance:
 
 ```sh
-focli create account --help
+fucli create account --help
 ```
 
 ```console
 Create a new account on the blockchain (assumes system contract does not restrict RAM usage)
-Usage: focli create account [OPTIONS] creator name OwnerKey [ActiveKey]
+Usage: fucli create account [OPTIONS] creator name OwnerKey [ActiveKey]
 
 Positionals:
   creator TEXT                The name of the account creating the new account (required)
@@ -106,12 +106,12 @@ Options:
   --delay-sec UINT            set the delay_sec seconds, defaults to 0s
 ```
 
-## focli Example
+## fucli Example
 
-The following `focli` command creates a local wallet named `mywallet` and displays the password to the screen:
+The following `fucli` command creates a local wallet named `mywallet` and displays the password to the screen:
 
 ```sh
-focli wallet create -n mywallet --to-console
+fucli wallet create -n mywallet --to-console
 ```
 
 ```console

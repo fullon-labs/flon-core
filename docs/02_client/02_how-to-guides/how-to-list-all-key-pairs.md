@@ -8,20 +8,20 @@ The example in this how-to guide displays all public keys and public/private key
 
 Make sure you meet the following requirements:
 
-* Create a default wallet using the `focli wallet create` command. See the [How to Create a Wallet](../02_how-to-guides/how-to-create-a-wallet.md) section for instructions.
+* Create a default wallet using the `fucli wallet create` command. See the [How to Create a Wallet](../02_how-to-guides/how-to-create-a-wallet.md) section for instructions.
 * [Create a keypair](../03_command-reference/wallet/create_key.md) within the default wallet.
-* Familiarize with the [`focli wallet`](../03_command-reference/wallet/index.md) commands.
-* Install the currently supported version of `focli`.
+* Familiarize with the [`fucli wallet`](../03_command-reference/wallet/index.md) commands.
+* Install the currently supported version of `fucli`.
 [[info | Note]]
-| `focli` is bundled with the FullOn software. [Installing FullOn](../../00_install/index.md) will also install `focli`.
+| `fucli` is bundled with the FullOn software. [Installing FullOn](../../00_install/index.md) will also install `fucli`.
 * Understand what a [public key](/glossary.md#public-key) and [private key](/glossary.md#private-key) is.
 
 ## Command Reference
 
-See the following reference guide for `focli` command line usage and related options:
+See the following reference guide for `fucli` command line usage and related options:
 
-* [`focli wallet keys`](../03_command-reference/wallet/keys.md) command and its parameters
-* [`focli wallet private_keys`](../03_command-reference/wallet/private_keys.md) command its parameters
+* [`fucli wallet keys`](../03_command-reference/wallet/keys.md) command and its parameters
+* [`fucli wallet private_keys`](../03_command-reference/wallet/private_keys.md) command its parameters
 
 ## Procedure
 
@@ -29,7 +29,7 @@ The following steps show how to list all public keys and public/private key pair
 
 1. Open the default wallet:
 ```sh
-focli wallet open
+fucli wallet open
 ```
 ```console
 Opened: default
@@ -37,7 +37,7 @@ Opened: default
 
 2. Unlock the default wallet. The command will prompt to enter a password:
 ```sh
-focli wallet unlock
+fucli wallet unlock
 ```
 ```console
 password:
@@ -54,7 +54,7 @@ Unlocked: default
 
 4. List all public keys within the default wallet:
 ```sh
-focli wallet keys
+fucli wallet keys
 ```
 **Example Output**
 ```console
@@ -65,7 +65,7 @@ focli wallet keys
 
 5. List all public/private key pairs withing the default wallet. The command will prompt to enter a password:
 ```sh
-focli wallet private_keys
+fucli wallet private_keys
 ```
 ```console
 password:
@@ -97,10 +97,10 @@ By following these instructions, you are able to list all the public keys and pu
 
 ## Troubleshooting
 
-When you run the `focli wallet open/unlock` commands, you may encounter the following CLI error:
+When you run the `fucli wallet open/unlock` commands, you may encounter the following CLI error:
 
 ```sh
-focli wallet open
+fucli wallet open
 ```
 ```console
 No wallet service listening on ***. Cannot automatically start fowal because fowal was not found.

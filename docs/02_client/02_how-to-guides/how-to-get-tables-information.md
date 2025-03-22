@@ -4,7 +4,7 @@ Query infomation of a table
 
 ## Before you begin
 
-* Install the currently supported version of `focli`
+* Install the currently supported version of `fucli`
 
 * Understand the following:
   * What is an account
@@ -14,5 +14,5 @@ Query infomation of a table
 ## Steps
 
 ```sh
-focli get table ACCOUNT SCOPE TABLE
+fucli get table ACCOUNT SCOPE TABLE
 ```

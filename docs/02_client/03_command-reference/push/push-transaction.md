@@ -48,5 +48,5 @@ This command has no options
 
 
 ```sh
-focli push transaction {}
+fucli push transaction {}
 ```

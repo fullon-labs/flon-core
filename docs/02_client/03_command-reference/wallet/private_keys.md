@@ -14,5 +14,5 @@ None
 
 
 ```javascript
-focli wallet private_keys
+fucli wallet private_keys
 ```

@@ -5,14 +5,14 @@ Retrieve version information
 ## Command
 
 ```sh
-focli version
+fucli version
 ```
 
 ## Subcommands
 [client](client.md) - Retrieve version information of the client
 
 ```sh
-focli version client
+fucli version client
 ```
 
 ## Output

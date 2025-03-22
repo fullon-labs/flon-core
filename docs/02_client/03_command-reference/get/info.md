@@ -10,7 +10,7 @@ This command does not accept any parameters.
 
 
 ```sh
-focli get info
+fucli get info
 ```
 
 This command simply returns the current blockchain state information.

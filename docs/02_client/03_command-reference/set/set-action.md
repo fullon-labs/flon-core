@@ -4,12 +4,12 @@ Sets or updates an action's state on the blockchain.
 **Command**
 
 ```sh
-focli set action
+fucli set action
 ```
 **Output**
 
 ```console
-Usage: focli set action [OPTIONS] SUBCOMMAND
+Usage: fucli set action [OPTIONS] SUBCOMMAND
 
 Options:
   -h,--help                   Print this help message and exit
@@ -20,7 +20,7 @@ Subcommands:
 **Command**
 
 ```sh
-focli set action permission
+fucli set action permission
 ```
 
 ## Positionals
@@ -63,10 +63,10 @@ should be used to sign transaction
 
 ```sh
 #Link a `voteproducer` action to the 'voting' permissions
-focli set action permission sandwichfarm eosio.system voteproducer voting -p sandwichfarm@voting
+fucli set action permission sandwichfarm eosio.system voteproducer voting -p sandwichfarm@voting
 
 #Now can execute the transaction with the previously set permissions.
-focli system voteproducer approve sandwichfarm someproducer -p sandwichfarm@voting
+fucli system voteproducer approve sandwichfarm someproducer -p sandwichfarm@voting
 ```
 
 ## See Also

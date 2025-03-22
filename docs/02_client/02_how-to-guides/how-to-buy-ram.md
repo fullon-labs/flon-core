@@ -10,7 +10,7 @@ Acquire RAM for contract deployment, database tables, and other blockchain resou
 
 * You have sufficient token allocated to your account
 
-* Install the currently supported version of `focli`
+* Install the currently supported version of `fucli`
 
 * Unlock your wallet
 
@@ -19,5 +19,5 @@ Acquire RAM for contract deployment, database tables, and other blockchain resou
 Buys RAM in value of 0.1 SYS tokens for account `alice`:
 
 ```sh
-focli system buyram alice alice "0.1 SYS" -p alice@active
+fucli system buyram alice alice "0.1 SYS" -p alice@active
 ```

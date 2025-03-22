@@ -19,5 +19,5 @@
 
 
 ```sh
-focli system rex rexexec accountname1 10
+fucli system rex rexexec accountname1 10
 ```

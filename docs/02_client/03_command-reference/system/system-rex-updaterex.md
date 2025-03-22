@@ -18,5 +18,5 @@
 
 
 ```sh
-focli system rex updaterex accountname1
+fucli system rex updaterex accountname1
 ```

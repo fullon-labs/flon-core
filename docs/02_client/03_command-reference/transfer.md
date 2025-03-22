@@ -28,7 +28,7 @@ Transfer tokens from account to account
 Transfer 1000 SYS from **inita** to **tester**
 
 ```sh
-focli transfer inita tester 1000
+fucli transfer inita tester 1000
 ```
 The response should look something like this:
 

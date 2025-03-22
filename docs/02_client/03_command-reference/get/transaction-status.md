@@ -16,7 +16,7 @@ in fonod.
 
 
 ```sh
-focli get transaction-status 6438df82216dfaf46978f703fb818b49110dbfc5d9b521b5d08c342277438b29
+fucli get transaction-status 6438df82216dfaf46978f703fb818b49110dbfc5d9b521b5d08c342277438b29
 ```
 
 This command simply returns the current chain status and transaction status information (if available).

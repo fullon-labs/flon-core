@@ -14,7 +14,7 @@ From packed to plain signed json form
 ## Usage
 
 ```sh
-focli convert unpack_transaction '{
+fucli convert unpack_transaction '{
   "signatures": [
     "SIG_K1_KmRbWahefwxs6uyCGNR6wNRjw7cntEeFQhNCbyg8S92Kbp7zdSSVGTD2QS7pNVWgcU126zpxaBp9CwUxFpRwSnfkjd46bS"
   ],

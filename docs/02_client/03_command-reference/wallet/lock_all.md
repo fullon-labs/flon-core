@@ -10,7 +10,7 @@ None
 
 
 ```sh
-focli wallet lock_all
+fucli wallet lock_all
 ```
 
 ## Outputs

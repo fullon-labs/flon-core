@@ -1,24 +1,24 @@
 ## Overview
 
-This how-to guide provides instructions on how to create a new FullOn blockchain account using the `focli` CLI tool. You can use accounts to deploy smart contracts and perform other related blockchain operations. Create one or multiple accounts as part of your development environment setup.
+This how-to guide provides instructions on how to create a new FullOn blockchain account using the `fucli` CLI tool. You can use accounts to deploy smart contracts and perform other related blockchain operations. Create one or multiple accounts as part of your development environment setup.
 
-The example in this how-to guide creates a new account named **bob**, authorized by the default system account **eosio**, using the `focli` CLI tool.
+The example in this how-to guide creates a new account named **bob**, authorized by the default system account **eosio**, using the `fucli` CLI tool.
 
 ## Before you Begin
 
 Make sure you meet the following requirements:
 
-* Install the currently supported version of `focli`.
+* Install the currently supported version of `fucli`.
 [[info | Note]]
-| The focli tool is bundled with the FullOn software. [Installing FullOn](../../00_install/index.md) will also install the focli tool.
+| The fucli tool is bundled with the FullOn software. [Installing FullOn](../../00_install/index.md) will also install the fucli tool.
 * Learn about [FullOn Accounts and Permissions](/protocol-guides/04_accounts_and_permissions.md)
 * Learn about Asymmetric Cryptography - [public key](/glossary.md#public-key) and [private key](/glossary.md#private-key) pairs.
 * Create public/private keypairs for the `owner` and `active` permissions of an account.
 
 ## Command Reference
 
-See the following reference guide for `focli` command line usage and related options:
-* [`focli create account`](../03_command-reference/create/account.md) command and its parameters
+See the following reference guide for `fucli` command line usage and related options:
+* [`fucli create account`](../03_command-reference/create/account.md) command and its parameters
 
 ## Procedure
 
@@ -27,7 +27,7 @@ The following step shows how to create a new account **bob** authorized by the d
 1. Run the following command to create the new account **bob**:
 
 ```sh
-focli create account flonian bob EOS87TQktA5RVse2EguhztfQVEh6XXxBmgkU8b4Y5YnGvtYAoLGNN
+fucli create account flonian bob EOS87TQktA5RVse2EguhztfQVEh6XXxBmgkU8b4Y5YnGvtYAoLGNN
 ```
 **Where**:
 * `flonian` = the system account that authorizes the creation of a new account

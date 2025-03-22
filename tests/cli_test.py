@@ -27,8 +27,8 @@ def node_help_test():
 
 
 def client_help_test(args):
-    """Test that focli help contains option and subcommand descriptions"""
-    help_text = subprocess.check_output(["./programs/focli/focli"] + args)
+    """Test that fucli help contains option and subcommand descriptions"""
+    help_text = subprocess.check_output(["./programs/fucli/fucli"] + args)
 
     assert(b'Options:' in help_text)
     assert(b'Subcommands:' in help_text)

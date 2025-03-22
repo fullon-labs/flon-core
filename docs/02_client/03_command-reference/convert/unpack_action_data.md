@@ -13,7 +13,7 @@ From packed to json action data form
 
 
 ```sh
- focli convert unpack_action_data eosio unlinkauth 000000008090b1ca000000000091b1ca000075982aea3055
+ fucli convert unpack_action_data eosio unlinkauth 000000008090b1ca000000000091b1ca000075982aea3055
 ```
 
 ## Output

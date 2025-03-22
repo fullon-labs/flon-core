@@ -10,7 +10,7 @@ None.
 
 
 ```sh
-focli wallet keys
+fucli wallet keys
 ```
 
 ## Outputs

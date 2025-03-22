@@ -60,7 +60,7 @@ class Utils:
 
     testBinPath = Path(__file__).resolve().parents[2] / 'bin'
 
-    ClientName=str("focli")
+    ClientName=str("fucli")
     ClientPath=str(testBinPath / chain_config.CLIENT_EXECUTABLE_NAME)
     MiscEosClientArgs="--no-auto-wallet"
 

@@ -19,5 +19,5 @@
 
 
 ```sh
-focli system rex withdraw accountname1 "1 SYS"
+fucli system rex withdraw accountname1 "1 SYS"
 ```

@@ -12,7 +12,7 @@ From json action data to packed form
 
 ## Usage
 ```sh
- focli convert pack_action_data eosio unlinkauth '{"account":"test1", "code":"test2", "type":"eosioeosio"}'
+ fucli convert pack_action_data eosio unlinkauth '{"account":"test1", "code":"test2", "type":"eosioeosio"}'
 ```
 
 ## Output

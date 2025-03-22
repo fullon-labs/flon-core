@@ -19,7 +19,7 @@ Please refer to [fullon: Build and Install from Source](https://github.com/Antel
 
 ## Steps
 
-1. Build fullon. For complete instructions on building from source please refer to [fullon: Build and Install from Source](https://github.com/AntelopeIO/fullon/#build-and-install-from-source) For older compatible fonod versions, such as 2.X, the following binaries need to be replaced with the older version: `build/programs/fonod/fonod`, `build/programs/client/focli`, `bin/fonod`, and `bin/focli`.
+1. Build fullon. For complete instructions on building from source please refer to [fullon: Build and Install from Source](https://github.com/AntelopeIO/fullon/#build-and-install-from-source) For older compatible fonod versions, such as 2.X, the following binaries need to be replaced with the older version: `build/programs/fonod/fonod`, `build/programs/client/fucli`, `bin/fonod`, and `bin/fucli`.
 2. Run Performance Tests
     1. Full Performance Harness Test Run (Standard):
         ``` bash

@@ -4,7 +4,7 @@ Push a transaction
 
 ## Before you begin
 
-* Install the currently supported version of `focli`
+* Install the currently supported version of `fucli`
 
 * Understand the following:
   * What is a transaction
@@ -42,7 +42,7 @@ Push a transaction
 * You can also create a JSON snippet that uses clear text JSON for `data` field.
 
 [[info]]
-| Be aware that if a clear text `data` field is used, focli need to fetch copies of required ABIs using `fonod` API. That operation has a performance overhead on `fonod`
+| Be aware that if a clear text `data` field is used, fucli need to fetch copies of required ABIs using `fonod` API. That operation has a performance overhead on `fonod`
 
 ```JSON
 {
@@ -77,13 +77,13 @@ Push a transaction
 * Execute the following command:
 
 ```sh
-focli push transaction TRX_FILE.json
+fucli push transaction TRX_FILE.json
 ```
 
 * Submit a transaction from a JSON:
 
 ```sh
-focli push transaction JSON
+fucli push transaction JSON
 ```
 
 <!---

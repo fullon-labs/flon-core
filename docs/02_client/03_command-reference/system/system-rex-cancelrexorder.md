@@ -22,5 +22,5 @@ excerpt: "Cancel queued REX sell order if one exists"
 
 
 ```sh
-focli system rex cancelrexorder accountname1
+fucli system rex cancelrexorder accountname1
 ```

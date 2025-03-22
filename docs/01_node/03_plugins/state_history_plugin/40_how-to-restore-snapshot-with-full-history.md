@@ -27,7 +27,7 @@ This procedure restores an existing snapshot with full history, so the node can 
 
 ## Remarks
 
-If `fonod` fails to receive blocks from the network, then try the above using `net_api_plugin`. Use `focli net disconnect` and `focli net connect` to reconnect nodes which timed out.
+If `fonod` fails to receive blocks from the network, then try the above using `net_api_plugin`. Use `fucli net disconnect` and `fucli net connect` to reconnect nodes which timed out.
 
 [[caution | Caution when using `net_api_plugin`]]
 | Either use a firewall to block access to `http-server-address`, or change it to `localhost:8888` to disable remote access.

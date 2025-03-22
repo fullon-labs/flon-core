@@ -5,7 +5,7 @@ content_title: FullOn Overview
 FullOn is the next-generation blockchain platform for creating and deploying smart contracts and distributed applications. FullOn comes with a number of programs. The primary ones included in FullOn are the following:
 
 * [fonod](01_node/index.md) - Core service daemon that runs a node for block production, API endpoints, or local development.
-* [focli](02_client/index.md) - Command line interface to interact with the blockchain (via `fonod`) and manage wallets (via `fowal`).
+* [fucli](02_client/index.md) - Command line interface to interact with the blockchain (via `fonod`) and manage wallets (via `fowal`).
 * [fowal](03_wallet/index.md) - Component that manages FullOn keys in wallets and provides a secure enclave for digital signing.
 
 The basic relationship between these components is illustrated in the diagram below.

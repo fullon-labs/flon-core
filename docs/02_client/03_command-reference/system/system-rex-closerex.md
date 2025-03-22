@@ -22,5 +22,5 @@ excerpt: "Delete unused REX-related user table entries"
 
 
 ```sh
-focli system rex closerex accountname1
+fucli system rex closerex accountname1
 ```
