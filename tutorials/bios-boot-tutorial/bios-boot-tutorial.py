@@ -422,7 +422,7 @@ commands = [
 
 parser.add_argument('--public-key', metavar='', help="EOSIO Public Key", default='EOS8Znrtgwt8TfpmbVpTKvA2oB8Nqey625CLN8bCN3TEbgx86Dsvr', dest="public_key")
 parser.add_argument('--private-Key', metavar='', help="EOSIO Private Key", default='5K463ynhZoCDDa4RDcr63cUwWLTnKqmdcoTKTHBjqoKfv4u5V7p', dest="private_key")
-parser.add_argument('--fucli', metavar='', help="Focli command", default='../../build/programs/fucli/fucli --wallet-url http://127.0.0.1:6666 ')
+parser.add_argument('--fucli', metavar='', help="Fucli command", default='../../bin/fucli/fucli --wallet-url http://127.0.0.1:6666 ')
 parser.add_argument('--funod', metavar='', help="Path to funod binary", default='../../build/bin/funod')
 parser.add_argument('--fuwal', metavar='', help="Path to fuwal binary", default='../../build/bin/fuwal')
 parser.add_argument('--contracts-dir', metavar='', help="Path to latest contracts directory", default='../../build/contracts/')
