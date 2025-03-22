@@ -17,7 +17,7 @@ set( KEY_STORE_EXECUTABLE_NAME      fowal       )
 set( UTIL_EXECUTABLE_NAME           flon-util   )
 
 ## config crypto keys
-set( PUBLIC_KEY_LEGACY_PREFIX       FO          )
+set( PUBLIC_KEY_LEGACY_PREFIX       FU          )
 
 # used by add_compile_definitions()
 set(CHAIN_CONFIG_DEFINITIONS
