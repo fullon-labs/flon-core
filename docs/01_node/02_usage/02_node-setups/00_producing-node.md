@@ -7,17 +7,17 @@ content_title: Producing Node Setup
 
 ## Goal
 
-This section describes how to set up a producing node within the FullOn network. A producing node, as its name implies, is a node that is configured to produce blocks in an `FullOn` based blockchain. This functionality if provided through the `producer_plugin` as well as other [fonod Plugins](../../03_plugins/index.md).
+This section describes how to set up a producing node within the FullOn network. A producing node, as its name implies, is a node that is configured to produce blocks in an `FullOn` based blockchain. This functionality if provided through the `producer_plugin` as well as other [funod Plugins](../../03_plugins/index.md).
 
 ## Before you begin
 
 * [Install the FullOn software](../../../00_install/index.md) before starting this section.
-* It is assumed that `fonod`, `fucli`, and `fowal` are accessible through the path.
+* It is assumed that `funod`, `fucli`, and `fowal` are accessible through the path.
 
 [//]: # ( THIS IS A COMMENT LINK BELOW IS BROKEN )
 [//]: # ( If you built FullOn using shell scripts, make sure to run the  Install Script ../../../00_install/01_build-from-source/01_shell-scripts/03_install-FullOn-binaries.md )
 
-* Know how to pass [fonod options](../../02_usage/00_fonod-options.md) to enable or disable functionality.
+* Know how to pass [funod options](../../02_usage/00_node-options.md) to enable or disable functionality.
 
 ## Steps
 

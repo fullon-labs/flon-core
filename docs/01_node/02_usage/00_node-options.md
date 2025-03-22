@@ -1,12 +1,12 @@
 ---
-content_title: fonod Options
+content_title: funod Options
 ---
 
-`fonod` is a command line interface (CLI) application. As such, it can be started manually from the command line or through an automated script. The behavior of `fonod` is determined mainly by which plugins are loaded and which plugin options are used. The `fonod` application features two main option categories: *fonod-specific* options and *plugin-specific* options.
+`funod` is a command line interface (CLI) application. As such, it can be started manually from the command line or through an automated script. The behavior of `funod` is determined mainly by which plugins are loaded and which plugin options are used. The `funod` application features two main option categories: *funod-specific* options and *plugin-specific* options.
 
-## fonod-specific Options
+## funod-specific Options
 
-fonod-specific options are used mainly for housekeeping purposes, such as setting the directory where the blockchain data resides, specifying the name of the `fonod` configuraton file, setting the name and path of the logging configuration file, etc. A sample output from running  `fonod --help` is displayed below, showing the fonod-specific options (Note: the plugin-specific options have been excluded for clarity):
+funod-specific options are used mainly for housekeeping purposes, such as setting the directory where the blockchain data resides, specifying the name of the `funod` configuraton file, setting the name and path of the logging configuration file, etc. A sample output from running  `funod --help` is displayed below, showing the funod-specific options (Note: the plugin-specific options have been excluded for clarity):
 
 ```console
 Application Config Options:
@@ -30,6 +30,6 @@ Application Command Line Options:
 
 ## Plugin-specific Options
 
-Plugin-specific options control the behavior of the fonod plugins. Every plugin-specific option has a unique name, so it can be specified in any order within the command line or `config.ini` file. When specifying one or more plugin-specific option(s), the applicable plugin(s) must also be enabled using the `--plugin` option or else the corresponding option(s) will be ignored.
+Plugin-specific options control the behavior of the funod plugins. Every plugin-specific option has a unique name, so it can be specified in any order within the command line or `config.ini` file. When specifying one or more plugin-specific option(s), the applicable plugin(s) must also be enabled using the `--plugin` option or else the corresponding option(s) will be ignored.
 
 For more information on each plugin-specific option, just visit the [Plugins](../03_plugins/index.md) section.

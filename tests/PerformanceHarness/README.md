@@ -10,7 +10,7 @@ The `PerformanceTestBasic` test performs a single basic performance test that ta
 
 The `TransactionGeneratorsLauncher` provides a means to easily calculate and spawn the number of transaction generator instances to generate a given target TPS, distributing generation load between the instances in a fair manner such that the aggregate load meets the requested test load.
 
-The `log_reader.py` support script is used primarily to analyze `fonod` log files to glean information about generated blocks and transactions within those blocks after a test has concluded.  This information is used to produce the performance test report.
+The `log_reader.py` support script is used primarily to analyze `funod` log files to glean information about generated blocks and transactions within those blocks after a test has concluded.  This information is used to produce the performance test report.
 
 # Getting Started
 ## Prerequisites
@@ -19,7 +19,7 @@ Please refer to [fullon: Build and Install from Source](https://github.com/Antel
 
 ## Steps
 
-1. Build fullon. For complete instructions on building from source please refer to [fullon: Build and Install from Source](https://github.com/AntelopeIO/fullon/#build-and-install-from-source) For older compatible fonod versions, such as 2.X, the following binaries need to be replaced with the older version: `build/programs/fonod/fonod`, `build/programs/client/fucli`, `bin/fonod`, and `bin/fucli`.
+1. Build fullon. For complete instructions on building from source please refer to [fullon: Build and Install from Source](https://github.com/AntelopeIO/fullon/#build-and-install-from-source) For older compatible funod versions, such as 2.X, the following binaries need to be replaced with the older version: `build/programs/funod/funod`, `build/programs/client/fucli`, `bin/funod`, and `bin/fucli`.
 2. Run Performance Tests
     1. Full Performance Harness Test Run (Standard):
         ``` bash
@@ -114,7 +114,7 @@ Please refer to [fullon: Build and Install from Source](https://github.com/Antel
             │   │   │           │   │   ├── blocks.index
             │   │   │           │   │   ├── blocks.log
             │   │   │           │   │   └── reversible
-            │   │   │           │   ├── fonod.pid
+            │   │   │           │   ├── funod.pid
             │   │   │           │   ├── snapshots
             │   │   │           │   ├── state
             │   │   │           │   │   └── shared_memory.bin
@@ -126,7 +126,7 @@ Please refer to [fullon: Build and Install from Source](https://github.com/Antel
             │   │   │           │   │   ├── blocks.index
             │   │   │           │   │   ├── blocks.log
             │   │   │           │   │   └── reversible
-            │   │   │           │   ├── fonod.pid
+            │   │   │           │   ├── funod.pid
             │   │   │           │   ├── snapshots
             │   │   │           │   ├── state
             │   │   │           │   │   └── shared_memory.bin
@@ -143,7 +143,7 @@ Please refer to [fullon: Build and Install from Source](https://github.com/Antel
             │   │   │               │   ├── blocks.log
             │   │   │               │   └── reversible
             │   │   │               │       └── fork_db.dat
-            │   │   │               ├── fonod.pid
+            │   │   │               ├── funod.pid
             │   │   │               ├── snapshots
             │   │   │               ├── state
             │   │   │               │   └── shared_memory.bin
@@ -234,7 +234,7 @@ Please refer to [fullon: Build and Install from Source](https://github.com/Antel
                     │           │   │   ├── blocks.index
                     │           │   │   ├── blocks.log
                     │           │   │   └── reversible
-                    │           │   ├── fonod.pid
+                    │           │   ├── funod.pid
                     │           │   ├── snapshots
                     │           │   ├── state
                     │           │   │   └── shared_memory.bin
@@ -246,7 +246,7 @@ Please refer to [fullon: Build and Install from Source](https://github.com/Antel
                     │           │   │   ├── blocks.index
                     │           │   │   ├── blocks.log
                     │           │   │   └── reversible
-                    │           │   ├── fonod.pid
+                    │           │   ├── funod.pid
                     │           │   ├── snapshots
                     │           │   ├── state
                     │           │   │   └── shared_memory.bin
@@ -263,7 +263,7 @@ Please refer to [fullon: Build and Install from Source](https://github.com/Antel
                     │               │   ├── blocks.log
                     │               │   └── reversible
                     │               │       └── fork_db.dat
-                    │               ├── fonod.pid
+                    │               ├── funod.pid
                     │               ├── snapshots
                     │               ├── state
                     │               │   └── shared_memory.bin

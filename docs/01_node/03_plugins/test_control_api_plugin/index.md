@@ -1,7 +1,7 @@
 
 ## Description
 
-The `test_control_api_plugin` allows to send a control message to the [test_control_plugin](../test_control_plugin/index.md) telling the plugin to shut down the `fonod` instance when reaching a particular block. It is intended for testing.
+The `test_control_api_plugin` allows to send a control message to the [test_control_plugin](../test_control_plugin/index.md) telling the plugin to shut down the `funod` instance when reaching a particular block. It is intended for testing.
 
 ## Usage
 
@@ -11,7 +11,7 @@ plugin = eosio::test_control_api_plugin
 ```
 ```sh
 # command-line
-fonod ... --plugin eosio::test_control_api_plugin
+funod ... --plugin eosio::test_control_api_plugin
 ```
 
 ## Options
@@ -41,6 +41,6 @@ plugin = eosio::http_plugin
 ```
 ```sh
 # command-line
-fonod ... --plugin eosio::chain_plugin [operations] [options]  \
+funod ... --plugin eosio::chain_plugin [operations] [options]  \
            --plugin eosio::http_plugin [options]
 ```

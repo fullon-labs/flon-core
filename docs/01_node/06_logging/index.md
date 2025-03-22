@@ -1,8 +1,8 @@
 ---
-content_title: fonod Logging
+content_title: funod Logging
 ---
 
-Logging for `fonod` is controlled by the `logging.json` file. CLI options can be passed to `fonod` to [setup `logging.json`](00_setup-logging.json.md). The logging configuration file can be used to define [appenders](#appenders) and tie them to [loggers](#loggers) and [logging levels](01_logging-levels.md).
+Logging for `funod` is controlled by the `logging.json` file. CLI options can be passed to `funod` to [setup `logging.json`](00_setup-logging.json.md). The logging configuration file can be used to define [appenders](#appenders) and tie them to [loggers](#loggers) and [logging levels](01_logging-levels.md).
 
 ## Appenders
 

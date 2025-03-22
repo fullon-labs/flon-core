@@ -9,7 +9,7 @@ This procedure records the current chain state and future history, without previ
 ## Before you begin
 
 * Make sure [FullOn is installed](../../../00_install/index.md).
-* Learn about [Using fonod](../../02_usage/index.md).
+* Learn about [Using funod](../../02_usage/index.md).
 * Get familiar with [state_history_plugin](../../03_plugins/state_history_plugin/index.md).
 
 ## Steps
@@ -20,17 +20,17 @@ This procedure records the current chain state and future history, without previ
 
 2. Make sure `data/state` does not exist
 
-3. Start `fonod` with the `--snapshot` option, and the options listed in the [`state_history_plugin`](index.md).
+3. Start `funod` with the `--snapshot` option, and the options listed in the [`state_history_plugin`](index.md).
 
 4. Look for `Placing initial state in block n` in the log, where n is the start block number.
 
 5. If using a database filler, start the filler with `--fpg-create` (if PostgreSQL), `--fill-skip-to n`, and `--fill-trim`. Replace `n` with the value above.
 
-6. Do not stop `fonod` until it has received at least 1 block from the network, or it won't be able to restart.
+6. Do not stop `funod` until it has received at least 1 block from the network, or it won't be able to restart.
 
 ## Remarks
 
-If `fonod` fails to receive blocks from the network, then try the above using `net_api_plugin`. Use `fucli net disconnect` and `fucli net connect` to reconnect nodes which timed out.
+If `funod` fails to receive blocks from the network, then try the above using `net_api_plugin`. Use `fucli net disconnect` and `fucli net connect` to reconnect nodes which timed out.
 
 [[caution | Caution when using `net_api_plugin`]]
 | Either use a firewall to block access to your `http-server-address`, or change it to `localhost:8888` to disable remote access.

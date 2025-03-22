@@ -21,7 +21,7 @@ plugin = eosio::net_api_plugin
 ```
 ```sh
 # command-line
-fonod ... --plugin eosio::net_api_plugin
+funod ... --plugin eosio::net_api_plugin
 ```
 
 ## Options
@@ -44,6 +44,6 @@ plugin = eosio::http_plugin
 ```
 ```sh
 # command-line
-fonod ... --plugin eosio::net_plugin [options]  \
+funod ... --plugin eosio::net_plugin [options]  \
            --plugin eosio::http_plugin [options]
 ```

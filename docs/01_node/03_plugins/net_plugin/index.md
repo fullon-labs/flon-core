@@ -11,12 +11,12 @@ plugin = eosio::net_plugin
 ```
 ```sh
 # command-line
-fonod ... --plugin eosio::net_plugin [options]
+funod ... --plugin eosio::net_plugin [options]
 ```
 
 ## Options
 
-These can be specified from both the `fonod` command-line or the `config.ini` file:
+These can be specified from both the `funod` command-line or the `config.ini` file:
 
 ```console
 Config Options for eosio::net_plugin:

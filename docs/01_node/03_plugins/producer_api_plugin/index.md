@@ -9,8 +9,8 @@ The `producer_api_plugin` exposes a number of endpoints for the [`producer_plugi
 plugin = eosio::producer_api_plugin
 ```
 ```sh
-# fonod startup params
-fonod ... --plugin eosio::producer_api_plugin
+# funod startup params
+funod ... --plugin eosio::producer_api_plugin
 ```
 
 ## Options
@@ -36,7 +36,7 @@ plugin = eosio::http_plugin
 ```
 ```sh
 # command-line
-fonod ... --plugin eosio::producer_plugin [options]  \
+funod ... --plugin eosio::producer_plugin [options]  \
            --plugin eosio::chain_plugin [operations] [options]  \
            --plugin eosio::http_plugin [options]
 ```

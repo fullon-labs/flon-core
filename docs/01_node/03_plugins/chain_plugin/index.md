@@ -11,12 +11,12 @@ plugin = eosio::chain_plugin
 ```
 ```sh
 # command-line
-fonod ... --plugin eosio::chain_plugin [operations] [options]
+funod ... --plugin eosio::chain_plugin [operations] [options]
 ```
 
 ## Operations
 
-These can only be specified from the `fonod` command-line:
+These can only be specified from the `funod` command-line:
 
 ```console
 Command Line Options for eosio::chain_plugin:
@@ -56,7 +56,7 @@ Command Line Options for eosio::chain_plugin:
 
 ## Options
 
-These can be specified from both the `fonod` command-line or the `config.ini` file:
+These can be specified from both the `funod` command-line or the `config.ini` file:
 
 ```console
 Config Options for eosio::chain_plugin:

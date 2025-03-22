@@ -1260,7 +1260,7 @@ void chain_plugin_impl::log_guard_exception(const chain::guard_exception&e ) {
 void chain_plugin_impl::handle_guard_exception(const chain::guard_exception& e) {
    log_guard_exception(e);
 
-   elog("database chain::guard_exception, quitting..."); // log string searched for in: tests/fonod_under_min_avail_ram.py
+   elog("database chain::guard_exception, quitting..."); // log string searched for in: tests/funod_under_min_avail_ram.py
    // quit the app
    app().quit();
 }

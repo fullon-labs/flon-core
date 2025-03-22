@@ -1,8 +1,8 @@
 ---
-content_title: fonod Configuration
+content_title: funod Configuration
 ---
 
-The plugin-specific options can be configured using either CLI options or a configuration file, `config.ini`. fonod-specific options can only be configured from the command line. All CLI options and `config.ini` options can be found by running `fonod --help` as shown above.
+The plugin-specific options can be configured using either CLI options or a configuration file, `config.ini`. funod-specific options can only be configured from the command line. All CLI options and `config.ini` options can be found by running `funod --help` as shown above.
 
 Each `config.ini` option has a corresponding CLI option. However, not all CLI options are available in `config.ini`. For instance, most plugin-specific options that perform actions are not available in `config.ini`, such as `--delete-state-history` from `state_history_plugin`.
 
@@ -11,16 +11,16 @@ For example, the CLI option `--plugin eosio::chain_api_plugin` can also be set b
 ## `config.ini` location
 
 The default `config.ini` can be found in the following folder on Linux:
-`~/.local/share/flon/fonod/config`
+`~/.local/share/flon/funod/config`
 
-A custom `config.ini` file can be set by passing the `fonod` option `--config path/to/config.ini`.
+A custom `config.ini` file can be set by passing the `funod` option `--config path/to/config.ini`.
 
-## fonod Example
+## funod Example
 
-The example below shows a typical usage of `fonod` when starting a block producing node:
+The example below shows a typical usage of `funod` when starting a block producing node:
 
 ```sh
-fonod \
+funod \
   -e -p eosio \
   --data-dir /users/mydir/eosio/data     \
   --config-dir /users/mydir/eosio/config \
@@ -35,10 +35,10 @@ fonod \
   --state-history-dir /shpdata \
   --trace-history              \
   --chain-state-history        \
-  >> fonod.log 2>&1 &
+  >> funod.log 2>&1 &
 ```
 
-The above `fonod` command starts a producing node by:
+The above `funod` command starts a producing node by:
 
 * enabling block production (`-e`)
 * identifying itself as block producer "eosio" (`-p`)
@@ -48,5 +48,5 @@ The above `fonod` command starts a producing node by:
 * passing `chain_plugin` options (`--contracts-console`)
 * passing `http-plugin` options (`--access-control-allow-origin`, `--http-validate-host`, `--verbose-http-errors`)
 * passing `state_history` options (`--state-history-dir`, `--trace-history`, `--chain-state-history`)
-* redirecting both `stdout` and `stderr` to the `fonod.log` file
+* redirecting both `stdout` and `stderr` to the `funod.log` file
 * returning to the shell by running in the background (&)

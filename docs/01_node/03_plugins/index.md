@@ -1,10 +1,10 @@
 ---
-content_title: fonod Plugins
+content_title: funod Plugins
 ---
 
 ## Overview
 
-Plugins extend the core functionality implemented in `fonod`. Some plugins are mandatory, such as `chain_plugin`, `net_plugin`, and `producer_plugin`, which reflect the modular design of `fonod`. The other plugins are optional as they provide nice to have features, but non-essential for the nodes operation.
+Plugins extend the core functionality implemented in `funod`. Some plugins are mandatory, such as `chain_plugin`, `net_plugin`, and `producer_plugin`, which reflect the modular design of `funod`. The other plugins are optional as they provide nice to have features, but non-essential for the nodes operation.
 
 For information on specific plugins, just select from the list below:
 
@@ -20,5 +20,5 @@ For information on specific plugins, just select from the list below:
 * [`test_control_plugin`](test_control_plugin/index.md)
 * [`trace_api_plugin`](trace_api_plugin/index.md)
 
-[[info | fonod is modular]]
-| Plugins add incremental functionality to `fonod`. Unlike runtime plugins, `fonod` plugins are built at compile-time.
+[[info | funod is modular]]
+| Plugins add incremental functionality to `funod`. Unlike runtime plugins, `funod` plugins are built at compile-time.

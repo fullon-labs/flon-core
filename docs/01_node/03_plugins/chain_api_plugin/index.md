@@ -10,7 +10,7 @@ plugin = eosio::chain_api_plugin
 ```
 ```sh
 # command-line
-fonod ... --plugin eosio::chain_api_plugin
+funod ... --plugin eosio::chain_api_plugin
 ```
 
 ## Options
@@ -33,6 +33,6 @@ plugin = eosio::http_plugin
 ```
 ```sh
 # command-line
-fonod ... --plugin eosio::chain_plugin [operations] [options]  \
+funod ... --plugin eosio::chain_plugin [operations] [options]  \
            --plugin eosio::http_plugin [options]
 ```

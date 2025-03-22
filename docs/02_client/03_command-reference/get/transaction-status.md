@@ -4,7 +4,7 @@ Gets current blockchain state and, if available, transaction information given t
 
 For query to work, the transaction finality status feature must be enabled by configuring
 the chain plugin with the config option "--transaction-finality-status-max-storage-size-gb \<size\>"
-in fonod.
+in funod.
 
 ## Position Parameters
 

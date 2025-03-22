@@ -2,10 +2,10 @@
 content_title: Setup logging.json
 ---
 
-The `logging.json` file is usually located in the specified `--config-dir`, the same directory as the `config.ini` file. This path can be explicitly defined using the `-l` or `--logconf` options when starting `fonod`.
+The `logging.json` file is usually located in the specified `--config-dir`, the same directory as the `config.ini` file. This path can be explicitly defined using the `-l` or `--logconf` options when starting `funod`.
 
 ```sh
-fonod --help
+funod --help
 ```
 ```console
 ...

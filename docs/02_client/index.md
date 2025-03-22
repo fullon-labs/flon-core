@@ -4,7 +4,7 @@ content_title: fucli
 
 ## Introduction
 
-`fucli` is a command line tool that interfaces with the REST API exposed by `fonod`. Developers can also use `fucli` to deploy and test FullOn smart contracts.
+`fucli` is a command line tool that interfaces with the REST API exposed by `funod`. Developers can also use `fucli` to deploy and test FullOn smart contracts.
 
 ## Installation
 
@@ -12,7 +12,7 @@ content_title: fucli
 
 ## Using fucli
 
-To use `fucli`, you need the end point (IP address and port number) of a running `fonod` instance. Also, the `fonod` instance must be configured to load the `eosio::chain_api_plugin` when launched. This allows `fonod` to respond to the RPC requests coming from `fucli`.
+To use `fucli`, you need the end point (IP address and port number) of a running `funod` instance. Also, the `funod` instance must be configured to load the `eosio::chain_api_plugin` when launched. This allows `funod` to respond to the RPC requests coming from `fucli`.
 
 ### fucli Commands
 
@@ -29,7 +29,7 @@ Usage: fucli [OPTIONS] SUBCOMMAND
 Options:
   -h,--help                   Print this help message and exit
   -u,--url TEXT=http://127.0.0.1:8888/
-                              the http/https URL where fonod is running
+                              the http/https URL where funod is running
   --wallet-url TEXT=unix:///Users/username/flon-wallet/fowal.sock
                               the http/https URL where fowal is running
   -r,--header                 pass specific HTTP header; repeat this option to pass multiple headers

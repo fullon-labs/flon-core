@@ -8,7 +8,7 @@ For simplicity of the explanation let's consider the following notations:
 * `m` = `max_block_cpu_usage` (on-chain consensus value)
 * `u` = `max_block_net_usage` (on-chain consensus value)
 * `t` = `block-time`
-* `e` = `produce-block-offset-ms` (fonod configuration)
+* `e` = `produce-block-offset-ms` (funod configuration)
 * `w` = `block-time-interval = 500ms` (hard-coded value)
 * `a` = `produce-block-early-amount = w - (w - (e / r)) = e / r ms` (how much to release each block of round early by)
 * `l` = `produce-block-time = t - a`

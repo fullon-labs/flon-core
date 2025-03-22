@@ -16,7 +16,7 @@ if [[ -z "$EXPECTED" ]]; then
 fi
 echo "Expecting \"$EXPECTED\"..."
 # get node version
-ACTUAL=$($BUILD_ROOT/bin/fonod --version)
+ACTUAL=$($BUILD_ROOT/bin/funod --version)
 EXIT_CODE=$?
 # verify 0 exit code explicitly
 if [[ $EXIT_CODE -ne 0 ]]; then

@@ -4,15 +4,15 @@ content_title: Local Multi-Node Testnet
 
 ## Goal
 
-This section describes how to set up a multi-node blockchain configuration running on a single host.  This is referred to as a _**single host, multi-node testnet**_.  We will set up two nodes on your local computer and have them communicate with each other.  The examples in this section rely on three command-line applications, `fonod`, `fowal`, and `fucli`.  The following diagram depicts the desired testnet configuration.
+This section describes how to set up a multi-node blockchain configuration running on a single host.  This is referred to as a _**single host, multi-node testnet**_.  We will set up two nodes on your local computer and have them communicate with each other.  The examples in this section rely on three command-line applications, `funod`, `fowal`, and `fucli`.  The following diagram depicts the desired testnet configuration.
 
 ![Single host multi node testnet](single-host-multi-node-testnet.png)
 
 ## Before you begin
 
 * [Install the FullOn software](../../../00_install/index.md) before starting this section.
-* It is assumed that `fonod`, `fucli`, and `fowal` are accessible through the path.
-* Know how to pass [fonod options](../../02_usage/00_fonod-options.md) to enable or disable functionality.
+* It is assumed that `funod`, `fucli`, and `fowal` are accessible through the path.
+* Know how to pass [funod options](../../02_usage/00_node-options.md) to enable or disable functionality.
 
 ## Steps
 
@@ -83,10 +83,10 @@ imported private key for: EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV
 We can now start the first producer node. In the third terminal window run:
 
 ```sh
-fonod --enable-stale-production --producer-name eosio --plugin eosio::chain_api_plugin --plugin eosio::net_api_plugin
+funod --enable-stale-production --producer-name eosio --plugin eosio::chain_api_plugin --plugin eosio::net_api_plugin
 ```
 
-This creates a special producer, known as the "bios" producer. Assuming everything has executed correctly to this point, you should see output from the `fonod` process reporting block creation.
+This creates a special producer, known as the "bios" producer. Assuming everything has executed correctly to this point, you should see output from the `funod` process reporting block creation.
 
 ### 5. Start the Second Producer Node
 
@@ -140,10 +140,10 @@ executed transaction: d1ea511977803d2d88f46deb554f5b6cce355b9cc3174bec0da45fc16f
 
 We now have an account that is available to have a contract assigned to it, enabling it to do meaningful work. In other tutorials, the account has been used to establish simple contracts. In this case, the account will be designated as a block producer.
 
-In the fourth terminal window, start a second `fonod` instance. Notice that this command line is substantially longer than the one we used above to create the first producer. This is necessary to avoid collisions with the first `fonod` instance. Fortunately, you can just cut and paste this command line and adjust the keys:
+In the fourth terminal window, start a second `funod` instance. Notice that this command line is substantially longer than the one we used above to create the first producer. This is necessary to avoid collisions with the first `funod` instance. Fortunately, you can just cut and paste this command line and adjust the keys:
 
 ```sh
-fonod --producer-name inita --plugin eosio::chain_api_plugin --plugin eosio::net_api_plugin --http-server-address 127.0.0.1:8889 --p2p-listen-endpoint 127.0.0.1:9877 --p2p-peer-address 127.0.0.1:9876 --config-dir node2 --data-dir node2 --signature-provider EOS6hMjoWRF2L8x9YpeqtUEcsDKAyxSuM1APicxgRU1E3oyV5sDEg=KEY:5JgbL2ZnoEAhTudReWH1RnMuQS6DBeLZt4ucV6t8aymVEuYg7sr
+funod --producer-name inita --plugin eosio::chain_api_plugin --plugin eosio::net_api_plugin --http-server-address 127.0.0.1:8889 --p2p-listen-endpoint 127.0.0.1:9877 --p2p-peer-address 127.0.0.1:9876 --config-dir node2 --data-dir node2 --signature-provider EOS6hMjoWRF2L8x9YpeqtUEcsDKAyxSuM1APicxgRU1E3oyV5sDEg=KEY:5JgbL2ZnoEAhTudReWH1RnMuQS6DBeLZt4ucV6t8aymVEuYg7sr
 ```
 
 The output from this new node will show a little activity but will stop reporting until the last step in this tutorial, when the `inita` account is registered as a producer account and activated. Here is some example output from a newly started node. Your output might look a little different, depending on how much time you took entering each of these commands. Furthermore, this example is only the last few lines of output:
@@ -160,7 +160,7 @@ The output from this new node will show a little activity but will stop reportin
 2396002ms thread-0   producer_plugin.cpp:244       block_production_loo ] Not producing block because it isn't my turn, its eosio
 ```
 
-At this point, the second `fonod` is an idle producer. To turn it into an active producer, `inita` needs to be registered as a producer with the bios node, and the bios node needs to perform an action to update the producer schedule.
+At this point, the second `funod` is an idle producer. To turn it into an active producer, `inita` needs to be registered as a producer with the bios node, and the bios node needs to perform an action to update the producer schedule.
 
 ```sh
 fucli --wallet-url http://127.0.0.1:8899 push action eosio setprods "{ \"schedule\": [{\"producer_name\": \"inita\",\"block_signing_key\": \"EOS6hMjoWRF2L8x9YpeqtUEcsDKAyxSuM1APicxgRU1E3oyV5sDEg\"}]}" -p eosio@active
