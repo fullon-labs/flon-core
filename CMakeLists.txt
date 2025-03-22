@@ -159,6 +159,9 @@ endif()
 
 message(STATUS "using CHAIN_CONFIG_DEFINITIONS=${CHAIN_CONFIG_DEFINITIONS}")
 add_compile_definitions( ${CHAIN_CONFIG_DEFINITIONS} )
+set(CHAIN_CONFIG_DEFINITIONS_FILE  "${CMAKE_BINARY_DIR}/chain_config_definitions.txt")
+file(GENERATE OUTPUT "${CHAIN_CONFIG_DEFINITIONS_FILE}" CONTENT "${CHAIN_CONFIG_DEFINITIONS}")
+message("writing chain config definitions to file: ${CHAIN_CONFIG_DEFINITIONS_FILE}")
 
 message( STATUS "Using '${SYSTEM_ROOT_KEY}' as public key for '${SYSTEM_ACCOUNT_NAME}' account" )
 
@@ -293,10 +296,10 @@ endif()
 configure_file(${CMAKE_SOURCE_DIR}/libraries/cli11/bash-completion/completions/util.in
                ${CMAKE_BINARY_DIR}/programs/util/bash-completion/completions/${UTIL_EXECUTABLE_NAME} @ONLY)
 configure_file(${CMAKE_SOURCE_DIR}/libraries/cli11/bash-completion/completions/client.in
-               ${CMAKE_BINARY_DIR}/programs/client/bash-completion/completions/${CLI_CLIENT_EXECUTABLE_NAME} @ONLY)
+               ${CMAKE_BINARY_DIR}/programs/client/bash-completion/completions/${CLIENT_EXECUTABLE_NAME} @ONLY)
 
 install(FILES ${CMAKE_BINARY_DIR}/programs/util/bash-completion/completions/${UTIL_EXECUTABLE_NAME} DESTINATION ${CMAKE_INSTALL_FULL_DATAROOTDIR}/bash-completion/completions COMPONENT base)
-install(FILES ${CMAKE_BINARY_DIR}/programs/client/bash-completion/completions/${CLI_CLIENT_EXECUTABLE_NAME} DESTINATION ${CMAKE_INSTALL_FULL_DATAROOTDIR}/bash-completion/completions COMPONENT base)
+install(FILES ${CMAKE_BINARY_DIR}/programs/client/bash-completion/completions/${CLIENT_EXECUTABLE_NAME} DESTINATION ${CMAKE_INSTALL_FULL_DATAROOTDIR}/bash-completion/completions COMPONENT base)
 
 # Add the boost submodule we used to build to our install package, so headers can be found for libtester
 install(DIRECTORY "${CMAKE_SOURCE_DIR}/libraries/boost/"

@@ -23,4 +23,4 @@ _client_complete()
     COMPREPLY=($(compgen -W "${words}" -- "${COMP_WORDS[${COMP_CWORD}]}"))
 }
 
-complete -F _client_complete @CLI_CLIENT_EXECUTABLE_NAME@
+complete -F _client_complete @CLIENT_EXECUTABLE_NAME@

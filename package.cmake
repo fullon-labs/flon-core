@@ -40,7 +40,7 @@ string(APPEND CPACK_PACKAGE_FILE_NAME "-${CMAKE_SYSTEM_PROCESSOR}")
 set(CPACK_PACKAGE_CONTACT "FullOn Network Foundation")
 set(CPACK_PACKAGE_VENDOR "FullOn Network Foundation")
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "C++ implementation of the FullOn protocol with Savanna consensus")
-set(CPACK_COMPONENT_BASE_DESCRIPTION "daemon and CLI tools including ${NODE_EXECUTABLE_NAME}, ${CLI_CLIENT_EXECUTABLE_NAME}, and ${KEY_STORE_EXECUTABLE_NAME}")
+set(CPACK_COMPONENT_BASE_DESCRIPTION "daemon and CLI tools including ${NODE_EXECUTABLE_NAME}, ${CLIENT_EXECUTABLE_NAME}, and ${KEY_STORE_EXECUTABLE_NAME}")
 set(CPACK_COMPONENT_DEV_DESCRIPTION "headers and libraries for native contract unit testing")
 set(CPACK_PACKAGE_HOMEPAGE_URL "https://github.com/fullon-labs/flon-core")
 

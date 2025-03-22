@@ -11,7 +11,6 @@ ExternalProject_Add(
   SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/system_contracts/contracts
   BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR}/system_contracts
   CMAKE_ARGS ${CMAKE_ARGS_VAL}
-             -DCHAIN_CONFIG_DEFINITIONS=${CHAIN_CONFIG_DEFINITIONS}
              -DCMAKE_BUILD_TYPE=Release
              -DSYSTEM_CONFIGURABLE_WASM_LIMITS=On
              -DSYSTEM_BLOCKCHAIN_PARAMETERS=On
@@ -30,7 +29,7 @@ if( EOSIO_COMPILE_TEST_CONTRACTS )
            SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/contracts
            BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR}/contracts
            CMAKE_ARGS ${CMAKE_ARGS_VAL}
-                      -DCHAIN_CONFIG_DEFINITIONS=${CHAIN_CONFIG_DEFINITIONS}
+                      -DCHAIN_CONFIG_DEFINITIONS_FILE=${CHAIN_CONFIG_DEFINITIONS_FILE}
            UPDATE_COMMAND ""
            PATCH_COMMAND ""
            TEST_COMMAND ""
@@ -38,13 +37,12 @@ if( EOSIO_COMPILE_TEST_CONTRACTS )
            BUILD_ALWAYS 1
    )
 
-   message( STATUS "Building contracts in directory `./unittests/test-contracts/`" )
    ExternalProject_Add(
       test_contracts_project
       SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/test-contracts
       BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR}/test-contracts
       CMAKE_ARGS ${CMAKE_ARGS_VAL}
-                 -DCHAIN_CONFIG_DEFINITIONS=${CHAIN_CONFIG_DEFINITIONS}
+                 -DCHAIN_CONFIG_DEFINITIONS_FILE=${CHAIN_CONFIG_DEFINITIONS_FILE}
       UPDATE_COMMAND ""
       PATCH_COMMAND ""
       TEST_COMMAND ""

@@ -6,6 +6,7 @@ if( EOSIO_COMPILE_TEST_CONTRACTS )
     set(EOSIO_WASM_OLD_BEHAVIOR "Off")
     find_package( flon.cdt REQUIRED )
     add_compile_options(-no-missing-ricardian-clause)
+    file(READ ${CHAIN_CONFIG_DEFINITIONS_FILE} CHAIN_CONFIG_DEFINITIONS)
     add_compile_definitions( ${CHAIN_CONFIG_DEFINITIONS} )
 endif()
 
