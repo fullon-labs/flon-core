@@ -12,7 +12,7 @@ This section describes how to set up a producing node within the FullOn network.
 ## Before you begin
 
 * [Install the FullOn software](../../../00_install/index.md) before starting this section.
-* It is assumed that `funod`, `fucli`, and `fowal` are accessible through the path.
+* It is assumed that `funod`, `fucli`, and `fuwal` are accessible through the path.
 
 [//]: # ( THIS IS A COMMENT LINK BELOW IS BROKEN )
 [//]: # ( If you built FullOn using shell scripts, make sure to run the  Install Script ../../../00_install/01_build-from-source/01_shell-scripts/03_install-FullOn-binaries.md )
@@ -69,7 +69,7 @@ signature-provider = PUBLIC_SIGNING_KEY=KEY:PRIVATE_SIGNING_KEY
 ```
 
 #### Using Kowal:
-You can also use `fowal` instead of hard-defining keys.
+You can also use `fuwal` instead of hard-defining keys.
 
 ```console
 # config.ini:

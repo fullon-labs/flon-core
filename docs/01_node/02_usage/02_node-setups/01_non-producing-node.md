@@ -9,7 +9,7 @@ This section describes how to set up a non-producing node within the FullOn netw
 ## Before you begin
 
 * [Install the FullOn software](../../../00_install/index.md) before starting this section.
-* It is assumed that `funod`, `fucli`, and `fowal` are accessible through the path.
+* It is assumed that `funod`, `fucli`, and `fuwal` are accessible through the path.
 
 [//]: # ( THIS IS A COMMENT NEXT LINK CONTAINS A BROKEN LINK )
 [//]: # (  If you built FullOn using shell scripts, make sure to run the Install Script ../../../00_install/01_build-from-source/01_shell-scripts/03_install-FullOn-binaries.md )

@@ -1,6 +1,6 @@
 ## Overview
 
-This how-to guide provides instructions on how to list all public keys and public/private key pairs within the `fowal` default wallet. You can use the public and private keys to authorize transactions in an FullOn blockchain.
+This how-to guide provides instructions on how to list all public keys and public/private key pairs within the `fuwal` default wallet. You can use the public and private keys to authorize transactions in an FullOn blockchain.
 
 The example in this how-to guide displays all public keys and public/private key pairs stored within the existing default wallet.
 
@@ -25,7 +25,7 @@ See the following reference guide for `fucli` command line usage and related opt
 
 ## Procedure
 
-The following steps show how to list all public keys and public/private key pairs stored within the `fowal` default wallet:
+The following steps show how to list all public keys and public/private key pairs stored within the `fuwal` default wallet:
 
 1. Open the default wallet:
 ```sh
@@ -93,7 +93,7 @@ password: [[
 
 ## Summary
 
-By following these instructions, you are able to list all the public keys and public/private key pairs stored within the `fowal` default wallet.
+By following these instructions, you are able to list all the public keys and public/private key pairs stored within the `fuwal` default wallet.
 
 ## Troubleshooting
 
@@ -103,11 +103,11 @@ When you run the `fucli wallet open/unlock` commands, you may encounter the foll
 fucli wallet open
 ```
 ```console
-No wallet service listening on ***. Cannot automatically start fowal because fowal was not found.
-Failed to connect to fowal at unix:///Users/xxx.xxx/eosio-wallet/fowal.sock; is fowal running?
+No wallet service listening on ***. Cannot automatically start fuwal because fuwal was not found.
+Failed to connect to fuwal at unix:///Users/xxx.xxx/eosio-wallet/fuwal.sock; is fuwal running?
 ```
 
-To fix this error, make sure the `fowal` utility is running on your machine:
+To fix this error, make sure the `fuwal` utility is running on your machine:
 ```sh
-fowal
+fuwal
 ```

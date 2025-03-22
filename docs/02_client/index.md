@@ -30,11 +30,11 @@ Options:
   -h,--help                   Print this help message and exit
   -u,--url TEXT=http://127.0.0.1:8888/
                               the http/https URL where funod is running
-  --wallet-url TEXT=unix:///Users/username/flon-wallet/fowal.sock
-                              the http/https URL where fowal is running
+  --wallet-url TEXT=unix:///Users/username/flon-wallet/fuwal.sock
+                              the http/https URL where fuwal is running
   -r,--header                 pass specific HTTP header; repeat this option to pass multiple headers
   -n,--no-verify              don't verify peer certificate when using HTTPS
-  --no-auto-wallet            don't automatically launch a fowal if one is not currently running
+  --no-auto-wallet            don't automatically launch a fuwal if one is not currently running
   -v,--verbose                output verbose errors and action console output
   --print-request             print HTTP request to STDERR
   --print-response            print HTTP response to STDERR

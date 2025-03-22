@@ -1,6 +1,6 @@
 ## Goal
 
-Create a wallet using `fowal`.
+Create a wallet using `fuwal`.
 
 ## Before you begin
 

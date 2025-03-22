@@ -61,7 +61,7 @@ Config Options for eosio::producer_plugin:
                                                            public key
 
                                            WALLET:<data>    is the URL where
-                                                           fowal is available
+                                                           fuwal is available
                                                            and the approptiate
                                                            wallet(s) are
                                                            unlocked

@@ -28,7 +28,7 @@ Make sure you meet the following requirements:
 
 * Install the currently supported version of `fucli`.
 [[info | Note]]
-| `fucli` is bundled with the FullOn software. [Installing FullOn](../../../00_install/index.md) will also install the `fucli` and `fowal` command line tools.
+| `fucli` is bundled with the FullOn software. [Installing FullOn](../../../00_install/index.md) will also install the `fucli` and `fuwal` command line tools.
 * You have access to a producing node instance with the [`net_api_plugin`](../../../01_node/03_plugins/net_api_plugin/index.md) loaded.
 
 ## Examples

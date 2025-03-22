@@ -4,14 +4,14 @@ content_title: Local Multi-Node Testnet
 
 ## Goal
 
-This section describes how to set up a multi-node blockchain configuration running on a single host.  This is referred to as a _**single host, multi-node testnet**_.  We will set up two nodes on your local computer and have them communicate with each other.  The examples in this section rely on three command-line applications, `funod`, `fowal`, and `fucli`.  The following diagram depicts the desired testnet configuration.
+This section describes how to set up a multi-node blockchain configuration running on a single host.  This is referred to as a _**single host, multi-node testnet**_.  We will set up two nodes on your local computer and have them communicate with each other.  The examples in this section rely on three command-line applications, `funod`, `fuwal`, and `fucli`.  The following diagram depicts the desired testnet configuration.
 
 ![Single host multi node testnet](single-host-multi-node-testnet.png)
 
 ## Before you begin
 
 * [Install the FullOn software](../../../00_install/index.md) before starting this section.
-* It is assumed that `funod`, `fucli`, and `fowal` are accessible through the path.
+* It is assumed that `funod`, `fucli`, and `fuwal` are accessible through the path.
 * Know how to pass [funod options](../../02_usage/00_node-options.md) to enable or disable functionality.
 
 ## Steps
@@ -27,13 +27,13 @@ Open four "terminal" windows and perform the following steps:
 
 ### 1. Start the Wallet Manager
 
-In the first terminal window, start `fowal`, the wallet management application:
+In the first terminal window, start `fuwal`, the wallet management application:
 
 ```sh
-fowal --http-server-address 127.0.0.1:8899
+fuwal --http-server-address 127.0.0.1:8899
 ```
 
-If successful, `fowal` will display some information, starting with:
+If successful, `fuwal` will display some information, starting with:
 
 ```console
 2493323ms thread-0   wallet_plugin.cpp:39          plugin_initialize    ] initializing wallet plugin
@@ -43,9 +43,9 @@ If successful, `fowal` will display some information, starting with:
 2493324ms thread-0   wallet_api_plugin.cpp:70      plugin_startup       ] starting wallet_api_plugin
 ```
 
-Look for a line saying the wallet is listening on 127.0.0.1:8899. This will indicate that `fowal` started correctly and is listening on the correct port. If you see anything else, or you see some error report prior to "starting wallet_api_plugin", then you need to diagnose the issue and restart.
+Look for a line saying the wallet is listening on 127.0.0.1:8899. This will indicate that `fuwal` started correctly and is listening on the correct port. If you see anything else, or you see some error report prior to "starting wallet_api_plugin", then you need to diagnose the issue and restart.
 
-When `fowal` is running correctly, leave that window open with the wallet app running and move to the next terminal window.
+When `fuwal` is running correctly, leave that window open with the wallet app running and move to the next terminal window.
 
 ### 2. Create a Default Wallet
 
@@ -64,7 +64,7 @@ Without password imported keys will not be retrievable.
 "PW5JsmfYz2wrdUEotTzBamUCAunAA8TeRZGT57Ce6PkvM12tre8Sm"
 ```
 
-`fowal` will generate some status output in its window. We will continue to use this second window for subsequent `fucli` commands.
+`fuwal` will generate some status output in its window. We will continue to use this second window for subsequent `fucli` commands.
 
 ### 3. Loading the FullOn Key
 
