@@ -16,6 +16,22 @@ namespace eosio::chain {
       friend bool operator<( const account_delta& lhs, const account_delta& rhs ) { return lhs.account < rhs.account; }
    };
 
+   struct ram_gas_delta_t {
+      int64_t ram_delta = 0;
+      int64_t gas_delta = 0;
+   };
+
+   struct account_gas_trace {
+      account_name account;
+      uint64_t          reserved_gas_before = 0;
+      uint64_t          reserved_gas_after = 0;
+      uint64_t          used_gas = 0;              // gas used by all resource usages.
+      uint64_t          converted_gas = 0;         // gas converted from system core asset of account.
+      ram_gas_delta_t   ram_gas_delta;
+
+      friend bool operator<( const account_gas_trace& lhs, const account_gas_trace& rhs ) { return lhs.account < rhs.account; }
+   };
+
    struct transaction_trace;
    using transaction_trace_ptr = std::shared_ptr<transaction_trace>;
 
@@ -110,6 +126,7 @@ namespace eosio::chain {
       bool                                       scheduled = false;
       vector<action_trace>                       action_traces;
       std::optional<account_delta>               trx_ram_delta;
+      flat_set<account_gas_trace>                gas_traces;
 
       transaction_trace_ptr                      failed_dtrx_trace;
       std::optional<fc::exception>               except;
@@ -139,6 +156,12 @@ namespace eosio::chain {
 FC_REFLECT( eosio::chain::account_delta,
             (account)(delta) )
 
+FC_REFLECT( eosio::chain::ram_gas_delta_t,
+   (ram_delta)(gas_delta) )
+
+FC_REFLECT( eosio::chain::account_gas_trace,
+   (account)(reserved_gas_before)(reserved_gas_after)(used_gas)(converted_gas)(ram_gas_delta) )
+
 FC_REFLECT( eosio::chain::action_trace,
                (action_ordinal)(creator_action_ordinal)(closest_unnotified_ancestor_action_ordinal)(receipt)
                (receiver)(act)(context_free)(elapsed)(console)(trx_id)(block_num)(block_time)
@@ -150,4 +173,4 @@ FC_REFLECT( eosio::chain::transaction_res_usage,
 // @ignore except_ptr
 FC_REFLECT( eosio::chain::transaction_trace, (id)(block_num)(block_time)(producer_block_id)
                                              (receipt)(elapsed)(res_usage)(scheduled)
-                                             (action_traces)(trx_ram_delta)(failed_dtrx_trace)(except)(error_code) )
+                                             (action_traces)(trx_ram_delta)(gas_traces)(failed_dtrx_trace)(except)(error_code) )
