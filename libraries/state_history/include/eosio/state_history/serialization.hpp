@@ -674,9 +674,9 @@ datastream<ST>& operator<<(datastream<ST>& ds, const history_context_wrapper_sta
    fc::raw::pack(ds, as_type<bool>(trace.scheduled));
    history_context_serialize_container(ds, debug_mode, as_type<std::vector<eosio::chain::action_trace>>(trace.action_traces));
 
-   fc::raw::pack(ds, bool(trace.account_ram_delta));
-   if (trace.account_ram_delta) {
-      fc::raw::pack(ds, make_history_serial_wrapper(as_type<eosio::chain::account_delta>(*trace.account_ram_delta)));
+   fc::raw::pack(ds, bool(trace.trx_ram_delta));
+   if (trace.trx_ram_delta) {
+      fc::raw::pack(ds, make_history_serial_wrapper(as_type<eosio::chain::account_delta>(*trace.trx_ram_delta)));
    }
 
    std::optional<std::string> e;

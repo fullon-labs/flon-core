@@ -739,7 +739,7 @@ namespace eosio::chain {
 
       int64_t ram_delta = (config::billable_size_v<generated_transaction_object> + trx_size);
       add_ram_usage( cgto.payer, ram_delta );
-      trace->account_ram_delta = account_delta( cgto.payer, ram_delta );
+      trace->trx_ram_delta = account_delta( cgto.payer, ram_delta );
    }
 
    void transaction_context::record_transaction( const transaction_id_type& id, fc::time_point_sec expire ) {

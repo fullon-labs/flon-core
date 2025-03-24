@@ -2804,7 +2804,7 @@ struct controller_impl {
          trace->producer_block_id = pending_producer_block_id();
          trace->scheduled = true;
          trace->receipt = push_receipt( gtrx.trx_id, transaction_receipt::expired, billed_cpu_time_us, 0 ); // expire the transaction
-         trace->account_ram_delta = account_delta( gtrx.payer, trx_removal_ram_delta );
+         trace->trx_ram_delta = account_delta( gtrx.payer, trx_removal_ram_delta );
          trace->elapsed = fc::time_point::now() - start;
          pending->_block_report.total_cpu_usage_us += billed_cpu_time_us;
          pending->_block_report.total_elapsed_time += trace->elapsed;
@@ -2871,7 +2871,7 @@ struct controller_impl {
 
          bb.action_receipt_digests().append(std::move(trx_context.executed_action_receipts));
 
-         trace->account_ram_delta = account_delta( gtrx.payer, trx_removal_ram_delta );
+         trace->trx_ram_delta = account_delta( gtrx.payer, trx_removal_ram_delta );
 
          dmlog_applied_transaction(trace);
          emit( applied_transaction, std::tie(trace, trx->packed_trx()), __FILE__, __LINE__ );
@@ -2914,7 +2914,7 @@ struct controller_impl {
          error_trace->failed_dtrx_trace = trace;
          trace = error_trace;
          if( !trace->except_ptr ) {
-            trace->account_ram_delta = account_delta( gtrx.payer, trx_removal_ram_delta );
+            trace->trx_ram_delta = account_delta( gtrx.payer, trx_removal_ram_delta );
             trace->elapsed = fc::time_point::now() - start;
             dmlog_applied_transaction(trace);
             emit( applied_transaction, std::tie(trace, trx->packed_trx()), __FILE__, __LINE__ );
@@ -2958,7 +2958,7 @@ struct controller_impl {
          trx_context.set_transaction_usage( cpu_time_to_bill_us, 0); // Should never fail
 
          trace->receipt = push_receipt(gtrx.trx_id, transaction_receipt::hard_fail, cpu_time_to_bill_us, 0);
-         trace->account_ram_delta = account_delta( gtrx.payer, trx_removal_ram_delta );
+         trace->trx_ram_delta = account_delta( gtrx.payer, trx_removal_ram_delta );
 
          dmlog_applied_transaction(trace);
          emit( applied_transaction, std::tie(trace, trx->packed_trx()), __FILE__, __LINE__ );

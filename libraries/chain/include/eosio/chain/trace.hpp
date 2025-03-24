@@ -109,7 +109,7 @@ namespace eosio::chain {
       transaction_res_usage                      res_usage;
       bool                                       scheduled = false;
       vector<action_trace>                       action_traces;
-      std::optional<account_delta>               account_ram_delta;
+      std::optional<account_delta>               trx_ram_delta;
 
       transaction_trace_ptr                      failed_dtrx_trace;
       std::optional<fc::exception>               except;
@@ -150,4 +150,4 @@ FC_REFLECT( eosio::chain::transaction_res_usage,
 // @ignore except_ptr
 FC_REFLECT( eosio::chain::transaction_trace, (id)(block_num)(block_time)(producer_block_id)
                                              (receipt)(elapsed)(res_usage)(scheduled)
-                                             (action_traces)(account_ram_delta)(failed_dtrx_trace)(except)(error_code) )
+                                             (action_traces)(trx_ram_delta)(failed_dtrx_trace)(except)(error_code) )
