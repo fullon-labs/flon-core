@@ -869,13 +869,11 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(only_bill_to_first_authorizer, T, testers) { try {
    chain.push_action(config::system_account_name, "setalimits"_n, config::system_account_name, fc::mutable_variant_object()
       ("account", name(tester_account).to_string())
       ("ram_bytes", 10000)
-      ("net_weight", 1000)
       ("cpu_weight", 1000));
 
    chain.push_action(config::system_account_name, "setalimits"_n, config::system_account_name, fc::mutable_variant_object()
       ("account", name(tester_account2).to_string())
       ("ram_bytes", 10000)
-      ("net_weight", 1000)
       ("cpu_weight", 1000));
 
    const resource_limits_manager& mgr = chain.control->get_resource_limits_manager();

@@ -202,7 +202,6 @@ namespace eosio { namespace chain { namespace resource_limits {
       account_name owner; //< owner should not be changed within a chainbase modifier lambda
 
       // TODO: remove  net_weight, cpu_weight, net_weight
-      int64_t net_weight      = -1;
       int64_t cpu_weight      = -1;
       int64_t ram_bytes       = -1;
       uint64_t gas               = 0;     // reserved gas limit of account, if exceeding, FLON tokens will be converted into gas to cover the remaining usage
@@ -332,7 +331,7 @@ CHAINBASE_SET_INDEX_TYPE(eosio::chain::resource_limits::resource_limits_state_ob
 
 FC_REFLECT(eosio::chain::resource_limits::usage_accumulator, (last_ordinal)(value_ex)(consumed))
 
-FC_REFLECT(eosio::chain::resource_limits::resource_limits_object, (owner)(net_weight)(cpu_weight)(ram_bytes)(gas)(is_unlimited))
+FC_REFLECT(eosio::chain::resource_limits::resource_limits_object, (owner)(cpu_weight)(ram_bytes)(gas)(is_unlimited))
 FC_REFLECT(eosio::chain::resource_limits::resource_usage_object,  (owner)(net_usage)(cpu_usage)(ram_usage))
 FC_REFLECT(eosio::chain::resource_limits::resource_limits_config_object, (cpu_limit_parameters)(net_limit_parameters)(account_cpu_usage_average_window)(account_net_usage_average_window)(gas_per_cpu_ms)(gas_per_net_kb)(gas_per_ram_kb))
 FC_REFLECT(eosio::chain::resource_limits::resource_limits_state_object, (average_block_net_usage)(average_block_cpu_usage)(pending_net_usage)(pending_cpu_usage)(total_net_weight)(total_cpu_weight)(total_ram_bytes)(virtual_net_limit)(virtual_cpu_limit))

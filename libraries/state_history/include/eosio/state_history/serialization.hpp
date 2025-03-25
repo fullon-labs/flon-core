@@ -486,7 +486,6 @@ template <typename ST>
 datastream<ST>& operator<<(datastream<ST>& ds, const history_serial_wrapper_stateless<eosio::chain::resource_limits::resource_limits_object>& obj) {
    fc::raw::pack(ds, fc::unsigned_int(0));
    fc::raw::pack(ds, as_type<uint64_t>(obj.obj.owner.to_uint64_t()));
-   fc::raw::pack(ds, as_type<int64_t>(obj.obj.net_weight));
    fc::raw::pack(ds, as_type<int64_t>(obj.obj.cpu_weight));
    fc::raw::pack(ds, as_type<int64_t>(obj.obj.ram_bytes));
    fc::raw::pack(ds, as_type<uint64_t>(obj.obj.gas));
