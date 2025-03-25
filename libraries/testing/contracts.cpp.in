@@ -20,4 +20,4 @@ namespace eosio::testing {                                                      
 }
 
 MAKE_EMBEDDED_WASM_ABI(sys_bios,                               sys.bios, contracts)
-MAKE_EMBEDDED_WASM_ABI(flon_boot,                              flon.boot, contracts)
+MAKE_EMBEDDED_WASM_ABI(sys_boot,                              sys.boot, contracts)

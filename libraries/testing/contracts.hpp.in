@@ -15,7 +15,7 @@ namespace eosio {
       struct contracts {
          // Contracts in `libraries/testing/contracts' directory
          MAKE_EMBD_WASM_ABI(sys_bios)
-         MAKE_EMBD_WASM_ABI(flon_boot)
+         MAKE_EMBD_WASM_ABI(sys_boot)
       };
    } /// eosio::testing
 }  /// eosio

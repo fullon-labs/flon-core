@@ -55,7 +55,7 @@ try:
             errorExit("Failed to stand up eos cluster.")
 
     # setup producers using boot contract that does not need preactivate_feature
-    contract="flon.boot"
+    contract="sys.boot"
     contractDir="libraries/testing/contracts/%s" % (contract)
     wasmFile="%s.wasm" % (contract)
     abiFile="%s.abi" % (contract)
@@ -141,7 +141,7 @@ try:
     Print("found digest ", digest, " of PREACTIVATE_FEATURE")
 
     node0 = cluster.getNode(0)
-    contract="flon.boot"
+    contract="sys.boot"
     contractDir="libraries/testing/contracts/%s" % (contract)
     wasmFile="%s.wasm" % (contract)
     abiFile="%s.abi" % (contract)

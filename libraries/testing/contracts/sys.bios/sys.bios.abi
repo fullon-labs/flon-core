@@ -139,6 +139,18 @@
                 {
                     "name": "max_authority_depth",
                     "type": "uint16"
+                },
+                {
+                    "name": "gas_per_cpu_ms",
+                    "type": "uint32"
+                },
+                {
+                    "name": "gas_per_net_kb",
+                    "type": "uint32"
+                },
+                {
+                    "name": "gas_per_ram_kb",
+                    "type": "uint32"
                 }
             ]
         },
@@ -363,16 +375,12 @@
                     "type": "name"
                 },
                 {
-                    "name": "ram_bytes",
-                    "type": "int64"
+                    "name": "gas",
+                    "type": "uint64"
                 },
                 {
-                    "name": "net_weight",
-                    "type": "int64"
-                },
-                {
-                    "name": "cpu_weight",
-                    "type": "int64"
+                    "name": "is_unlimited",
+                    "type": "bool"
                 }
             ]
         },

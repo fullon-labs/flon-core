@@ -105,7 +105,7 @@ class PluginHttpTest(unittest.TestCase):
     def activateAllBuiltinProtocolFeatures(self):
         self.node.activatePreactivateFeature()
 
-        contract = "flon.boot"
+        contract = "sys.boot"
         contractDir = "libraries/testing/contracts/%s" % (contract)
         wasmFile = "%s.wasm" % (contract)
         abiFile = "%s.abi" % (contract)

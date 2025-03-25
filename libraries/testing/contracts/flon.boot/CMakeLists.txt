@@ -1,6 +1,0 @@
-if( EOSIO_COMPILE_TEST_CONTRACTS )
-   add_contract( flon.boot flon.boot flon.boot.cpp )
-else()
-   configure_file( ${CMAKE_CURRENT_SOURCE_DIR}/flon.boot.wasm ${CMAKE_CURRENT_BINARY_DIR}/flon.boot.wasm COPYONLY )
-   configure_file( ${CMAKE_CURRENT_SOURCE_DIR}/flon.boot.abi  ${CMAKE_CURRENT_BINARY_DIR}/flon.boot.abi  COPYONLY )
-endif()

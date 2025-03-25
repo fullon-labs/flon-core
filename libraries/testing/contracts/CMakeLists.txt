@@ -12,4 +12,4 @@ if ("${CMAKE_GENERATOR}" STREQUAL "Ninja")
 endif()
 
 add_subdirectory(sys.bios)
-add_subdirectory(flon.boot)
+add_subdirectory(sys.boot)

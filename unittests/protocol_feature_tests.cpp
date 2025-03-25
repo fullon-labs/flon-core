@@ -31,8 +31,8 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(activate_preactivate_feature, T, testers) try {
    );
 
    // But the boot contract can still be set.
-   c.set_code( config::system_account_name, contracts::flon_boot_wasm() );
-   c.set_abi( config::system_account_name, contracts::flon_boot_abi() );
+   c.set_code( config::system_account_name, contracts::sys_boot_wasm() );
+   c.set_abi( config::system_account_name, contracts::sys_boot_abi() );
 
    auto t = c.control->pending_block_time();
    c.control->abort_block();

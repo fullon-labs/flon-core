@@ -1,7 +1,7 @@
-#include "flon.boot.hpp"
+#include "sys.boot.hpp"
 #include <eosio/privileged.hpp>
 
-namespace flonboot {
+namespace sysboot {
 
 void boot::onerror( ignore<uint128_t>, ignore<std::vector<char>> ) {
    check( false, "the onerror action cannot be called directly" );
