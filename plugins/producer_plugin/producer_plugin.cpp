@@ -569,7 +569,9 @@ public:
    bool     block_is_exhausted() const;
    bool     remove_expired_trxs(const fc::time_point& deadline);
    bool     process_unapplied_trxs(const fc::time_point& deadline);
+   #ifdef ENABLE_DEFERRED_TRANSACTION
    bool     retire_deferred_trxs(const fc::time_point& deadline);
+   #endif//ENABLE_DEFERRED_TRANSACTION
    bool     process_incoming_trxs(const fc::time_point& deadline, unapplied_transaction_queue::iterator& itr);
 
    struct push_result {
@@ -2262,6 +2264,7 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
             if (!process_unapplied_trxs(preprocess_deadline))
                return start_block_result::exhausted;
 
+            #ifdef ENABLE_DEFERRED_TRANSACTION
             // after DISABLE_DEFERRED_TRXS_STAGE_2 is activated,
             // no deferred trxs are allowed to be retired
             if (!chain.is_builtin_activated( builtin_protocol_feature_t::disable_deferred_trxs_stage_2) ) {
@@ -2271,6 +2274,8 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
                   return start_block_result::failed;
                }
             }
+            #endif//ENABLE_DEFERRED_TRANSACTION
+
          }
 
          repost_exhausted_transactions(preprocess_deadline);
@@ -2612,6 +2617,7 @@ bool producer_plugin_impl::process_unapplied_trxs(const fc::time_point& deadline
    return !exhausted;
 }
 
+#ifdef ENABLE_DEFERRED_TRANSACTION
 bool producer_plugin_impl::retire_deferred_trxs(const fc::time_point& deadline) {
    int   num_applied    = 0;
    int   num_failed     = 0;
@@ -2705,6 +2711,7 @@ bool producer_plugin_impl::retire_deferred_trxs(const fc::time_point& deadline) 
    }
    return true;
 }
+#endif//ENABLE_DEFERRED_TRANSACTION
 
 bool producer_plugin_impl::process_incoming_trxs(const fc::time_point& deadline, unapplied_transaction_queue::iterator& itr) {
    bool exhausted = false;

@@ -216,6 +216,7 @@ struct test_transaction {
    static void send_transaction_max();
    static void send_transaction_large(uint64_t receiver, uint64_t code, uint64_t action);
    static void send_action_sender(uint64_t receiver, uint64_t code, uint64_t action);
+   #ifdef ENABLE_DEFERRED_TRANSACTION
    static void deferred_print();
    static void send_deferred_transaction(uint64_t receiver, uint64_t code, uint64_t action);
    static void send_deferred_transaction_4k_action(uint64_t receiver, uint64_t code, uint64_t action);
@@ -223,11 +224,14 @@ struct test_transaction {
    static void send_deferred_tx_with_dtt_action();
    static void cancel_deferred_transaction_success();
    static void cancel_deferred_transaction_not_found();
+   #endif//ENABLE_DEFERRED_TRANSACTION
    static void send_cf_action();
    static void send_cf_action_fail();
    static void stateful_api();
    static void context_free_api();
+   #ifdef ENABLE_DEFERRED_TRANSACTION
    static void repeat_deferred_transaction(uint64_t receiver, uint64_t code, uint64_t action);
+   #endif//ENABLE_DEFERRED_TRANSACTION
 };
 
 struct test_chain {

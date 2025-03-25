@@ -421,7 +421,7 @@ void apply_context::execute_context_free_inline( action&& a ) {
    }
 }
 
-
+#ifdef ENABLE_DEFERRED_TRANSACTION
 void apply_context::schedule_deferred_transaction( const uint128_t& sender_id, account_name payer, transaction&& trx, bool replace_existing ) {
    // no-op after DISABLE_DEFERRED_TRXS_STAGE_1 is activated
    if( control.is_builtin_activated( builtin_protocol_feature_t::disable_deferred_trxs_stage_1 ) ) {
@@ -648,6 +648,7 @@ bool apply_context::cancel_deferred_transaction( const uint128_t& sender_id, acc
    }
    return gto;
 }
+#endif //ENABLE_DEFERRED_TRANSACTION
 
 uint32_t apply_context::schedule_action( uint32_t ordinal_of_action_to_schedule, account_name receiver, bool context_free )
 {

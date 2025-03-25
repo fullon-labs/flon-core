@@ -138,6 +138,7 @@ extern "C" {
       WASM_TEST_HANDLER_EX( test_transaction, send_transaction_trigger_error_handler );
       WASM_TEST_HANDLER_EX( test_transaction, send_transaction_large                 );
       WASM_TEST_HANDLER_EX( test_transaction, send_action_sender                     );
+      #ifdef ENABLE_DEFERRED_TRANSACTION
       WASM_TEST_HANDLER   ( test_transaction, deferred_print                         );
       WASM_TEST_HANDLER_EX( test_transaction, send_deferred_transaction              );
       WASM_TEST_HANDLER_EX( test_transaction, send_deferred_transaction_4k_action    );
@@ -145,11 +146,14 @@ extern "C" {
       WASM_TEST_HANDLER   ( test_transaction, send_deferred_tx_with_dtt_action       );
       WASM_TEST_HANDLER   ( test_transaction, cancel_deferred_transaction_success    );
       WASM_TEST_HANDLER   ( test_transaction, cancel_deferred_transaction_not_found  );
+      #endif//ENABLE_DEFERRED_TRANSACTION
       WASM_TEST_HANDLER   ( test_transaction, send_cf_action                         );
       WASM_TEST_HANDLER   ( test_transaction, send_cf_action_fail                    );
       WASM_TEST_HANDLER   ( test_transaction, stateful_api                           );
       WASM_TEST_HANDLER   ( test_transaction, context_free_api                       );
+      #ifdef ENABLE_DEFERRED_TRANSACTION
       WASM_TEST_HANDLER_EX( test_transaction, repeat_deferred_transaction            );
+      #endif//ENABLE_DEFERRED_TRANSACTION
 
       //test chain
       WASM_TEST_HANDLER( test_chain, test_activeprods );

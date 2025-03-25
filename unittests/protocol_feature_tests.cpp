@@ -371,6 +371,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(subjective_restrictions_test, T, testers) try {
    BOOST_CHECK( c.control->is_builtin_activated( builtin_protocol_feature_t::only_link_to_existing_permission ) );
 } FC_LOG_AND_RETHROW()
 
+#ifdef ENABLE_DEFERRED_TRANSACTION
 BOOST_AUTO_TEST_CASE_TEMPLATE(replace_deferred_test, T, testers) try {
    T c( setup_policy::preactivate_feature_and_new_bios );
 
@@ -694,6 +695,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(no_duplicate_deferred_id_test, T, testers) try {
    c.produce_block();
 
 } FC_LOG_AND_RETHROW()
+#endif//ENABLE_DEFERRED_TRANSACTION
 
 BOOST_AUTO_TEST_CASE_TEMPLATE(fix_linkauth_restriction, T, testers) { try {
    T chain( setup_policy::preactivate_feature_and_new_bios );
@@ -1918,6 +1920,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(set_parameters_packed_test, T, testers) { try {
                        c.error("alice does not have permission to call this API"));
 } FC_LOG_AND_RETHROW() }
 
+#ifdef ENABLE_DEFERRED_TRANSACTION
 BOOST_AUTO_TEST_CASE( disable_deferred_trxs_stage_1_no_op_test ) { try {
    tester_no_disable_deferred_trx c;
 
@@ -2267,6 +2270,7 @@ BOOST_AUTO_TEST_CASE( block_validation_after_stage_1_test ) { try {
       fc_exception_message_starts_with("transaction cannot be delayed")
    );
 } FC_LOG_AND_RETHROW() } /// block_validation_after_stage_1_test
+#endif//ENABLE_DEFERRED_TRANSACTION
 
 static const char import_set_finalizers_wast[] = R"=====(
 (module

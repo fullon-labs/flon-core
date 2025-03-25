@@ -1710,6 +1710,7 @@ BOOST_AUTO_TEST_SUITE_END()
 
 BOOST_AUTO_TEST_SUITE(api_part3_tests)
 
+#ifdef ENABLE_DEFERRED_TRANSACTION
 BOOST_FIXTURE_TEST_CASE(deferred_transaction_tests, validating_tester_no_disable_deferred_trx) { try {
    produce_block();
    create_accounts( {"testapi"_n, "testapi2"_n, "alice"_n} );
@@ -2075,6 +2076,8 @@ BOOST_AUTO_TEST_CASE(more_deferred_transaction_tests) { try {
 
    BOOST_REQUIRE_EQUAL( chain.validate(), true );
 } FC_LOG_AND_RETHROW() }
+
+#endif//ENABLE_DEFERRED_TRANSACTION
 
 /*************************************************************************************
  * chain_tests test case

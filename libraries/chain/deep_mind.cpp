@@ -148,7 +148,7 @@ namespace eosio::chain {
    void deep_mind_handler::on_applied_transaction(uint32_t block_num, const transaction_trace_ptr& trace)
    {
       std::vector<char> packed_trace;
-      
+
       if (_config.zero_elapsed) {
          transaction_trace trace_copy = *trace;
          set_trace_elapsed_to_zero(trace_copy);
@@ -221,6 +221,7 @@ namespace eosio::chain {
          ("action_id", _action_id)
       );
    }
+   #ifdef ENABLE_DEFERRED_TRANSACTION
    void deep_mind_handler::on_cancel_deferred(operation_qualifier qual, const generated_transaction_object& gto)
    {
       fc_dlog(_logger, "DTRX_OP ${qual}CANCEL ${action_id} ${sender} ${sender_id} ${payer} ${published} ${delay} ${expiration} ${trx_id} ${trx}",
@@ -274,6 +275,8 @@ namespace eosio::chain {
          ("action_id", _action_id)
       );
    }
+   #endif//ENABLE_DEFERRED_TRANSACTION
+
    void deep_mind_handler::on_create_table(const table_id_object& tid)
    {
       fc_dlog(_logger, "TBL_OP INS ${action_id} ${code} ${scope} ${table} ${payer}",

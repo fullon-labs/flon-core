@@ -406,6 +406,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE( test_symbol, T, validating_testers ) try {
 
 } FC_LOG_AND_RETHROW() /// test_symbol
 
+#ifdef ENABLE_DEFERRED_TRANSACTION
 BOOST_FIXTURE_TEST_CASE( test_proxy_deferred, pre_disable_deferred_trx_currency_tester ) try {
    create_accounts( {"alice"_n, "proxy"_n} );
    produce_block();
@@ -568,6 +569,7 @@ BOOST_FIXTURE_TEST_CASE( test_deferred_failure, pre_disable_deferred_trx_currenc
    BOOST_REQUIRE_EQUAL(get_balance( "bob"_n),   asset::from_string("0.0000 CUR"));
 
 } FC_LOG_AND_RETHROW() /// test_currency
+#endif//ENABLE_DEFERRED_TRANSACTION
 
 BOOST_AUTO_TEST_CASE_TEMPLATE( test_input_quantity, T, currency_testers ) try {
    T chain;

@@ -291,6 +291,7 @@ void test_transaction::send_transaction_large( uint64_t receiver, uint64_t, uint
    eosio_assert( false, "send_transaction_large() should've thrown an error" );
 }
 
+#ifdef ENABLE_DEFERRED_TRANSACTION
 /**
  * deferred transaction
  */
@@ -363,6 +364,8 @@ void test_transaction::cancel_deferred_transaction_not_found() {
    eosio_assert( !r, "transaction was canceled, whild should not be found" );
 }
 
+#endif//ENABLE_DEFERRED_TRANSACTION
+
 void test_transaction::send_cf_action() {
    using namespace eosio;
    action act( std::vector<permission_level>{}, "dummy"_n, "event1"_n, std::vector<char>{} );
@@ -386,6 +389,8 @@ void test_transaction::context_free_api() {
    eosio::get_context_free_data( 0, buf, sizeof(buf) );
 }
 
+#ifdef ENABLE_DEFERRED_TRANSACTION
+
 void test_transaction::repeat_deferred_transaction( uint64_t receiver, uint64_t code, uint64_t action ) {
    using namespace eosio;
 
@@ -407,3 +412,4 @@ void test_transaction::repeat_deferred_transaction( uint64_t receiver, uint64_t 
    trx.actions.emplace_back( permissions, name{code}, name{action}, payload );
    trx.send( sender_id, eosio::name{receiver} );
 }
+#endif//ENABLE_DEFERRED_TRANSACTION

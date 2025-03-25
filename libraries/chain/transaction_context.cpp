@@ -257,12 +257,17 @@ namespace eosio::chain {
                                                  uint64_t packed_trx_prunable_size )
    {
       const transaction& trx = packed_trx.get_transaction();
+      #ifndef ENABLE_DEFERRED_TRANSACTION
+      EOS_ASSERT( trx.delay_sec.value == 0, transaction_exception, "transaction cannot be delayed" );
+      #else //ENABLE_DEFERRED_TRANSACTION
       // delayed transactions are not allowed after protocol feature
       // DISABLE_DEFERRED_TRXS_STAGE_1 is activated;
       // read-only and dry-run transactions are not allowed to be delayed at any time
       if( control.is_builtin_activated(builtin_protocol_feature_t::disable_deferred_trxs_stage_1) || is_transient() ) {
          EOS_ASSERT( trx.delay_sec.value == 0, transaction_exception, "transaction cannot be delayed" );
       }
+      #endif//ENABLE_DEFERRED_TRANSACTION
+
       if( trx.transaction_extensions.size() > 0 ) {
          disallow_transaction_extensions( "no transaction extensions supported yet for input transactions" );
       }
@@ -281,12 +286,14 @@ namespace eosio::chain {
       uint64_t initial_net_usage = static_cast<uint64_t>(cfg.base_per_transaction_net_usage)
                                     + packed_trx_unprunable_size + discounted_size_for_pruned_data;
 
+      #ifdef ENABLE_DEFERRED_TRANSACTION
       if( trx.delay_sec.value > 0 ) {
           // If delayed, also charge ahead of time for the additional net usage needed to retire the delayed transaction
           // whether that be by successfully executing, soft failure, hard failure, or expiration.
          initial_net_usage += static_cast<uint64_t>(cfg.base_per_transaction_net_usage)
                                + static_cast<uint64_t>(config::transaction_id_net_usage);
       }
+      #endif//ENABLE_DEFERRED_TRANSACTION
 
       published = control.pending_block_time();
       is_input = true;
@@ -304,6 +311,7 @@ namespace eosio::chain {
       }
    }
 
+   #ifdef ENABLE_DEFERRED_TRANSACTION
    void transaction_context::init_for_deferred_trx( fc::time_point p )
    {
       const transaction& trx = packed_trx.get_transaction();
@@ -320,6 +328,7 @@ namespace eosio::chain {
       apply_context_free = false;
       init( 0 );
    }
+   #endif//ENABLE_DEFERRED_TRANSACTION
 
    void transaction_context::exec() {
       EOS_ASSERT( is_initialized, transaction_exception, "must first initialize" );
@@ -343,9 +352,13 @@ namespace eosio::chain {
          execute_action( i, 0 );
       }
 
+      #ifdef ENABLE_DEFERRED_TRANSACTION
       if( delay != fc::microseconds() ) {
          schedule_transaction();
       }
+      #else //!ENABLE_DEFERRED_TRANSACTION
+      EOS_ASSERT( delay == fc::microseconds(), transaction_exception, "transaction cannot be delayed" );
+      #endif//ENABLE_DEFERRED_TRANSACTION
    }
 
    void transaction_context::finalize() {
@@ -719,6 +732,7 @@ namespace eosio::chain {
       acontext.exec();
    }
 
+   #ifdef ENABLE_DEFERRED_TRANSACTION
    void transaction_context::schedule_transaction() {
       // Charge ahead of time for the additional net usage needed to retire the delayed transaction
       // whether that be by successfully executing, soft failure, hard failure, or expiration.
@@ -754,6 +768,7 @@ namespace eosio::chain {
       add_ram_usage( cgto.payer, ram_delta );
       trace->trx_ram_delta = account_delta( cgto.payer, ram_delta );
    }
+   #endif//ENABLE_DEFERRED_TRANSACTION
 
    void transaction_context::record_transaction( const transaction_id_type& id, fc::time_point_sec expire ) {
       try {

@@ -1,3 +1,4 @@
+#ifdef ENABLE_DEFERRED_TRANSACTION
 #include <eosio/chain/generated_transaction_object.hpp>
 #include <eosio/chain/global_property_object.hpp>
 #include <eosio/testing/tester_network.hpp>
@@ -1971,3 +1972,4 @@ BOOST_AUTO_TEST_CASE( test_blockchain_params_enabled ) { try {
 } FC_LOG_AND_RETHROW() }
 
 BOOST_AUTO_TEST_SUITE_END()
+#endif//ENABLE_DEFERRED_TRANSACTION

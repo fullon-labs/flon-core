@@ -126,7 +126,9 @@ namespace eosio { namespace chain {
          void             check_deleteauth_authorization( const deleteauth& del, const vector<permission_level>& auths )const;
          void             check_linkauth_authorization( const linkauth& link, const vector<permission_level>& auths )const;
          void             check_unlinkauth_authorization( const unlinkauth& unlink, const vector<permission_level>& auths )const;
+         #ifdef ENABLE_DEFERRED_TRANSACTION
          fc::microseconds check_canceldelay_authorization( const canceldelay& cancel, const vector<permission_level>& auths )const;
+         #endif//ENABLE_DEFERRED_TRANSACTION
 
          std::optional<permission_name> lookup_linked_permission( account_name authorizer_account,
                                                                   scope_name code_account,

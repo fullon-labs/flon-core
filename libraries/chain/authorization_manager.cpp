@@ -6,7 +6,9 @@
 #include <eosio/chain/controller.hpp>
 #include <eosio/chain/global_property_object.hpp>
 #include <eosio/chain/contract_types.hpp>
+#ifdef ENABLE_DEFERRED_TRANSACTION
 #include <eosio/chain/generated_transaction_object.hpp>
+#endif//ENABLE_DEFERRED_TRANSACTION
 #include <boost/tuple/tuple_io.hpp>
 #include <eosio/chain/database_utils.hpp>
 #include <eosio/chain/protocol_state_object.hpp>
@@ -378,7 +380,7 @@ namespace eosio { namespace chain {
                   "the owner of the linked permission needs to be the actor of the declared authorization" );
 
       if( link.code == config::system_account_name
-            || !_control.is_builtin_activated( builtin_protocol_feature_t::fix_linkauth_restriction ) ) 
+            || !_control.is_builtin_activated( builtin_protocol_feature_t::fix_linkauth_restriction ) )
       {
          EOS_ASSERT( link.type != updateauth::get_name(),  action_validate_exception,
                      "Cannot link eosio::updateauth to a minimum permission" );
@@ -429,6 +431,7 @@ namespace eosio { namespace chain {
                   ("auth", auth)("min", permission_level{unlink.account, *unlinked_permission_name}) );
    }
 
+   #ifdef ENABLE_DEFERRED_TRANSACTION
    fc::microseconds authorization_manager::check_canceldelay_authorization( const canceldelay& cancel,
                                                                             const vector<permission_level>& auths
                                                                           )const
@@ -470,6 +473,7 @@ namespace eosio { namespace chain {
 
       return (itr->delay_until - itr->published);
    }
+   #endif//ENABLE_DEFERRED_TRANSACTION
 
    void noop_checktime() {}
 
@@ -522,8 +526,10 @@ namespace eosio { namespace chain {
                check_linkauth_authorization( act.data_as<linkauth>(), act.authorization );
             } else if( act.name == unlinkauth::get_name() ) {
                check_unlinkauth_authorization( act.data_as<unlinkauth>(), act.authorization );
+            #ifdef ENABLE_DEFERRED_TRANSACTION
             } else if( act.name ==  canceldelay::get_name() ) {
                delay = std::max( delay, check_canceldelay_authorization(act.data_as<canceldelay>(), act.authorization) );
+            #endif//ENABLE_DEFERRED_TRANSACTION
             } else {
                special_case = false;
             }

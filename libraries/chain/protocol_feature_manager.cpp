@@ -38,6 +38,7 @@ Disallows linking an action to a non-existing permission.
 */
             {}
          } )
+         #ifdef ENABLE_DEFERRED_TRANSACTION
          (  builtin_protocol_feature_t::replace_deferred, builtin_protocol_feature_spec{
             "REPLACE_DEFERRED",
             fc::variant("9908b3f8413c8474ab2a6be149d3f4f6d0421d37886033f27d4759c47a26d944").as<digest_type>(),
@@ -63,6 +64,8 @@ Also allows a contract to send a deferred transaction in a manner that enables t
 */
             {builtin_protocol_feature_t::replace_deferred}
          } )
+         #endif//ENABLE_DEFERRED_TRANSACTION
+
          (  builtin_protocol_feature_t::fix_linkauth_restriction, builtin_protocol_feature_spec{
             "FIX_LINKAUTH_RESTRICTION",
             fc::variant("a98241c83511dc86c857221b9372b4aa7cea3aaebc567a48604e1d3db3557050").as<digest_type>(),
@@ -273,6 +276,7 @@ Adds new cryptographic host functions
 */
             {}
          } )
+#ifdef ENABLE_DEFERRED_TRANSACTION
          (  builtin_protocol_feature_t::disable_deferred_trxs_stage_1, builtin_protocol_feature_spec{
             "DISABLE_DEFERRED_TRXS_STAGE_1",
             fc::variant("440c3efaaab212c387ce967c574dc813851cf8332d041beb418dfaf55facd5a9").as<digest_type>(),
@@ -308,6 +312,8 @@ retires a deferred transaction is invalid.
 */
             {builtin_protocol_feature_t::disable_deferred_trxs_stage_1}
          } )
+#endif//ENABLE_DEFERRED_TRANSACTION
+
          (  builtin_protocol_feature_t::savanna, builtin_protocol_feature_spec{
             "SAVANNA",
             fc::variant("01a8bebb4922c38293a8909668f7d00ba4a21a455c69719ad7dcc33ea1e631c0").as<digest_type>(),
@@ -341,8 +347,12 @@ Once this protocol feature is activated, the first subsequent block including a 
 host function call will trigger a transition to the Savanna consensus algorithm.
 */
             { builtin_protocol_feature_t::only_link_to_existing_permission,
+
+               #ifdef ENABLE_DEFERRED_TRANSACTION
               builtin_protocol_feature_t::replace_deferred,
               builtin_protocol_feature_t::no_duplicate_deferred_id,
+              #endif//ENABLE_DEFERRED_TRANSACTION
+
               builtin_protocol_feature_t::fix_linkauth_restriction,
               builtin_protocol_feature_t::disallow_empty_producer_schedule,
               builtin_protocol_feature_t::restrict_action_to_self,
@@ -358,9 +368,12 @@ host function call will trigger a transition to the Savanna consensus algorithm.
               builtin_protocol_feature_t::get_code_hash,
               builtin_protocol_feature_t::crypto_primitives,
               builtin_protocol_feature_t::get_block_num,
-              builtin_protocol_feature_t::bls_primitives,
+              builtin_protocol_feature_t::bls_primitives
+              #ifdef ENABLE_DEFERRED_TRANSACTION
+              ,
               builtin_protocol_feature_t::disable_deferred_trxs_stage_1,
               builtin_protocol_feature_t::disable_deferred_trxs_stage_2
+              #endif//ENABLE_DEFERRED_TRANSACTION
             }
          } )
    ;

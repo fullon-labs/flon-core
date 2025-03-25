@@ -449,6 +449,7 @@ void apply_eosio_unlinkauth(apply_context& context) {
 }
 
 void apply_eosio_canceldelay(apply_context& context) {
+   #ifdef ENABLE_DEFERRED_TRANSACTION
    EOS_ASSERT( !context.trx_context.is_read_only(), action_validate_exception, "canceldelay not allowed in read-only transaction" );
    auto cancel = context.get_action().data_as<canceldelay>();
    context.require_authorization(cancel.canceling_auth.actor); // only here to mark the single authority on this action as used
@@ -456,6 +457,9 @@ void apply_eosio_canceldelay(apply_context& context) {
    const auto& trx_id = cancel.trx_id;
 
    context.cancel_deferred_transaction(transaction_id_to_sender_id(trx_id), account_name());
+   #else
+   EOS_THROW( action_validate_exception, "canceldelay not allowed in read-only transaction" );
+   #endif//ENABLE_DEFERRED_TRANSACTION
 }
 
 } } // namespace eosio::chain

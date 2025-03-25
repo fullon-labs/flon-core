@@ -118,7 +118,9 @@ namespace eosio::chain {
          void init_for_input_trx( uint64_t packed_trx_unprunable_size,
                                   uint64_t packed_trx_prunable_size );
 
+         #ifdef ENABLE_DEFERRED_TRANSACTION
          void init_for_deferred_trx( fc::time_point published );
+         #endif//ENABLE_DEFERRED_TRANSACTION
 
          void exec();
          void finalize();

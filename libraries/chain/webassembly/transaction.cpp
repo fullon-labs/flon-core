@@ -24,12 +24,21 @@ namespace eosio { namespace chain { namespace webassembly {
    }
 
    void interface::send_deferred( legacy_ptr<const uint128_t> sender_id, account_name payer, legacy_span<const char> data, uint32_t replace_existing) {
+      #ifdef ENABLE_DEFERRED_TRANSACTION
       transaction trx;
       fc::raw::unpack<transaction>(data.data(), data.size(), trx);
       context.schedule_deferred_transaction(*sender_id, payer, std::move(trx), replace_existing);
+      #else
+      EOS_THROW( transaction_exception, "scheduled transaction not support" );
+      #endif//ENABLE_DEFERRED_TRANSACTION
    }
 
    bool interface::cancel_deferred( legacy_ptr<const uint128_t> val ) {
+      #ifdef ENABLE_DEFERRED_TRANSACTION
       return context.cancel_deferred_transaction( *val );
+      #else
+      EOS_THROW( transaction_exception, "scheduled transaction not support" );
+      return false;
+      #endif//ENABLE_DEFERRED_TRANSACTION
    }
 }}} // ns eosio::chain::webassembly

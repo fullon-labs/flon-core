@@ -1289,7 +1289,9 @@ struct controller_impl {
       } );
 
       set_activation_handler<builtin_protocol_feature_t::preactivate_feature>();
+      #ifdef ENABLE_DEFERRED_TRANSACTION
       set_activation_handler<builtin_protocol_feature_t::replace_deferred>();
+      #endif//ENABLE_DEFERRED_TRANSACTION
       set_activation_handler<builtin_protocol_feature_t::get_sender>();
       set_activation_handler<builtin_protocol_feature_t::webauthn_key>();
       set_activation_handler<builtin_protocol_feature_t::wtmsig_block_signatures>();
@@ -1300,7 +1302,9 @@ struct controller_impl {
       set_activation_handler<builtin_protocol_feature_t::get_block_num>();
       set_activation_handler<builtin_protocol_feature_t::crypto_primitives>();
       set_activation_handler<builtin_protocol_feature_t::bls_primitives>();
+      #ifdef ENABLE_DEFERRED_TRANSACTION
       set_activation_handler<builtin_protocol_feature_t::disable_deferred_trxs_stage_2>();
+      #endif//ENABLE_DEFERRED_TRANSACTION
       set_activation_handler<builtin_protocol_feature_t::savanna>();
 
       irreversible_block.connect([this](const block_signal_params& t) {
@@ -2629,6 +2633,7 @@ struct controller_impl {
       return fc::make_scoped_exit(bb.make_block_restore_point());
    }
 
+   #ifdef ENABLE_DEFERRED_TRANSACTION
    transaction_trace_ptr apply_onerror( const generated_transaction& gtrx,
                                         fc::time_point block_deadline,
                                         fc::microseconds max_transaction_time,
@@ -2722,6 +2727,7 @@ struct controller_impl {
       db.remove( gto );
       return ram_delta;
    }
+   #endif//ENABLE_DEFERRED_TRANSACTION
 
    bool failure_is_subjective( const fc::exception& e ) const {
       auto code = e.code();
@@ -2741,12 +2747,15 @@ struct controller_impl {
              || (code == sig_variable_size_limit_exception::code_value);
    }
 
+   #ifdef ENABLE_DEFERRED_TRANSACTION
    bool scheduled_failure_is_subjective( const fc::exception& e ) const {
       auto code = e.code();
       return    (code == tx_cpu_usage_exceeded::code_value)
              || failure_is_subjective(e);
    }
+   #endif//ENABLE_DEFERRED_TRANSACTION
 
+   #ifdef ENABLE_DEFERRED_TRANSACTION
    transaction_trace_ptr push_scheduled_transaction( const transaction_id_type& trxid,
                                                      fc::time_point block_deadline, fc::microseconds max_transaction_time,
                                                      uint32_t billed_cpu_time_us, bool explicit_billed_cpu_time = false )
@@ -2983,7 +2992,7 @@ struct controller_impl {
       return trace;
    } FC_CAPTURE_AND_RETHROW() } /// push_scheduled_transaction
 
-
+   #endif//ENABLE_DEFERRED_TRANSACTION
    /**
     *  Adds the transaction receipt to the pending block and returns it.
     */
@@ -3770,8 +3779,12 @@ struct controller_impl {
                                            receipt.cpu_usage_us, true, 0);
                   ++packed_idx;
                } else if( std::holds_alternative<transaction_id_type>(receipt.trx) ) {
+                  #ifdef ENABLE_DEFERRED_TRANSACTION
                   trace = push_scheduled_transaction(std::get<transaction_id_type>(receipt.trx), fc::time_point::maximum(),
                                                      fc::microseconds::maximum(), receipt.cpu_usage_us, true);
+                  #else
+                  EOS_ASSERT( false, transaction_exception, "scheduled transaction not support" );
+                  #endif//ENABLE_DEFERRED_TRANSACTION
                } else {
                   EOS_ASSERT( false, block_validate_exception, "encountered unexpected receipt type" );
                }
@@ -4805,6 +4818,7 @@ struct controller_impl {
 
       signed_transaction trx;
       trx.actions.emplace_back(std::move(on_block_act));
+      #ifdef ENABLE_DEFERRED_TRANSACTION
       if( is_builtin_activated( builtin_protocol_feature_t::no_duplicate_deferred_id ) ) {
          trx.expiration = time_point_sec();
          trx.ref_block_num = 0;
@@ -4813,6 +4827,11 @@ struct controller_impl {
          trx.expiration = time_point_sec{pending_block_time() + fc::microseconds(999'999)}; // Round up to nearest second to avoid appearing expired
          trx.set_reference_block( chain_head.id() );
       }
+      #else
+      trx.expiration = time_point_sec();
+      trx.ref_block_num = 0;
+      trx.ref_block_prefix = 0;
+      #endif//ENABLE_DEFERRED_TRANSACTION
 
       return trx;
    }
@@ -5379,6 +5398,7 @@ transaction_trace_ptr controller::push_transaction( const transaction_metadata_p
    return my->push_transaction(trx, block_deadline, max_transaction_time, billed_cpu_time_us, explicit_billed_cpu_time, subjective_cpu_bill_us );
 }
 
+#ifdef ENABLE_DEFERRED_TRANSACTION
 transaction_trace_ptr controller::push_scheduled_transaction( const transaction_id_type& trxid,
                                                               fc::time_point block_deadline, fc::microseconds max_transaction_time,
                                                               uint32_t billed_cpu_time_us, bool explicit_billed_cpu_time )
@@ -5387,6 +5407,7 @@ transaction_trace_ptr controller::push_scheduled_transaction( const transaction_
    validate_db_available_size();
    return my->push_scheduled_transaction( trxid, block_deadline, max_transaction_time, billed_cpu_time_us, explicit_billed_cpu_time );
 }
+#endif//ENABLE_DEFERRED_TRANSACTION
 
 const flat_set<account_name>& controller::get_actor_whitelist() const {
    return my->conf.actor_whitelist;
@@ -6169,6 +6190,7 @@ void controller_impl::on_activation<builtin_protocol_feature_t::get_sender>() {
    } );
 }
 
+#ifdef ENABLE_DEFERRED_TRANSACTION
 template<>
 void controller_impl::on_activation<builtin_protocol_feature_t::replace_deferred>() {
    const auto& indx = db.get_index<account_ram_correction_index, by_id>();
@@ -6191,6 +6213,7 @@ void controller_impl::on_activation<builtin_protocol_feature_t::replace_deferred
       db.remove( *itr );
    }
 }
+#endif//ENABLE_DEFERRED_TRANSACTION
 
 template<>
 void controller_impl::on_activation<builtin_protocol_feature_t::webauthn_key>() {
@@ -6272,12 +6295,14 @@ void controller_impl::on_activation<builtin_protocol_feature_t::bls_primitives>(
    } );
 }
 
+#ifdef ENABLE_DEFERRED_TRANSACTION
 template<>
 void controller_impl::on_activation<builtin_protocol_feature_t::disable_deferred_trxs_stage_2>() {
    const auto& idx = db.get_index<generated_transaction_multi_index, by_trx_id>();
    EOS_ASSERT( idx.size() == 0, protocol_feature_exception,
    "can not activate disable_deferred_trxs_stage_2 when generated transaction table not empty");
 }
+#endif//ENABLE_DEFERRED_TRANSACTION
 
 template<>
 void controller_impl::on_activation<builtin_protocol_feature_t::savanna>() {

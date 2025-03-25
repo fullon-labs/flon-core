@@ -257,8 +257,10 @@ namespace eosio::testing {
             set_before_producer_authority_bios_contract();
             preactivate_builtin_protocol_features({
                builtin_protocol_feature_t::only_link_to_existing_permission,
+               #ifdef ENABLE_DEFERRED_TRANSACTION
                builtin_protocol_feature_t::replace_deferred,
                builtin_protocol_feature_t::no_duplicate_deferred_id,
+               #endif//ENABLE_DEFERRED_TRANSACTION
                builtin_protocol_feature_t::fix_linkauth_restriction,
                builtin_protocol_feature_t::disallow_empty_producer_schedule,
                builtin_protocol_feature_t::restrict_action_to_self,
@@ -490,7 +492,7 @@ namespace eosio::testing {
             itr = unapplied_transactions.erase( itr );
             res.unapplied_transaction_traces.emplace_back( std::move(trace) );
          }
-
+         #ifdef ENABLE_DEFERRED_TRANSACTION
          vector<transaction_id_type> scheduled_trxs;
          while ((scheduled_trxs = get_scheduled_transactions()).size() > 0 ) {
             for( const auto& trx : scheduled_trxs ) {
@@ -501,6 +503,7 @@ namespace eosio::testing {
                }
             }
          }
+         #endif//ENABLE_DEFERRED_TRANSACTION
       }
 
       res.block = _finish_block();
@@ -615,6 +618,7 @@ namespace eosio::testing {
       return res;
    }
 
+   #ifdef ENABLE_DEFERRED_TRANSACTION
    vector<transaction_id_type> base_tester::get_scheduled_transactions() const {
       const auto& idx = control->db().get_index<generated_transaction_multi_index,by_delay>();
 
@@ -627,6 +631,7 @@ namespace eosio::testing {
       }
       return result;
    }
+   #endif//ENABLE_DEFERRED_TRANSACTION
 
    void base_tester::produce_blocks_until_end_of_round() {
       uint64_t blocks_per_round;
@@ -1393,8 +1398,10 @@ namespace eosio::testing {
       // dependencies of builtin_protocol_feature_t::savanna
       vector<digest_type> feature_digests;
       feature_digests.push_back(*pfm.get_builtin_digest(builtin_protocol_feature_t::only_link_to_existing_permission));
+      #ifdef ENABLE_DEFERRED_TRANSACTION
       feature_digests.push_back(*pfm.get_builtin_digest(builtin_protocol_feature_t::replace_deferred));
       feature_digests.push_back(*pfm.get_builtin_digest(builtin_protocol_feature_t::no_duplicate_deferred_id));
+      #endif//ENABLE_DEFERRED_TRANSACTION
       feature_digests.push_back(*pfm.get_builtin_digest(builtin_protocol_feature_t::fix_linkauth_restriction));
       feature_digests.push_back(*pfm.get_builtin_digest(builtin_protocol_feature_t::disallow_empty_producer_schedule));
       feature_digests.push_back(*pfm.get_builtin_digest(builtin_protocol_feature_t::restrict_action_to_self));

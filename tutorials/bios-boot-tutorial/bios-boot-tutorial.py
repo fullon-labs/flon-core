@@ -331,10 +331,10 @@ def stepSetSystemContract():
     retry(args.fucli + 'push action eosio activate \'["68dcaa34c0517d19666e6b33add67351d8c5f69e999ca1e37931bc410a297428"]\' -p eosio@active')
     # FIX_LINKAUTH_RESTRICTION
     retry(args.fucli + 'push action eosio activate \'["e0fb64b1085cc5538970158d05a009c24e276fb94e1a0bf6a528b48fbc4ff526"]\' -p eosio@active')
-    # REPLACE_DEFERRED
-    retry(args.fucli + 'push action eosio activate \'["ef43112c6543b88db2283a2e077278c315ae2c84719a8b25f25cc88565fbea99"]\' -p eosio@active')
-    # NO_DUPLICATE_DEFERRED_ID
-    retry(args.fucli + 'push action eosio activate \'["4a90c00d55454dc5b059055ca213579c6ea856967712a56017487886a4d4cc0f"]\' -p eosio@active')
+    ## REPLACE_DEFERRED
+    #retry(args.fucli + 'push action eosio activate \'["ef43112c6543b88db2283a2e077278c315ae2c84719a8b25f25cc88565fbea99"]\' -p eosio@active')
+    ## NO_DUPLICATE_DEFERRED_ID
+    # retry(args.fucli + 'push action eosio activate \'["4a90c00d55454dc5b059055ca213579c6ea856967712a56017487886a4d4cc0f"]\' -p eosio@active')
     # ONLY_LINK_TO_EXISTING_PERMISSION
     retry(args.fucli + 'push action eosio activate \'["1a99a59d87e06e09ec5b028a9cbb7749b4a5ad8819004365d02dc4379a8b7241"]\' -p eosio@active')
     # RAM_RESTRICTIONS
@@ -351,10 +351,10 @@ def stepSetSystemContract():
     retry(args.fucli + 'push action eosio activate \'["6bcb40a24e49c26d0a60513b6aeb8551d264e4717f306b81a37a5afb3b47cedc"]\' -p eosio@active')
     # BLS_PRIMITIVES2
     retry(args.fucli + 'push action eosio activate \'["63320dd4a58212e4d32d1f58926b73ca33a247326c2a5e9fd39268d2384e011a"]\' -p eosio@active')
-    # DISABLE_DEFERRED_TRXS_STAGE_1 - DISALLOW NEW DEFERRED TRANSACTIONS
-    retry(args.fucli + 'push action eosio activate \'["fce57d2331667353a0eac6b4209b67b843a7262a848af0a49a6e2fa9f6584eb4"]\' -p eosio@active')
-    # DISABLE_DEFERRED_TRXS_STAGE_2 - PREVENT PREVIOUSLY SCHEDULED DEFERRED TRANSACTIONS FROM REACHING OTHER NODE
-    # THIS DEPENDS ON DISABLE_DEFERRED_TRXS_STAGE_1
+    ## DISABLE_DEFERRED_TRXS_STAGE_1 - DISALLOW NEW DEFERRED TRANSACTIONS
+    #retry(args.fucli + 'push action eosio activate \'["fce57d2331667353a0eac6b4209b67b843a7262a848af0a49a6e2fa9f6584eb4"]\' -p eosio@active')
+    ## DISABLE_DEFERRED_TRXS_STAGE_2 - PREVENT PREVIOUSLY SCHEDULED DEFERRED TRANSACTIONS FROM REACHING OTHER NODE
+    ## THIS DEPENDS ON DISABLE_DEFERRED_TRXS_STAGE_1
     retry(args.fucli + 'push action eosio activate \'["09e86cb0accf8d81c9e85d34bea4b925ae936626d00c984e4691186891f5bc16"]\' -p eosio@active')
     # SAVANNA
     # Depends on all previous protocol features

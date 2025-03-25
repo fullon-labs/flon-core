@@ -53,7 +53,7 @@ struct reqactivated {
 // Create a read-only trx that works with bios reqactivated action
 auto make_bios_ro_trx(eosio::chain::controller& control) {
    const auto& pfm = control.get_protocol_feature_manager();
-   static auto feature_digest = pfm.get_builtin_digest(builtin_protocol_feature_t::replace_deferred);
+   static auto feature_digest = pfm.get_builtin_digest(builtin_protocol_feature_t::restrict_action_to_self);
 
    signed_transaction trx;
    trx.expiration = fc::time_point_sec{fc::time_point::now() + fc::seconds(30)};
@@ -138,8 +138,10 @@ void activate_protocol_features_set_bios_contract(appbase::scoped_app& app, chai
 
             vector<digest_type> feature_digests;
             feature_digests.push_back(*pfm.get_builtin_digest(builtin_protocol_feature_t::only_link_to_existing_permission));
+            #ifdef ENABLE_DEFERRED_TRANSACTION
             feature_digests.push_back(*pfm.get_builtin_digest(builtin_protocol_feature_t::replace_deferred));
             feature_digests.push_back(*pfm.get_builtin_digest(builtin_protocol_feature_t::no_duplicate_deferred_id));
+            #endif//ENABLE_DEFERRED_TRANSACTION
             feature_digests.push_back(*pfm.get_builtin_digest(builtin_protocol_feature_t::fix_linkauth_restriction));
             feature_digests.push_back(*pfm.get_builtin_digest(builtin_protocol_feature_t::disallow_empty_producer_schedule));
             feature_digests.push_back(*pfm.get_builtin_digest(builtin_protocol_feature_t::restrict_action_to_self));
@@ -156,8 +158,10 @@ void activate_protocol_features_set_bios_contract(appbase::scoped_app& app, chai
             feature_digests.push_back(*pfm.get_builtin_digest(builtin_protocol_feature_t::crypto_primitives));
             feature_digests.push_back(*pfm.get_builtin_digest(builtin_protocol_feature_t::get_block_num));
             feature_digests.push_back(*pfm.get_builtin_digest(builtin_protocol_feature_t::bls_primitives));
+            #ifdef ENABLE_DEFERRED_TRANSACTION
             feature_digests.push_back(*pfm.get_builtin_digest(builtin_protocol_feature_t::disable_deferred_trxs_stage_1));
             feature_digests.push_back(*pfm.get_builtin_digest(builtin_protocol_feature_t::disable_deferred_trxs_stage_2));
+            #endif//ENABLE_DEFERRED_TRANSACTION
             // savanna
             feature_digests.push_back(*pfm.get_builtin_digest(builtin_protocol_feature_t::savanna));
 
