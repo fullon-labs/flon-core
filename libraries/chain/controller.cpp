@@ -5983,7 +5983,7 @@ const flat_set<account_name> &controller::get_resource_greylist() const {
    return  my->conf.resource_greylist;
 }
 
-
+#ifdef ENABLE_SCHEDULED_TRANSACTION
 void controller::add_to_ram_correction( account_name account, uint64_t ram_bytes ) {
    auto ptr = my->db.find<account_ram_correction_object, by_name>( account );
    if( ptr ) {
@@ -6003,6 +6003,7 @@ void controller::add_to_ram_correction( account_name account, uint64_t ram_bytes
       dm_logger->on_add_ram_correction(*ptr, ram_bytes);
    }
 }
+#endif//ENABLE_SCHEDULED_TRANSACTION
 
 bool controller::all_subjective_mitigations_disabled()const {
    return my->conf.disable_all_subjective_mitigations;

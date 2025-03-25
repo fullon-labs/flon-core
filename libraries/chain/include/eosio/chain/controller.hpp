@@ -411,7 +411,10 @@ namespace eosio::chain {
          void set_greylist_limit( uint32_t limit );
          uint32_t get_greylist_limit()const;
 
+         #ifdef ENABLE_SCHEDULED_TRANSACTION
          void add_to_ram_correction( account_name account, uint64_t ram_bytes );
+         #endif//ENABLE_SCHEDULED_TRANSACTION
+
          bool all_subjective_mitigations_disabled()const;
 
          deep_mind_handler* get_deep_mind_logger(bool is_trx_transient) const;
