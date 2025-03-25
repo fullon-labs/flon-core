@@ -369,8 +369,14 @@ namespace eosio::chain {
       }
 
       auto& rl = control.get_mutable_resource_limits_manager();
+      flat_set<account_gas_trace> gas_traces;
+      gas_traces.reserve(ram_deltas.size() + 1);
       for( auto a : ram_deltas ) {
-         rl.add_ram_usage(a.first, a.second);
+         std::optional<account_gas_trace> gas_trace;
+         rl.add_ram_usage(a.first, a.second, gas_trace);
+         if (gas_trace) {
+            gas_traces.emplace(std::move(*gas_trace));
+         }
       }
 
       // Calculate the new highest network usage and CPU time that all of the billed accounts can afford to be billed
@@ -408,7 +414,22 @@ namespace eosio::chain {
 
       trace->res_usage.cpu_usage = static_cast<uint64_t>(billed_cpu_time_us);
       trace->res_usage.net_usage = net_usage;
-      rl.add_transaction_usage( trace->res_usage, is_transient() ); // Should never fail
+      std::optional<account_gas_trace> trx_gas_trace;
+      rl.add_transaction_usage( trace->res_usage, trx_gas_trace, is_transient() ); // Should never fail
+      if (trx_gas_trace) {
+         auto itr = trace->gas_traces.find(trace->res_usage.payer);
+         if (itr == trace->gas_traces.end()) {
+            trace->gas_traces.emplace(std::move(*trx_gas_trace));
+         } else {
+            // the itr->reserved_gas_before exists, can not assign again
+            itr->reserved_gas_after = trx_gas_trace->reserved_gas_after;
+            itr->used_gas          += trx_gas_trace->used_gas;
+            itr->converted_gas     += trx_gas_trace->converted_gas;
+         }
+      }
+
+
+      trace->gas_traces = std::move(gas_traces);
    }
 
    void transaction_context::squash() {
@@ -424,14 +445,6 @@ namespace eosio::chain {
       net_usage += u;
       check_net_limit();
       validate_transaction_usage();
-   }
-
-   void transaction_context::set_transaction_usage(uint64_t cpu_usage, uint64_t net_usage) {
-      trace->res_usage.cpu_usage = cpu_usage;
-      trace->res_usage.net_usage = net_usage;
-
-      auto& rl = control.get_mutable_resource_limits_manager();
-      rl.add_transaction_usage( trace->res_usage);
    }
 
    void transaction_context::check_cpu_limit(const fc::time_point& now, bool check_minimum) const {

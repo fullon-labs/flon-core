@@ -19,7 +19,7 @@ namespace bio = boost::iostreams;
 #define CORE_FROM_STRING(s, sym) eosio::chain::asset::from_string(s + " " #sym)
 
 eosio::chain::asset core_from_string(const std::string& s) {
-   CORE_FROM_STRING(s, CORE_SYMBOL_NAME);
+   return CORE_FROM_STRING(s, CORE_SYMBOL_NAME);
 }
 
 using bls_private_key = fc::crypto::blslib::bls_private_key;

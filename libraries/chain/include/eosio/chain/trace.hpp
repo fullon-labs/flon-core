@@ -22,13 +22,18 @@ namespace eosio::chain {
    };
 
    struct account_gas_trace {
-      account_name account;
+      account_name      account;
       uint64_t          reserved_gas_before = 0;
       uint64_t          reserved_gas_after = 0;
       uint64_t          used_gas = 0;              // gas used by all resource usages.
       uint64_t          converted_gas = 0;         // gas converted from system core asset of account.
       ram_gas_delta_t   ram_gas_delta;
 
+      account_gas_trace( const account_name& an):account(an) {}
+      account_gas_trace(){}
+
+      friend bool operator<( const account_gas_trace& lhs, const account_name& rk ) { return lhs.account < rk; }
+      friend bool operator<( const account_name& lk, const account_gas_trace& rhs ) { return lk < rhs.account; }
       friend bool operator<( const account_gas_trace& lhs, const account_gas_trace& rhs ) { return lhs.account < rhs.account; }
    };
 

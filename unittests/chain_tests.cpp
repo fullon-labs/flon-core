@@ -13,6 +13,23 @@ using namespace eosio;
 using namespace eosio::chain;
 using namespace eosio::testing;
 
+namespace utils {
+   template<typename T>
+   void replace_account_keys( T& chain,  name account, name permission, const public_key_type& key ) {
+      chainbase::database& db = chain.control->mutable_db();
+      auto& rlm = chain.control->get_mutable_resource_limits_manager();
+      auto* perm = db.find<eosio::chain::permission_object, by_owner>(boost::make_tuple(account, permission));
+      if (!perm)
+         return;
+      int64_t old_size = (int64_t)(chain::config::billable_size_v<permission_object> + perm->auth.get_billable_size());
+      db.modify(*perm, [&](auto& p) {
+         p.auth = authority(key);
+      });
+      int64_t new_size = (int64_t)(chain::config::billable_size_v<permission_object> + perm->auth.get_billable_size());
+      std::optional<account_gas_trace> gas_trace;
+      rlm.add_ram_usage(account, new_size - old_size, gas_trace, false); // false for doing dm logging
+   }
+}
 BOOST_AUTO_TEST_SUITE(chain_tests)
 
 BOOST_AUTO_TEST_CASE( replace_producer_keys ) try {
@@ -22,7 +39,7 @@ BOOST_AUTO_TEST_CASE( replace_producer_keys ) try {
 
    // make sure new keys is not used
    for(const auto& prod : tester.control->active_producers().producers) {
-      for(const auto& key : std::get<block_signing_authority_v0>(prod.authority).keys){  
+      for(const auto& key : std::get<block_signing_authority_v0>(prod.authority).keys){
          BOOST_REQUIRE(key.key != new_key);
       }
    }
@@ -72,7 +89,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE( replace_account_keys, T, validating_testers ) try
    BOOST_REQUIRE(old_usr_auth != expected_authority);
    const auto old_ram_usg = rlm.get_account_ram_usage(usr);
 
-   BOOST_REQUIRE_NO_THROW(tester.control->replace_account_keys(usr, active_permission, new_key));
+   BOOST_REQUIRE_NO_THROW(utils::replace_account_keys(tester, usr, active_permission, new_key));
    const int64_t new_size = (int64_t)(chain::config::billable_size_v<permission_object> + perm->auth.get_billable_size());
    const auto new_ram_usg = rlm.get_account_ram_usage(usr);
    BOOST_REQUIRE_EQUAL(old_ram_usg + (new_size - old_size), new_ram_usg);

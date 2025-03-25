@@ -223,6 +223,7 @@ namespace eosio::chain {
          boost::asio::io_context& get_thread_pool();
 
          const chainbase::database& db()const;
+         chainbase::database& mutable_db()const;
          const vector<transaction_receipt>&     get_pending_trx_receipts()const;
          const account_object&                 get_account( account_name n )const;
          const global_property_object&         get_global_properties()const;
@@ -441,7 +442,7 @@ namespace eosio::chain {
 
 
 
-         
+
          std::optional<abi_serializer> get_abi_serializer( account_name n, const abi_serializer::yield_function_t& yield )const {
             if( n.good() ) {
                try {
@@ -469,7 +470,6 @@ namespace eosio::chain {
       static std::optional<chain_id_type> extract_chain_id_from_db( const path& state_dir );
 
       void replace_producer_keys( const public_key_type& key );
-      void replace_account_keys( name account, name permission, const public_key_type& key );
 
       void set_producer_node(bool is_producer_node);
       bool is_producer_node()const;
@@ -493,8 +493,6 @@ namespace eosio::chain {
          friend class apply_context;
          friend class transaction_context;
          friend class savanna_cluster::node_t;
-
-         chainbase::database& mutable_db()const;
 
          std::unique_ptr<controller_impl> my;
    }; // controller

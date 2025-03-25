@@ -266,7 +266,7 @@ void resource_limits_manager::set_block_parameters(const chain_config& cfg, cons
    });
 }
 
-void resource_limits_manager::add_transaction_usage(transaction_res_usage& res_usage, bool is_trx_transient ) {
+void resource_limits_manager::add_transaction_usage(transaction_res_usage& res_usage, std::optional<account_gas_trace>& gas_trace, bool is_trx_transient ) {
 
    const auto& state = _db.get<resource_limits_state_object>();
    const auto& config = _db.get<resource_limits_config_object>();
@@ -307,17 +307,22 @@ void resource_limits_manager::add_transaction_usage(transaction_res_usage& res_u
          ("reserved_gas", reserved_gas)
          ("convertible_gas", convertible_gas)
       );
+
+      gas_trace.emplace(res_usage.payer);
+      gas_trace->reserved_gas_before = reserved_gas;
       if ( used_gas > reserved_gas ) {
          assert(cgs);
-         cgs->pay_gas(_db, used_gas - reserved_gas);
+         gas_trace->converted_gas = used_gas - reserved_gas;
+         cgs->pay_gas(_db, gas_trace->converted_gas);
          reserved_gas = 0; // reserved_gas must be used up.
       } else {// used_gas <= reserved_gas
          reserved_gas -= used_gas;
       }
+      gas_trace->reserved_gas_after = reserved_gas;
+      gas_trace->used_gas = used_gas;
 
       res_utils::set_account_reserved_gas(_db, acc_limits, reserved_gas, _get_deep_mind_logger(is_trx_transient));
    }
-   // TODO: add used_gas to trace.used_gas
 
    res_utils::verify_add(usage.cpu_usage, cpu_usage, "adding cpu usage");
    res_utils::verify_add(usage.net_usage, net_usage, "adding net usage");
@@ -386,7 +391,7 @@ void resource_limits_manager::verify_transaction_gas_usage( transaction_res_usag
    );
 }
 
-void resource_limits_manager::add_ram_usage( const account_name account, int64_t ram_delta, bool is_trx_transient ) {
+void resource_limits_manager::add_ram_usage( const account_name account, int64_t ram_delta, std::optional<account_gas_trace>& gas_trace, bool is_trx_transient ) {
    if (ram_delta == 0) {
       return;
    }
@@ -403,6 +408,9 @@ void resource_limits_manager::add_ram_usage( const account_name account, int64_t
    auto acc_limits = res_utils::get_account_limits(_db, account);
 
    if (!acc_limits.is_unlimited) {
+      gas_trace->reserved_gas_before = acc_limits.gas;
+      gas_trace->ram_gas_delta.ram_delta = ram_delta;
+      gas_trace.emplace(account);
       if (ram_delta > 0) {
          auto used_gas = res_utils::convert_ram_to_gas(config, ram_delta);
 
@@ -435,17 +443,25 @@ void resource_limits_manager::add_ram_usage( const account_name account, int64_t
 
          if ( cgs != nullptr && convertible_gas > 0 ) {
             assert(cgs);
-            cgs->pay_gas(_db, used_gas - reserved_gas);
+            gas_trace->converted_gas = used_gas - reserved_gas;
+            cgs->pay_gas(_db, gas_trace->converted_gas);
             reserved_gas = 0; // reserved_gas must be used up.
          } else {// used_gas <= reserved_gas
             reserved_gas -= used_gas;
          }
+
+
          res_utils::set_account_reserved_gas(_db, acc_limits, reserved_gas, _get_deep_mind_logger(is_trx_transient));
+
+         gas_trace->used_gas                 = used_gas;
+         gas_trace->ram_gas_delta.gas_delta  = -used_gas; // sub gas
       } else { // ram_delta < 0
          auto ram_gas = res_utils::convert_ram_to_gas(config, (uint64_t)(-ram_delta));
          res_utils::verify_add(acc_limits.gas, ram_gas, "adding ram gas");
          res_utils::set_account_reserved_gas(_db, acc_limits, acc_limits.gas + ram_gas, _get_deep_mind_logger(is_trx_transient));
+         gas_trace->ram_gas_delta.gas_delta = ram_gas; // add gas
       }
+      gas_trace->reserved_gas_after = acc_limits.gas;
    }
 
    // modify ram_usage

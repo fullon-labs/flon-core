@@ -2552,7 +2552,10 @@ struct controller_impl {
          dm_logger->on_ram_trace(RAM_EVENT_ID("${name}", ("name", name)), "account", "add", "newaccount");
       }
 
-      resource_limits.add_ram_usage(name, ram_delta, false); // false for doing dm logging
+
+      std::optional<account_gas_trace> gas_trace;
+      resource_limits.add_ram_usage(name, ram_delta, gas_trace, false); // false for doing dm logging
+      assert(!gas_trace && "the gas trace must be empty because the native account is resource unlimited");
    }
 
    void initialize_database(const genesis_state& genesis) {
@@ -2707,14 +2710,14 @@ struct controller_impl {
       return trace;
    }
 
-   int64_t remove_scheduled_transaction( const generated_transaction_object& gto ) {
+   int64_t remove_scheduled_transaction( const generated_transaction_object& gto, std::optional<account_gas_trace>& gas_trace ) {
       // deferred transactions cannot be transient.
       if (auto dm_logger = get_deep_mind_logger(false)) {
          dm_logger->on_ram_trace(RAM_EVENT_ID("${id}", ("id", gto.id)), "deferred_trx", "remove", "deferred_trx_removed");
       }
 
       int64_t ram_delta = -(config::billable_size_v<generated_transaction_object> + gto.packed_trx.size());
-      resource_limits.add_ram_usage( gto.payer, ram_delta, false ); // false for doing dm logging
+      resource_limits.add_ram_usage( gto.payer, ram_delta, gas_trace, false ); // false for doing dm logging
 
       db.remove( gto );
       return ram_delta;
@@ -2775,7 +2778,8 @@ struct controller_impl {
       //
       // IF the transaction FAILs in a subjective way, `undo_session` should expire without being squashed
       // resulting in the GTO being restored and available for a future block to retire.
-      int64_t trx_removal_ram_delta = remove_scheduled_transaction(gto);
+      std::optional<account_gas_trace> gas_trace;
+      int64_t trx_removal_ram_delta = remove_scheduled_transaction(gto, gas_trace);
 
       fc::datastream<const char*> ds( gtrx.packed_trx.data(), gtrx.packed_trx.size() );
 
@@ -2938,8 +2942,10 @@ struct controller_impl {
       }
 
       if ( !subjective ) {
+         // TODO: remove schedule transaction feature?
+         EOS_ASSERT( false, transaction_exception, "schedule transaction not supported");
+         #if 0
          // hard failure logic
-
          if( !validating ) {
             // make sure that the current scheduled transaction is executed
             int64_t account_cpu_limit = trx_context.max_cpu_gas_billed_account_can_pay(true);
@@ -2964,6 +2970,7 @@ struct controller_impl {
          emit( applied_transaction, std::tie(trace, trx->packed_trx()), __FILE__, __LINE__ );
 
          undo_session.squash();
+         #endif
       } else {
          dmlog_applied_transaction(trace);
          emit( applied_transaction, std::tie(trace, trx->packed_trx()), __FILE__, __LINE__ );
@@ -6099,19 +6106,6 @@ void controller::replace_producer_keys( const public_key_type& key ) {
    my->replace_producer_keys(key);
 }
 
-void controller::replace_account_keys( name account, name permission, const public_key_type& key ) {
-   auto& rlm = get_mutable_resource_limits_manager();
-   auto* perm = db().find<permission_object, by_owner>(boost::make_tuple(account, permission));
-   if (!perm)
-      return;
-   int64_t old_size = (int64_t)(chain::config::billable_size_v<permission_object> + perm->auth.get_billable_size());
-   mutable_db().modify(*perm, [&](auto& p) {
-      p.auth = authority(key);
-   });
-   int64_t new_size = (int64_t)(chain::config::billable_size_v<permission_object> + perm->auth.get_billable_size());
-   rlm.add_ram_usage(account, new_size - old_size, false); // false for doing dm logging
-}
-
 void controller::set_producer_node(bool is_producer_node) {
    my->is_producer_node = is_producer_node;
 }
@@ -6193,7 +6187,7 @@ void controller_impl::on_activation<builtin_protocol_feature_t::replace_deferred
       }
 
       // TODO: should add ram delta to transaction trace?
-      resource_limits.add_ram_usage( itr->name, ram_delta, false ); // false for doing dm logging
+      // resource_limits.add_ram_usage( itr->name, ram_delta, false ); // false for doing dm logging
       db.remove( *itr );
    }
 }
@@ -6281,10 +6275,8 @@ void controller_impl::on_activation<builtin_protocol_feature_t::bls_primitives>(
 template<>
 void controller_impl::on_activation<builtin_protocol_feature_t::disable_deferred_trxs_stage_2>() {
    const auto& idx = db.get_index<generated_transaction_multi_index, by_trx_id>();
-   // remove all deferred trxs and refund their payers
-   for( auto itr = idx.begin(); itr != idx.end(); itr = idx.begin() ) {
-      remove_scheduled_transaction(*itr);
-   }
+   EOS_ASSERT( idx.size() == 0, protocol_feature_exception,
+   "can not activate disable_deferred_trxs_stage_2 when generated transaction table not empty");
 }
 
 template<>
