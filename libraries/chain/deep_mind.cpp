@@ -37,6 +37,7 @@ namespace eosio::chain {
       fc::logger::update( logger_name, _logger );
    }
 
+   #ifdef ENABLE_DEFERRED_TRANSACTION
    static const char* prefix(deep_mind_handler::operation_qualifier q) {
       switch(q)
       {
@@ -46,6 +47,7 @@ namespace eosio::chain {
       default: elog("Unknown operation_qualifier"); return "";
       }
    }
+   #endif
 
    void deep_mind_handler::on_startup(chainbase::database& db, uint32_t head_block_num)
    {

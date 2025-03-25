@@ -325,7 +325,6 @@ namespace sysbios {
           * @param account - name of the account whose resource limit to be set
           * @param gas - available gas in ELON
           * @param is_unlimited - // Whether the account has unlimited gas to use
-          * @param cpu_weight - fractionally proportionate cpu limit of available resources based on (weight / total_weight_of_all_accounts)
           */
          [[eosio::action]]
          void setalimits( name account, uint64_t gas, bool is_unlimited );

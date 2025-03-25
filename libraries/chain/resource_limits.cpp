@@ -521,11 +521,7 @@ uint64_t resource_limits_manager::get_account_gas( const account_name& account) 
 }
 
 bool resource_limits_manager::is_account_unlimited( const account_name& account ) const {
-   const auto* buo = _db.find<resource_limits_object,by_owner>( account);
-   if (buo) {
-      return buo->cpu_weight == -1;
-   }
-   return false;
+   return res_utils::get_account_limits(_db, account).is_unlimited;
 }
 
 void resource_limits_manager::process_block_usage(uint32_t block_num) {
