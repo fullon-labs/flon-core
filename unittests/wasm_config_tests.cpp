@@ -1142,7 +1142,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE( reset_chain_tests, T, wasm_config_testers ) {
       };
       trx.actions.push_back({ { { config::system_account_name, config::active_name} }, make_setcode(wast_to_wasm(min_set_parameters_wast)) });
       trx.actions.push_back({ { { config::system_account_name, config::active_name} }, config::system_account_name, ""_n, fc::raw::pack(genesis_state::default_initial_wasm_configuration) });
-      trx.actions.push_back({ { { config::system_account_name, config::active_name} }, make_setcode(contracts::flon_bios_wasm()) });
+      trx.actions.push_back({ { { config::system_account_name, config::active_name} }, make_setcode(contracts::sys_bios_wasm()) });
       chain.set_transaction_headers(trx);
       trx.sign(chain.get_private_key(config::system_account_name, "active"), chain.get_chain_id());
       chain.push_transaction(trx);

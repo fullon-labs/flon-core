@@ -1244,8 +1244,8 @@ namespace eosio::testing {
    }
 
    void base_tester::set_bios_contract() {
-      set_code(config::system_account_name, contracts::flon_bios_wasm());
-      set_abi(config::system_account_name, contracts::flon_bios_abi());
+      set_code(config::system_account_name, contracts::sys_bios_wasm());
+      set_abi(config::system_account_name, contracts::sys_bios_abi());
    }
 
 

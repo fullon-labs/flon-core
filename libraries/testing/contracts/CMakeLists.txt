@@ -11,5 +11,5 @@ if ("${CMAKE_GENERATOR}" STREQUAL "Ninja")
     add_compile_options(-fcolor-diagnostics)
 endif()
 
-add_subdirectory(flon.bios)
+add_subdirectory(sys.bios)
 add_subdirectory(flon.boot)

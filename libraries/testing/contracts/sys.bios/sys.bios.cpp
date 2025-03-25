@@ -1,8 +1,8 @@
-#include "flon.bios.hpp"
+#include "sys.bios.hpp"
 #include <eosio/instant_finality.hpp>
 #include <unordered_set>
 
-namespace flonbios {
+namespace sysbios {
 
 void bios::setabi( name account, const std::vector<char>& abi ) {
    abi_hash_table table(get_self(), get_self().value);

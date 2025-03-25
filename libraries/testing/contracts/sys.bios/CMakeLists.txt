@@ -1,0 +1,6 @@
+if( EOSIO_COMPILE_TEST_CONTRACTS )
+   add_contract( sys.bios sys.bios sys.bios.cpp )
+else()
+   configure_file( ${CMAKE_CURRENT_SOURCE_DIR}/sys.bios.wasm ${CMAKE_CURRENT_BINARY_DIR}/sys.bios.wasm COPYONLY )
+   configure_file( ${CMAKE_CURRENT_SOURCE_DIR}/sys.bios.abi  ${CMAKE_CURRENT_BINARY_DIR}/sys.bios.abi  COPYONLY )
+endif()
