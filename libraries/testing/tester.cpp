@@ -1234,15 +1234,11 @@ namespace eosio::testing {
    }
 
    void base_tester::set_before_preactivate_bios_contract() {
-      // set_code(config::system_account_name, contracts::before_preactivate_eosio_bios_wasm());
-      // set_abi(config::system_account_name, contracts::before_preactivate_eosio_bios_abi());
       set_code(config::system_account_name, contracts::flon_boot_wasm());
       set_abi(config::system_account_name, contracts::flon_boot_abi());
    }
 
    void base_tester::set_before_producer_authority_bios_contract() {
-      // set_code(config::system_account_name, contracts::before_producer_authority_eosio_bios_wasm());
-      // set_abi(config::system_account_name, contracts::before_producer_authority_eosio_bios_abi());
       set_code(config::system_account_name, contracts::flon_boot_wasm());
       set_abi(config::system_account_name, contracts::flon_boot_abi());
    }

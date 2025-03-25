@@ -105,8 +105,8 @@ class PluginHttpTest(unittest.TestCase):
     def activateAllBuiltinProtocolFeatures(self):
         self.node.activatePreactivateFeature()
 
-        contract = "eosio.bios"
-        contractDir = "libraries/testing/contracts/old_versions/v1.7.0-develop-preactivate_feature/%s" % (contract)
+        contract = "flon.boot"
+        contractDir = "libraries/testing/contracts/%s" % (contract)
         wasmFile = "%s.wasm" % (contract)
         abiFile = "%s.abi" % (contract)
 

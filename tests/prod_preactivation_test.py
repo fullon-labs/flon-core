@@ -54,9 +54,9 @@ try:
             cmdError("launcher")
             errorExit("Failed to stand up eos cluster.")
 
-    # setup producers using bios contract that does not need preactivate_feature
-    contract="eosio.bios"
-    contractDir="libraries/testing/contracts/old_versions/v1.6.0-rc3/%s" % (contract)
+    # setup producers using boot contract that does not need preactivate_feature
+    contract="flon.boot"
+    contractDir="libraries/testing/contracts/%s" % (contract)
     wasmFile="%s.wasm" % (contract)
     abiFile="%s.abi" % (contract)
     retMap = cluster.biosNode.publishContract(cluster.eosioAccount, contractDir, wasmFile, abiFile, waitForTransBlock=True)
@@ -141,8 +141,8 @@ try:
     Print("found digest ", digest, " of PREACTIVATE_FEATURE")
 
     node0 = cluster.getNode(0)
-    contract="eosio.bios"
-    contractDir="libraries/testing/contracts/old_versions/v1.7.0-develop-preactivate_feature/%s" % (contract)
+    contract="flon.boot"
+    contractDir="libraries/testing/contracts/%s" % (contract)
     wasmFile="%s.wasm" % (contract)
     abiFile="%s.abi" % (contract)
 

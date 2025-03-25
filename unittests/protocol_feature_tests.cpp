@@ -30,9 +30,9 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(activate_preactivate_feature, T, testers) try {
                           wasm_exception, fc_exception_message_contains("unresolveable")
    );
 
-   // But the old bios contract can still be set.
-   c.set_code( config::system_account_name, contracts::before_preactivate_eosio_bios_wasm() );
-   c.set_abi( config::system_account_name, contracts::before_preactivate_eosio_bios_abi() );
+   // But the boot contract can still be set.
+   c.set_code( config::system_account_name, contracts::flon_boot_wasm() );
+   c.set_abi( config::system_account_name, contracts::flon_boot_abi() );
 
    auto t = c.control->pending_block_time();
    c.control->abort_block();
