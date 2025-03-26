@@ -355,10 +355,10 @@ def stepSetSystemContract():
     #retry(args.fucli + 'push action eosio activate \'["fce57d2331667353a0eac6b4209b67b843a7262a848af0a49a6e2fa9f6584eb4"]\' -p eosio@active')
     ## DISABLE_DEFERRED_TRXS_STAGE_2 - PREVENT PREVIOUSLY SCHEDULED DEFERRED TRANSACTIONS FROM REACHING OTHER NODE
     ## THIS DEPENDS ON DISABLE_DEFERRED_TRXS_STAGE_1
-    retry(args.fucli + 'push action eosio activate \'["09e86cb0accf8d81c9e85d34bea4b925ae936626d00c984e4691186891f5bc16"]\' -p eosio@active')
+    #retry(args.fucli + 'push action eosio activate \'["09e86cb0accf8d81c9e85d34bea4b925ae936626d00c984e4691186891f5bc16"]\' -p eosio@active')
     # SAVANNA
     # Depends on all previous protocol features
-    retry(args.fucli + 'push action eosio activate \'["cbe0fafc8fcc6cc998395e9b6de6ebd94644467b1b4a97ec126005df07013c52"]\' -p eosio@active')
+    retry(args.fucli + 'push action eosio activate \'["72df75c0bf7fce15d7b95d8565eba38ff58231789273d39c68693c3557d64c54"]\' -p eosio@active')
     sleep(1)
 
     # install eosio.system latest version
