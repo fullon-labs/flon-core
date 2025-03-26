@@ -140,7 +140,7 @@ fc::variant verify_type_round_trip_conversion( const abi_serializer& abis, const
 
     const char* my_abi = R"=====(
 {
-   "version": "eosio::abi/1.0",
+   "version": "flon::abi/1.0",
    "types": [{
       "new_type_name": "type_name",
       "type": "string"
@@ -535,7 +535,7 @@ BOOST_AUTO_TEST_CASE(uint_types)
 
    const char* currency_abi = R"=====(
    {
-       "version": "eosio::abi/1.0",
+       "version": "flon::abi/1.0",
        "types": [],
        "structs": [{
            "name": "transfer",
@@ -755,7 +755,7 @@ BOOST_AUTO_TEST_CASE(general)
          {"name":"table2","index_type":"indextype2","key_names":["keyname2"],"key_types":["typename2"],"type":"type2"}
       ],
       "abidef":{
-        "version": "eosio::abi/1.0",
+        "version": "flon::abi/1.0",
         "types" : [{"new_type_name":"new", "type":"old"}],
         "structs" : [{"name":"struct1", "base":"base1", "fields": [{"name":"name1", "type": "type1"}, {"name":"name2", "type": "type2"}] }],
         "actions" : [{"name":"action1","type":"type1", "ricardian_contract":""}],
@@ -764,7 +764,7 @@ BOOST_AUTO_TEST_CASE(general)
         "abi_extensions": []
       },
       "abidef_arr": [{
-        "version": "eosio::abi/1.0",
+        "version": "flon::abi/1.0",
         "types" : [{"new_type_name":"new", "type":"old"}],
         "structs" : [{"name":"struct1", "base":"base1", "fields": [{"name":"name1", "type": "type1"}, {"name":"name2", "type": "type2"}] }],
         "actions" : [{"name":"action1","type":"type1", "ricardian_contract":""}],
@@ -772,7 +772,7 @@ BOOST_AUTO_TEST_CASE(general)
         "ricardian_clauses": [],
         "abi_extensions": []
       },{
-        "version": "eosio::abi/1.0",
+        "version": "flon::abi/1.0",
         "types" : [{"new_type_name":"new", "type":"old"}],
         "structs" : [{"name":"struct1", "base":"base1", "fields": [{"name":"name1", "type": "type1"}, {"name":"name2", "type": "type2"}] }],
         "actions" : [{"name":"action1","type":"type1", "ricardian_contract": ""}],
@@ -809,7 +809,7 @@ BOOST_AUTO_TEST_CASE(abi_cycle)
 
    const char* struct_cycle_abi = R"=====(
    {
-       "version": "eosio::abi/1.0",
+       "version": "flon::abi/1.0",
        "types": [],
        "structs": [{
          "name": "A",
@@ -1154,7 +1154,7 @@ BOOST_AUTO_TEST_CASE(setabi_test)
 
    const char* abi_def_abi = R"=====(
       {
-         "version": "eosio::abi/1.0",
+         "version": "flon::abi/1.0",
          "types": [{
             "new_type_name": "type_name",
             "type": "string"
@@ -1286,7 +1286,7 @@ BOOST_AUTO_TEST_CASE(setabi_test)
 
    const char* abi_string = R"=====(
       {
-        "version": "eosio::abi/1.0",
+        "version": "flon::abi/1.0",
         "types": [{
             "new_type_name": "account_name",
             "type": "name"
@@ -1546,7 +1546,7 @@ BOOST_AUTO_TEST_CASE(packed_transaction)
 
    const char* packed_transaction_abi = R"=====(
    {
-       "version": "eosio::abi/1.0",
+       "version": "flon::abi/1.0",
        "types": [{
           "new_type_name": "compression_type",
           "type": "int64"
@@ -1647,7 +1647,7 @@ BOOST_AUTO_TEST_CASE(abi_type_repeat)
 
    const char* repeat_abi = R"=====(
    {
-     "version": "eosio::abi/1.0",
+     "version": "flon::abi/1.0",
      "types": [{
          "new_type_name": "actor_name",
          "type": "name"
@@ -1708,7 +1708,7 @@ BOOST_AUTO_TEST_CASE(abi_struct_repeat)
 
    const char* repeat_abi = R"=====(
    {
-     "version": "eosio::abi/1.0",
+     "version": "flon::abi/1.0",
      "types": [{
          "new_type_name": "actor_name",
          "type": "name"
@@ -1765,7 +1765,7 @@ BOOST_AUTO_TEST_CASE(abi_action_repeat)
 
    const char* repeat_abi = R"=====(
    {
-     "version": "eosio::abi/1.0",
+     "version": "flon::abi/1.0",
      "types": [{
          "new_type_name": "actor_name",
          "type": "name"
@@ -1825,7 +1825,7 @@ BOOST_AUTO_TEST_CASE(abi_table_repeat)
 
    const char* repeat_abi = R"=====(
    {
-     "version": "eosio::abi/1.0",
+     "version": "flon::abi/1.0",
      "types": [{
          "new_type_name": "actor_name",
          "type": "name"
@@ -1888,7 +1888,7 @@ BOOST_AUTO_TEST_CASE(abi_type_def)
    // inifinite loop in types
    const char* repeat_abi = R"=====(
    {
-     "version": "eosio::abi/1.0",
+     "version": "flon::abi/1.0",
      "types": [{
          "new_type_name": "account_name",
          "type": "name"
@@ -1941,7 +1941,7 @@ BOOST_AUTO_TEST_CASE(abi_type_loop)
    // inifinite loop in types
    const char* repeat_abi = R"=====(
    {
-     "version": "eosio::abi/1.0",
+     "version": "flon::abi/1.0",
      "types": [{
          "new_type_name": "account_name",
          "type": "name"
@@ -1984,7 +1984,7 @@ BOOST_AUTO_TEST_CASE(abi_std_optional)
 { try {
    const char* repeat_abi = R"=====(
    {
-    "version": "eosio::abi/1.2",
+    "version": "flon::abi/1.2",
     "types": [],
     "structs": [
         {
@@ -2092,7 +2092,7 @@ BOOST_AUTO_TEST_CASE(abi_type_redefine)
    // inifinite loop in types
    const char* repeat_abi = R"=====(
    {
-     "version": "eosio::abi/1.0",
+     "version": "flon::abi/1.0",
      "types": [{
          "new_type_name": "account_name",
          "type": "account_name"
@@ -2133,7 +2133,7 @@ BOOST_AUTO_TEST_CASE(abi_type_redefine_to_name)
       // inifinite loop in types
       const char* repeat_abi = R"=====(
    {
-     "version": "eosio::abi/1.0",
+     "version": "flon::abi/1.0",
      "types": [{
          "new_type_name": "name",
          "type": "name"
@@ -2155,7 +2155,7 @@ BOOST_AUTO_TEST_CASE(abi_type_nested_in_vector)
       // inifinite loop in types
       const char* repeat_abi = R"=====(
    {
-     "version": "eosio::abi/1.0",
+     "version": "flon::abi/1.0",
      "types": [],
      "structs": [{
          "name": "store_t",
@@ -2181,7 +2181,7 @@ BOOST_AUTO_TEST_CASE(abi_account_name_in_eosio_abi)
    // inifinite loop in types
    const char* repeat_abi = R"=====(
    {
-     "version": "eosio::abi/1.0",
+     "version": "flon::abi/1.0",
      "types": [{
          "new_type_name": "account_name",
          "type": "name"
@@ -2225,7 +2225,7 @@ BOOST_AUTO_TEST_CASE(abi_large_array)
    try {
       const char* abi_str = R"=====(
       {
-        "version": "eosio::abi/1.0",
+        "version": "flon::abi/1.0",
         "types": [],
         "structs": [{
            "name": "hi",
@@ -2263,7 +2263,7 @@ BOOST_AUTO_TEST_CASE(abi_is_type_recursion)
    try {
       const char* abi_str = R"=====(
       {
-       "version": "eosio::abi/1.0",
+       "version": "flon::abi/1.0",
        "types": [
         {
             "new_type_name": "a[]",
@@ -2307,7 +2307,7 @@ BOOST_AUTO_TEST_CASE(abi_recursive_structs)
    try {
       const char* abi_str = R"=====(
       {
-        "version": "eosio::abi/1.0",
+        "version": "flon::abi/1.0",
         "types": [],
         "structs": [
           {
@@ -2409,7 +2409,7 @@ BOOST_AUTO_TEST_CASE(abi_large_signature)
    try {
       const char* abi_str = R"=====(
     {
-    "version": "eosio::abi/1.1",
+    "version": "flon::abi/1.1",
     "types": [],
     "structs": [
         {
@@ -2492,7 +2492,7 @@ BOOST_AUTO_TEST_CASE(variants)
    using eosio::testing::fc_exception_message_starts_with;
 
    auto duplicate_variant_abi = R"({
-      "version": "eosio::abi/1.1",
+      "version": "flon::abi/1.1",
       "variants": [
          {"name": "v1", "types": ["int8", "string", "bool"]},
          {"name": "v1", "types": ["int8", "string", "bool"]},
@@ -2500,14 +2500,14 @@ BOOST_AUTO_TEST_CASE(variants)
    })";
 
    auto variant_abi_invalid_type = R"({
-      "version": "eosio::abi/1.1",
+      "version": "flon::abi/1.1",
       "variants": [
          {"name": "v1", "types": ["int91", "string", "bool"]},
       ],
    })";
 
    auto variant_abi = R"({
-      "version": "eosio::abi/1.1",
+      "version": "flon::abi/1.1",
       "types": [
          {"new_type_name": "foo", "type": "s"},
          {"new_type_name": "bar", "type": "s"},
@@ -2576,7 +2576,7 @@ BOOST_AUTO_TEST_CASE(aliased_variants)
    using eosio::testing::fc_exception_message_starts_with;
 
    auto aliased_variant = R"({
-      "version": "eosio::abi/1.1",
+      "version": "flon::abi/1.1",
       "types": [
          { "new_type_name": "foo", "type": "foo_variant" }
       ],
@@ -2601,7 +2601,7 @@ BOOST_AUTO_TEST_CASE(variant_of_aliases)
    using eosio::testing::fc_exception_message_starts_with;
 
    auto aliased_variant = R"({
-      "version": "eosio::abi/1.1",
+      "version": "flon::abi/1.1",
       "types": [
          { "new_type_name": "foo_0", "type": "int8" },
          { "new_type_name": "foo_1", "type": "string" }
@@ -2627,7 +2627,7 @@ BOOST_AUTO_TEST_CASE(extend)
    using eosio::testing::fc_exception_message_starts_with;
 
    auto abi = R"({
-      "version": "eosio::abi/1.1",
+      "version": "flon::abi/1.1",
       "structs": [
          {"name": "s", "base": "", "fields": [
             {"name": "i0", "type": "int8"},
@@ -2687,9 +2687,9 @@ BOOST_AUTO_TEST_CASE(version)
    try {
       BOOST_CHECK_THROW( abi_serializer(fc::json::from_string(R"({})").as<abi_def>(), abi_serializer::create_yield_function( max_serialization_time )), unsupported_abi_version_exception );
       BOOST_CHECK_THROW( abi_serializer(fc::json::from_string(R"({"version": ""})").as<abi_def>(), abi_serializer::create_yield_function( max_serialization_time )), unsupported_abi_version_exception );
-      BOOST_CHECK_THROW( abi_serializer(fc::json::from_string(R"({"version": "eosio::abi/9.0"})").as<abi_def>(), abi_serializer::create_yield_function( max_serialization_time )), unsupported_abi_version_exception );
-      abi_serializer(fc::json::from_string(R"({"version": "eosio::abi/1.0"})").as<abi_def>(), abi_serializer::create_yield_function( max_serialization_time ));
-      abi_serializer(fc::json::from_string(R"({"version": "eosio::abi/1.1"})").as<abi_def>(), abi_serializer::create_yield_function( max_serialization_time ));
+      BOOST_CHECK_THROW( abi_serializer(fc::json::from_string(R"({"version": "flon::abi/9.0"})").as<abi_def>(), abi_serializer::create_yield_function( max_serialization_time )), unsupported_abi_version_exception );
+      abi_serializer(fc::json::from_string(R"({"version": "flon::abi/1.0"})").as<abi_def>(), abi_serializer::create_yield_function( max_serialization_time ));
+      abi_serializer(fc::json::from_string(R"({"version": "flon::abi/1.1"})").as<abi_def>(), abi_serializer::create_yield_function( max_serialization_time ));
    } FC_LOG_AND_RETHROW()
 }
 
@@ -2698,7 +2698,7 @@ BOOST_AUTO_TEST_CASE(abi_serialize_incomplete_json_array)
    using eosio::testing::fc_exception_message_starts_with;
 
    auto abi = R"({
-      "version": "eosio::abi/1.0",
+      "version": "flon::abi/1.0",
       "structs": [
          {"name": "s", "base": "", "fields": [
             {"name": "i0", "type": "int8"},
@@ -2731,7 +2731,7 @@ BOOST_AUTO_TEST_CASE(abi_serialize_incomplete_json_object)
    using eosio::testing::fc_exception_message_starts_with;
 
    auto abi = R"({
-      "version": "eosio::abi/1.0",
+      "version": "flon::abi/1.0",
       "structs": [
          {"name": "s1", "base": "", "fields": [
             {"name": "i0", "type": "int8"},
@@ -2767,7 +2767,7 @@ BOOST_AUTO_TEST_CASE(abi_serialize_json_mismatching_type)
    using eosio::testing::fc_exception_message_is;
 
    auto abi = R"({
-      "version": "eosio::abi/1.0",
+      "version": "flon::abi/1.0",
       "structs": [
          {"name": "s1", "base": "", "fields": [
             {"name": "i0", "type": "int8"},
@@ -2798,7 +2798,7 @@ BOOST_AUTO_TEST_CASE(abi_serialize_json_empty_name)
    using eosio::testing::fc_exception_message_is;
 
    auto abi = R"({
-      "version": "eosio::abi/1.0",
+      "version": "flon::abi/1.0",
       "structs": [
          {"name": "s1", "base": "", "fields": [
             {"name": "", "type": "int8"},
@@ -2822,7 +2822,7 @@ BOOST_AUTO_TEST_CASE(abi_serialize_detailed_error_messages)
    using eosio::testing::fc_exception_message_is;
 
    auto abi = R"({
-      "version": "eosio::abi/1.1",
+      "version": "flon::abi/1.1",
       "types": [
          {"new_type_name": "foo", "type": "s2"},
          {"new_type_name": "bar", "type": "foo"},
@@ -2917,7 +2917,7 @@ BOOST_AUTO_TEST_CASE(abi_serialize_short_error_messages)
    using eosio::testing::fc_exception_message_is;
 
    auto abi = R"({
-      "version": "eosio::abi/1.1",
+      "version": "flon::abi/1.1",
       "types": [
          {"new_type_name": "foo", "type": "s2"},
          {"new_type_name": "bar", "type": "foo"},
@@ -3022,7 +3022,7 @@ BOOST_AUTO_TEST_CASE(abi_deserialize_detailed_error_messages)
    using eosio::testing::fc_exception_message_is;
 
    auto abi = R"({
-      "version": "eosio::abi/1.1",
+      "version": "flon::abi/1.1",
       "types": [
          {"new_type_name": "oint", "type": "int8?"},
          {"new_type_name": "os1", "type": "s1?"}
@@ -3056,7 +3056,7 @@ BOOST_AUTO_TEST_CASE(abi_deserialize_detailed_error_messages)
       ],
    })";
 
-   // Some details here: c::variant("030101000103") represents an array of std::optional {1,null,3}, and 
+   // Some details here: c::variant("030101000103") represents an array of std::optional {1,null,3}, and
    // fc::variant("0400000000") represents an array of 4 nulls. Also fc::variant("030001af013a") represents {null, 0xAF, 0x3A}.
    // Test to verify that array of optinal doesn't throw exception
    abi_serializer abis( fc::json::from_string(abi).as<abi_def>(), abi_serializer::create_yield_function( max_serialization_time ) );
@@ -3121,7 +3121,7 @@ BOOST_AUTO_TEST_CASE(abi_deserialize_detailed_error_messages)
 BOOST_AUTO_TEST_CASE(serialize_optional_struct_type)
 {
    auto abi = R"({
-      "version": "eosio::abi/1.0",
+      "version": "flon::abi/1.0",
       "structs": [
          {"name": "s", "base": "", "fields": [
             {"name": "i0", "type": "int8"}
@@ -3222,7 +3222,7 @@ BOOST_AUTO_TEST_CASE(abi_to_variant__add_action__good_return_value)
    std::tie(at, expected_json) = generate_action_trace(std::optional<uint16_t>{6}, "0600");
 
    auto abi = R"({
-      "version": "eosio::abi/1.0",
+      "version": "flon::abi/1.0",
       "structs": [
          {"name": "acttest", "base": "", "fields": [
             {"name": "str", "type": "string"}
@@ -3263,7 +3263,7 @@ BOOST_AUTO_TEST_CASE(abi_to_variant__add_action__bad_return_value)
    std::tie(at, expected_json) = generate_action_trace(std::optional<std::string>{"no return"}, "096e6f2072657475726e", false);
 
    auto abi = R"({
-      "version": "eosio::abi/1.0",
+      "version": "flon::abi/1.0",
       "structs": [
          {"name": "acttest", "base": "", "fields": [
             {"name": "str", "type": "string"}
@@ -3298,7 +3298,7 @@ BOOST_AUTO_TEST_CASE(abi_to_variant__add_action__no_return_value)
    std::tie(at, expected_json) = generate_action_trace();
 
    auto abi = R"({
-      "version": "eosio::abi/1.0",
+      "version": "flon::abi/1.0",
       "structs": [
          {
             "name": "acttest",

@@ -22,7 +22,7 @@ abi_def eosio_contract_abi(const abi_def& system_contract_abi)
    abi_def eos_abi(system_contract_abi);
 
    if( eos_abi.version.size() == 0 ) {
-      eos_abi.version = "eosio::abi/1.0";
+      eos_abi.version = "flon::abi/1.0";
    }
 
    fc::move_append(eos_abi.types, common_type_defs());

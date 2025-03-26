@@ -3194,7 +3194,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(eosio_assert_code_tests, T, validating_testers) { 
 
    const char* abi_string = R"=====(
 {
-   "version": "eosio::abi/1.0",
+   "version": "flon::abi/1.0",
    "types": [],
    "structs": [],
    "actions": [],

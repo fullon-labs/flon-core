@@ -2320,7 +2320,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE( memory_mapping_test, T, validating_testers ) try 
    )=====";
    static const char* mem_map_abi = R"=====(
    {
-      "version": "eosio::abi/1.2",
+      "version": "flon::abi/1.2",
       "types": [],
       "structs": [{ "name": "dothedew", "base": "", "fields": [] }],
       "actions": [{ "name": "dothedew", "type": "dothedew", "ricardian_contract": ""}],
