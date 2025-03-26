@@ -12,18 +12,8 @@ ARCH=$( uname )
 #     echo "- Unsupported os version ${NAME}-${VERSION_ID}"
 # fi
 
-sudo yum update
-sudo yum install -y \
-        build-essential \
-        cmake \
-        git \
-        libcurl libcurl-devel \
-        gmp gmp-devel \
-        llvm llvm-devel \
-        python3-numpy \
-        file \
-        zlib1g-dev
-
+sudo dnf groupinstall -y "Development Tools"
+sudo dnf install -y cmake git libcurl libcurl-devel gmp gmp-devel llvm llvm-devel python3-numpy file zlib-devel
 export CPU_CORES=${CPU_CORES:-$(nproc)}
 export BUILD_DIR=${BUILD_DIR:-"build"}
 mkdir -p ${BUILD_DIR}
