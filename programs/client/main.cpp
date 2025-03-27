@@ -1238,7 +1238,7 @@ struct create_account_subcommand {
       createAccount->add_option("ActiveKey", active_key_str, localized("The active public key, permission level, or authority for the new account"));
 
       if (!simple) {
-         createAccount->add_option("--gas-quant", buy_gas_quant,
+         createAccount->add_option("--fund-gas", buy_gas_quant,
                                    (localized("The quantity of core asset for buying gas to new account")));
          createAccount->add_option("--fund-account", transfer_quant,
                                    (localized("The amount for transfering core asset to new account")));
