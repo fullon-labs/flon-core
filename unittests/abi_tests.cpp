@@ -19,6 +19,7 @@
 
 #include <boost/test/framework.hpp>
 
+#include <native_system_contract.hpp>
 #include <deep_nested.abi.hpp>
 #include <large_nested.abi.hpp>
 
@@ -142,6 +143,23 @@ fc::variant verify_type_round_trip_conversion( const abi_serializer& abis, const
    return var2;
 } FC_LOG_AND_RETHROW() }
 
+
+BOOST_AUTO_TEST_CASE(native_system_abi_test)
+{ try {
+
+   auto native_system_abi = eosio_contract_abi(abi_def());
+
+   auto expected_abi_var = fc::json::from_file(NATIVE_SYSTEM_ABI_JSON_FILE);
+   idump((expected_abi_var));
+
+   auto expected_bytes = fc::raw::pack( expected_abi_var.as<abi_def>() );
+   auto actual_bytes = fc::raw::pack(native_system_abi);
+   wdump( (native_system_abi) );
+   wdump( (expected_abi_var) );
+   BOOST_REQUIRE_EQUAL(fc::to_hex(actual_bytes), fc::to_hex(expected_bytes));
+   BOOST_REQUIRE_EQUAL(fc::to_hex((const char*)eosio_abi_bin, sizeof(eosio_abi_bin)), fc::to_hex(expected_bytes));
+
+} FC_LOG_AND_RETHROW() }
 
     const char* my_abi = R"=====(
 {

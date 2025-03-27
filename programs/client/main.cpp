@@ -2699,7 +2699,7 @@ void get_account( const string& accountName, const string& coresym, bool json_fo
             std::cout << "unstaking tokens:" << std::endl;
             std::cout << indent << std::left << std::setw(25) << "time of unstake request:" << std::right << std::setw(20) << request_time.to_iso_string();
             if( now >= refund_time ) {
-               std::cout << " (available to claim now with 'eosio::refund' action)\n";
+               std::cout << " (available to claim now with 'refund' action of system contract)\n";
             } else {
                std::cout << " (funds will be available in " << to_pretty_time( (refund_time - now).count(), 0 ) << ")\n";
             }
@@ -2973,6 +2973,38 @@ int main( int argc, char** argv ) {
       fc::variant unpacked_action_data_json = bin_to_variant(name(packed_action_data_account_string), name(packed_action_data_name_string), packed_action_data_blob);
       std::cout << fc::json::to_pretty_string(unpacked_action_data_json) << std::endl;
    });
+
+
+   {
+      // pack abi JSON data
+      string abi_json_input;
+      auto pack_abi_cmd = convert->add_subcommand("pack_abi", localized("From abi json data to packed form"));
+      pack_abi_cmd->add_option("abi_json", abi_json_input, localized("The abi json data"))->required();
+      pack_abi_cmd->callback([&] {
+         fc::variant abi_var = json_from_file_or_string(abi_json_input);
+         bytes abi_packed_data;
+         try {
+            abi_packed_data = fc::raw::pack( abi_var.as<abi_def>() );
+         } EOS_RETHROW_EXCEPTIONS(transaction_type_exception, "Fail to pack abi from JSON")
+         std::cout << fc::to_hex(abi_packed_data.data(), abi_packed_data.size()) << std::endl;
+      });
+   }
+
+   {
+      // unpack abi data
+      string packed_abi_input;
+      auto unpack_abi_cmd = convert->add_subcommand("unpack_abi", localized("From packed to JSON abi data form"));
+      unpack_abi_cmd->add_option("abi_packed", packed_abi_input, localized("The abi data expressed as packed hex string"))->required();
+      unpack_abi_cmd->callback([&] {
+         EOS_ASSERT( packed_abi_input.size() >= 2, transaction_type_exception, "No packed_abi found" );
+         vector<char> packed_abi_data_blob(packed_abi_input.size()/2);
+         fc::from_hex(packed_abi_input, packed_abi_data_blob.data(), packed_abi_data_blob.size());
+         abi_def abi = fc::raw::unpack<abi_def>( packed_abi_data_blob );
+         fc::variant abi_var;
+         fc::to_variant(abi, abi_var);
+         std::cout << fc::json::to_pretty_string(abi_var) << std::endl;
+      });
+   }
 
    // validate subcommand
    auto validate = app.add_subcommand("validate", localized("Validate transactions"));

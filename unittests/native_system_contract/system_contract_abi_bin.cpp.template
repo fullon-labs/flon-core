@@ -1,0 +1,13 @@
+namespace eosio { namespace chain {
+
+// Initial value for eosio ABI. This value affects consensus; if different
+// node versions have different versions of the initial eosio ABI, then
+// they could potentially fork. See https://github.com/EOSIO/eos/issues/7794
+//
+// This is a capture of the ABI produced by versions 1.7 and 1.8.
+
+unsigned char eosio_abi_bin[@NATIVE_SYSTEM_ABI_BIN_LEN@] = {
+@NATIVE_SYSTEM_ABI_BIN_DATA@
+};
+
+} } /// eosio::chain

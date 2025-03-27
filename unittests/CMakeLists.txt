@@ -67,6 +67,7 @@ add_subdirectory(snapshots)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/snapshots.hpp.in ${CMAKE_CURRENT_BINARY_DIR}/include/snapshots.hpp ESCAPE_QUOTES)
 
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/deep-mind/deep-mind.hpp.in ${CMAKE_CURRENT_BINARY_DIR}/include/deep-mind.hpp ESCAPE_QUOTES)
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/native_system_contract/native_system_contract.hpp.in ${CMAKE_CURRENT_BINARY_DIR}/include/native_system_contract.hpp ESCAPE_QUOTES)
 
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/test-data/test-data.hpp.in ${CMAKE_CURRENT_BINARY_DIR}/include/test-data.hpp ESCAPE_QUOTES)
 

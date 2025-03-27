@@ -1,0 +1,2 @@
+#define NATIVE_SYSTEM_ABI_JSON_FILE "${CMAKE_CURRENT_SOURCE_DIR}/native_system_contract/native_system_abi.json"
+#define NATIVE_SYSTEM_ABI_RAW_FILE "${CMAKE_CURRENT_SOURCE_DIR}/native_system_contract/native_system_abi.json"
