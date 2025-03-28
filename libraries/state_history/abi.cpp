@@ -135,8 +135,8 @@ extern const char* const state_history_plugin_abi = R"({
         },
         {
             "name": "ram_gas_delta", "fields": [
-                { "name": "ram_delta", "type": "int64_t" },
-                { "name": "gas_delta", "type": "int64_t" }
+                { "name": "ram_delta", "type": "int64" },
+                { "name": "gas_delta", "type": "int64" }
             ]
         },
         {
