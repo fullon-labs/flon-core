@@ -586,6 +586,26 @@ datastream<ST>& operator<<(datastream<ST>& ds, const history_serial_wrapper_stat
    return ds;
 }
 
+
+template <typename ST>
+datastream<ST>& operator<<(datastream<ST>& ds, const history_serial_wrapper_stateless<eosio::chain::ram_gas_delta_t>& obj) {
+   fc::raw::pack(ds, as_type<int64_t>(obj.obj.ram_delta));
+   fc::raw::pack(ds, as_type<int64_t>(obj.obj.gas_delta));
+   return ds;
+}
+
+template <typename ST>
+datastream<ST>& operator<<(datastream<ST>& ds, const history_serial_wrapper_stateless<eosio::chain::account_gas_trace>& obj) {
+   fc::raw::pack(ds, fc::unsigned_int(0));
+   fc::raw::pack(ds, as_type<eosio::chain::name>(obj.obj.account));
+   fc::raw::pack(ds, as_type<uint64_t>(obj.obj.reserved_gas_before));
+   fc::raw::pack(ds, as_type<uint64_t>(obj.obj.reserved_gas_after));
+   fc::raw::pack(ds, as_type<uint64_t>(obj.obj.used_gas));
+   fc::raw::pack(ds, as_type<uint64_t>(obj.obj.converted_gas));
+   fc::raw::pack(ds, make_history_serial_wrapper(as_type<eosio::chain::ram_gas_delta_t>(obj.obj.ram_gas_delta)));
+   return ds;
+}
+
 inline std::optional<uint64_t> cap_error_code(const std::optional<uint64_t>& error_code) {
    std::optional<uint64_t> result;
 
@@ -675,6 +695,10 @@ datastream<ST>& operator<<(datastream<ST>& ds, const history_context_wrapper_sta
    if (trace.trx_ram_delta) {
       fc::raw::pack(ds, make_history_serial_wrapper(as_type<eosio::chain::account_delta>(*trace.trx_ram_delta)));
    }
+
+   eosio::chain::account_gas_trace gt;
+   fc::raw::pack( ds, make_history_serial_wrapper(as_type<eosio::chain::account_gas_trace>(gt)) );
+   // history_serialize_container(ds, as_type<flat_set<eosio::chain::account_gas_trace>>(trace.gas_traces));
 
    std::optional<std::string> e;
    if (trace.except) {

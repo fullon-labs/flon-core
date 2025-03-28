@@ -134,6 +134,22 @@ extern const char* const state_history_plugin_abi = R"({
             ]
         },
         {
+            "name": "ram_gas_delta", "fields": [
+                { "name": "ram_delta", "type": "int64_t" },
+                { "name": "gas_delta", "type": "int64_t" }
+            ]
+        },
+        {
+            "name": "account_gas_trace_v0", "fields": [
+                { "name": "account", "type": "name" },
+                { "name": "reserved_gas_before", "type": "uint64" },
+                { "name": "reserved_gas_after", "type": "uint64_t" },
+                { "name": "used_gas", "type": "uint64_t" },
+                { "name": "converted_gas", "type": "uint64_t" },
+                { "name": "ram_gas_delta", "type": "ram_gas_delta" }
+            ]
+        },
+        {
             "name": "action_trace_v0", "fields": [
                 { "name": "action_ordinal", "type": "varuint32" },
                 { "name": "creator_action_ordinal", "type": "varuint32" },
@@ -197,6 +213,7 @@ extern const char* const state_history_plugin_abi = R"({
                 { "name": "scheduled", "type": "bool" },
                 { "name": "action_traces", "type": "action_trace[]" },
                 { "name": "trx_ram_delta", "type": "account_delta?" },
+                { "name": "gas_traces", "type": "account_gas_trace[]" },
                 { "name": "except", "type": "string?" },
                 { "name": "error_code", "type": "uint64?" },
                 { "name": "failed_dtrx_trace", "type": "transaction_trace?" },
@@ -698,6 +715,7 @@ extern const char* const state_history_plugin_abi = R"({
         { "name": "request", "types": ["get_status_request_v0", "get_blocks_request_v0", "get_blocks_ack_request_v0", "get_blocks_request_v1", "get_status_request_v1"] },
         { "name": "result", "types": ["get_status_result_v0", "get_blocks_result_v0", "get_blocks_result_v1", "get_status_result_v1"] },
 
+        { "name": "account_gas_trace", "types": ["account_gas_trace_v0"] },
         { "name": "action_receipt", "types": ["action_receipt_v0"] },
         { "name": "action_trace", "types": ["action_trace_v0", "action_trace_v1"] },
         { "name": "transaction_res_usage", "types": ["transaction_res_usage_v0"] },
