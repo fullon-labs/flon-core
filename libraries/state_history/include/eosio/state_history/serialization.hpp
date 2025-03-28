@@ -696,9 +696,7 @@ datastream<ST>& operator<<(datastream<ST>& ds, const history_context_wrapper_sta
       fc::raw::pack(ds, make_history_serial_wrapper(as_type<eosio::chain::account_delta>(*trace.trx_ram_delta)));
    }
 
-   eosio::chain::account_gas_trace gt;
-   fc::raw::pack( ds, make_history_serial_wrapper(as_type<eosio::chain::account_gas_trace>(gt)) );
-   // history_serialize_container(ds, as_type<flat_set<eosio::chain::account_gas_trace>>(trace.gas_traces));
+   history_serialize_container(ds, as_type<flat_set<eosio::chain::account_gas_trace>>(trace.gas_traces));
 
    std::optional<std::string> e;
    if (trace.except) {
