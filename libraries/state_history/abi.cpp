@@ -143,9 +143,9 @@ extern const char* const state_history_plugin_abi = R"({
             "name": "account_gas_trace_v0", "fields": [
                 { "name": "account", "type": "name" },
                 { "name": "reserved_gas_before", "type": "uint64" },
-                { "name": "reserved_gas_after", "type": "uint64_t" },
-                { "name": "used_gas", "type": "uint64_t" },
-                { "name": "converted_gas", "type": "uint64_t" },
+                { "name": "reserved_gas_after", "type": "uint64" },
+                { "name": "used_gas", "type": "uint64" },
+                { "name": "converted_gas", "type": "uint64" },
                 { "name": "ram_gas_delta", "type": "ram_gas_delta" }
             ]
         },
