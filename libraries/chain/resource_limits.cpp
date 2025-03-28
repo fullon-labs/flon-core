@@ -276,7 +276,7 @@ void resource_limits_manager::add_transaction_usage(transaction_res_usage& res_u
    const auto& net_usage = res_usage.net_usage;
 
    uint64_t used_gas = 0;
-   auto acc_limits = res_utils::get_account_limits(_db, res_usage.payer);
+   const auto& acc_limits = res_utils::get_account_limits(_db, res_usage.payer);
    if (!acc_limits.is_unlimited) {
       core_gas_accessor_ptr cgs;
 
@@ -405,12 +405,12 @@ void resource_limits_manager::add_ram_usage( const account_name account, int64_t
    }
 
    const auto& config = _db.get<resource_limits_config_object>();
-   auto acc_limits = res_utils::get_account_limits(_db, account);
+   const auto& acc_limits = res_utils::get_account_limits(_db, account);
 
    if (!acc_limits.is_unlimited) {
+      gas_trace.emplace(account);
       gas_trace->reserved_gas_before = acc_limits.gas;
       gas_trace->ram_gas_delta.ram_delta = ram_delta;
-      gas_trace.emplace(account);
       if (ram_delta > 0) {
          auto used_gas = res_utils::convert_ram_to_gas(config, ram_delta);
 
