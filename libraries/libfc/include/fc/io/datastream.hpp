@@ -109,9 +109,9 @@ class datastream<Streambuf, typename std::enable_if_t<std::is_base_of_v<std::str
        : buf(std::forward<Args>(args)...) {}
 
    size_t read(char* data, size_t n) { return buf.sgetn(data, n); }
-   size_t write(const char* data, size_t n) { return buf.sputn(data, n); }
-   size_t tellp() { return this->pubseekoff(0, std::ios::cur); }
-   bool   skip(size_t p) { this->pubseekoff(p, std::ios::cur);  return true;  }
+   size_t write(const char* data, size_t n) { _write_size += n; return buf.sputn(data, n); }
+   size_t tellp() { return buf.pubseekoff(0, std::ios::cur); }
+   bool   skip(size_t p) { buf.pubseekoff(p, std::ios::cur);  return true;  }
    bool   get(char& c) {
       c = buf.sbumpc();
       return true;
@@ -124,6 +124,10 @@ class datastream<Streambuf, typename std::enable_if_t<std::is_base_of_v<std::str
 
    reference_type       storage() { return buf; }
    const reference_type storage() const { return buf; }
+
+   size_t write_size() const { return _write_size; }
+ private:
+   size_t _write_size = 0;
 };
 
 template <typename Container>

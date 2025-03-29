@@ -597,7 +597,7 @@ datastream<ST>& operator<<(datastream<ST>& ds, const history_serial_wrapper_stat
 template <typename ST>
 datastream<ST>& operator<<(datastream<ST>& ds, const history_serial_wrapper_stateless<eosio::chain::account_gas_trace>& obj) {
    fc::raw::pack(ds, fc::unsigned_int(0));
-   fc::raw::pack(ds, as_type<eosio::chain::name>(obj.obj.account));
+   fc::raw::pack(ds, as_type<uint64_t>(obj.obj.account.to_uint64_t()));
    fc::raw::pack(ds, as_type<uint64_t>(obj.obj.reserved_gas_before));
    fc::raw::pack(ds, as_type<uint64_t>(obj.obj.reserved_gas_after));
    fc::raw::pack(ds, as_type<uint64_t>(obj.obj.used_gas));
