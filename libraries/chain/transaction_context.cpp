@@ -165,6 +165,7 @@ namespace eosio::chain {
       // add net usage
       if (initial_net_usage > 0) {
          // net_usage is reference of trace->res_usage.net_usage
+         calc_utils::verify_add(net_usage, initial_net_usage, "initial net usage to pending net usage of transaction payer");
          net_usage += initial_net_usage;
       }
 
@@ -187,7 +188,9 @@ namespace eosio::chain {
 
             if( !explicit_billed_cpu_time ) {
                // Calculate the highest network usage and CPU time that billed account(payer) can afford to be billed
+               calc_utils::verify_add(reserved_gas, convertible_gas, "reserved gas and convertible gas of transaction payer");
                uint64_t gas_limit = reserved_gas + convertible_gas;
+               assert(std::numeric_limits<int64_t>::max() - trace->res_usage.cpu_gas >= trace->res_usage.net_gas); // has been verified in calc_transaction_gas_usage()
                uint64_t used_gas = trace->res_usage.cpu_gas + trace->res_usage.net_gas;
                EOS_ASSERT( gas_limit > used_gas,
                   tx_gas_usage_exceeded,
@@ -278,13 +281,18 @@ namespace eosio::chain {
       if( cfg.context_free_discount_net_usage_den > 0
           && cfg.context_free_discount_net_usage_num < cfg.context_free_discount_net_usage_den )
       {
+         calc_utils::verify_multiply(discounted_size_for_pruned_data, cfg.context_free_discount_net_usage_num, "discounted_size_for_pruned_data and context_free_discount_net_usage_num");
          discounted_size_for_pruned_data *= cfg.context_free_discount_net_usage_num;
+         calc_utils::verify_add(discounted_size_for_pruned_data, cfg.context_free_discount_net_usage_den - 1, "discounted_size_for_pruned_data and context_free_discount_net_usage_den-1");
          discounted_size_for_pruned_data =  ( discounted_size_for_pruned_data + cfg.context_free_discount_net_usage_den - 1)
                                                                                     / cfg.context_free_discount_net_usage_den; // rounds up
       }
 
-      uint64_t initial_net_usage = static_cast<uint64_t>(cfg.base_per_transaction_net_usage)
-                                    + packed_trx_unprunable_size + discounted_size_for_pruned_data;
+      uint64_t initial_net_usage = static_cast<uint64_t>(cfg.base_per_transaction_net_usage);
+      calc_utils::verify_add(initial_net_usage, packed_trx_unprunable_size, "initial_net_usage and packed_trx_unprunable_size");
+      initial_net_usage += packed_trx_unprunable_size;
+      calc_utils::verify_add(initial_net_usage, discounted_size_for_pruned_data, "initial_net_usage and discounted_size_for_pruned_data");
+      initial_net_usage += discounted_size_for_pruned_data;
 
       #ifdef ENABLE_DEFERRED_TRANSACTION
       if( trx.delay_sec.value > 0 ) {
@@ -366,6 +374,7 @@ namespace eosio::chain {
 
       // read-only transactions only need net_usage and elapsed in the trace
       if ( is_read_only() ) {
+         calc_utils::verify_add(net_usage, 7, "net_usage and 7");
          net_usage = ((net_usage + 7)/8)*8; // Round up to nearest multiple of word size (8 bytes)
          trace->elapsed = fc::time_point::now() - start;
          return;
@@ -415,6 +424,7 @@ namespace eosio::chain {
       //    tx_cpu_usage_reason = tx_cpu_usage_exceeded_reason::account_cpu_limit;
       // }
 
+      calc_utils::verify_add(net_usage, 7, "net_usage and 7");
       net_usage = ((net_usage + 7)/8)*8; // Round up to nearest multiple of word size (8 bytes)
       check_net_limit();
 
@@ -435,6 +445,9 @@ namespace eosio::chain {
             trace->gas_traces.emplace(std::move(*trx_gas_trace));
          } else {
             // the itr->reserved_gas_before exists, can not assign again
+
+            calc_utils::verify_add(itr->used_gas, trx_gas_trace->used_gas, "new used gas to existed of transaction payer");
+            calc_utils::verify_add(itr->converted_gas, trx_gas_trace->converted_gas, "new converted gas to existed of transaction payer");
             itr->reserved_gas_after = trx_gas_trace->reserved_gas_after;
             itr->used_gas          += trx_gas_trace->used_gas;
             itr->converted_gas     += trx_gas_trace->converted_gas;
@@ -455,6 +468,7 @@ namespace eosio::chain {
    }
 
    void transaction_context::add_net_usage( uint64_t u ) {
+      calc_utils::verify_add(net_usage, u, "new net net usage to pending net usage of transaction payer");
       net_usage += u;
       check_net_limit();
       validate_transaction_usage();
@@ -631,15 +645,13 @@ namespace eosio::chain {
    }
 
    void transaction_context::add_ram_usage( account_name account, int64_t ram_delta ) {
-      // auto& rl = control.get_mutable_resource_limits_manager();
       auto itr = ram_deltas.find(account);
       if (itr == ram_deltas.end()) {
-         std::tie(itr, std::ignore) = ram_deltas.emplace(account, ram_delta);
+         ram_deltas.emplace(account, ram_delta);
       } else {
-         // TODO: check overflow
+         calc_utils::verify_add(itr->second, ram_delta, "delta add to ram usage of account");
          itr->second += ram_delta;
       }
-      // TODO: check_ram_delta(itr->second)
    }
 
    uint32_t transaction_context::update_billed_cpu_time( fc::time_point now ) {

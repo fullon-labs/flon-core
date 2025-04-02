@@ -1078,6 +1078,7 @@ void apply_context::add_ram_usage( account_name account, int64_t ram_delta ) {
 
    auto p = _account_ram_deltas.emplace( account, ram_delta );
    if( !p.second ) {
+      calc_utils::verify_add(p.first->delta, ram_delta, "adding account action ram delta");
       p.first->delta += ram_delta;
    }
 }

@@ -13,6 +13,13 @@
 
 namespace eosio { namespace chain {
 
+   namespace calc_utils {
+
+      void verify_add(uint64_t a, uint64_t b, const char* description);
+      void verify_add(int64_t a, int64_t b, const char* description);
+      void verify_multiply(uint64_t a, uint64_t b, const char* description);
+   }
+
    class deep_mind_handler;
 
    namespace resource_limits {

@@ -8,7 +8,37 @@
 #include <eosio/chain/database_utils.hpp>
 #include <algorithm>
 
-namespace eosio { namespace chain { namespace resource_limits {
+namespace eosio { namespace chain {
+
+namespace calc_utils {
+   void verify_add(uint64_t a, uint64_t b, const char* description) {
+      EOS_ASSERT( std::numeric_limits<uint64_t>::max() - a >= b,
+                  calc_overflow_exception,
+                  std::string("Overflow when adding(uint64) ") + description);
+   }
+
+   void verify_add(int64_t a, int64_t b, const char* description) {
+      if (a > 0 && b > 0) {
+         EOS_ASSERT( std::numeric_limits<int64_t>::max() - a >= b,
+                     calc_overflow_exception,
+                     std::string("Overflow when adding(int64 positive) ") + description);
+      } else if (a < 0 && b < 0) {
+         EOS_ASSERT( std::numeric_limits<int64_t>::min() - a <= b,
+                     calc_overflow_exception,
+                     std::string("Underflow when adding(int64 negative) of ") + description);
+      }
+   }
+
+   void verify_multiply(uint64_t a, uint64_t b, const char* description) {
+      if (a != 0 && b != 0) {
+         EOS_ASSERT( std::numeric_limits<uint64_t>::max() / a >= b,
+                     calc_overflow_exception,
+                     std::string("Overflow when multiplying(uint64) ") + description);
+      }
+   }
+}
+
+namespace resource_limits {
 
 using resource_index_set = index_set<
    resource_limits_index,
@@ -21,8 +51,8 @@ static_assert( config::rate_limiting_precision > 0, "config::rate_limiting_preci
 
 namespace res_utils {
 
-   void verify_add(uint64_t a, uint64_t b, const char* description) {
-      EOS_ASSERT( std::numeric_limits<uint64_t>::max() - a >= b,
+   void verify_delta_converting(uint64_t a, const char* description) {
+      EOS_ASSERT( a <= std::numeric_limits<int64_t>::max(),
                   calc_overflow_exception,
                   std::string("Overflow when ") + description);
    }
@@ -30,38 +60,38 @@ namespace res_utils {
    void verify_sub_core_asset(const asset& a, const asset& b, const char* description) {
       EOS_ASSERT( a.get_amount() >= 0 && a >= b,
          substraction_insufficent_exception,
-                  std::string("Insufficent when ") + description);
+                  std::string("Insufficent when substracting ") + description);
    }
 
    void verify_add_core_asset(const asset& a, const asset& b, const char* description) {
       EOS_ASSERT( a.get_amount() >= 0 && b.get_amount() >= 0 &&
                   std::numeric_limits<int64_t>::max() - a.get_amount() >= b.get_amount() ,
                   calc_overflow_exception,
-                  std::string("Overflow when ") + description);
+                  std::string("Overflow when adding ") + description);
    }
 
    uint64_t calc_transaction_gas_usage(  transaction_res_usage& res_usage, const resource_limits_config_object& config );
 
 
-   template<typename Int, typename CalcInt>
-   Int multiply_decimal(Int a, Int b, Int precision, const char* description = nullptr) {
+   template<typename UInt, typename CalcUInt>
+   UInt multiply_decimal(UInt a, UInt b, UInt precision, const char* description = nullptr) {
       if (a == 0 ||  b == 0 || precision == 0) return 0;
 
-      static_assert(sizeof(CalcInt) > sizeof(Int));
-      CalcInt tmp = a * b / precision;
-      EOS_ASSERT( tmp >= (CalcInt)std::numeric_limits<Int>::min() && tmp <= (CalcInt)std::numeric_limits<Int>::max(),
+      static_assert(sizeof(CalcUInt) > sizeof(UInt));
+      CalcUInt tmp = a * b / precision;
+      EOS_ASSERT( tmp <= (CalcUInt)std::numeric_limits<UInt>::max(),
                   calc_overflow_exception,
                   std::string("multiply_decimal overflow when ") + (description ? description : ""));
       return tmp;
    }
 
-   template<typename Int, typename CalcInt>
-   Int multiply_decimal_ceil(Int a, Int b, Int precision, const char* description = nullptr) {
+   template<typename UInt, typename CalcUInt>
+   UInt multiply_decimal_ceil(UInt a, UInt b, UInt precision, const char* description = nullptr) {
       if (a == 0 || b == 0 || precision == 0) return 0;
 
-      static_assert(sizeof(CalcInt) > sizeof(Int));
-      CalcInt tmp = 10 * a * b / precision;
-      EOS_ASSERT( tmp >= (CalcInt)std::numeric_limits<Int>::min() && tmp <= (CalcInt)std::numeric_limits<Int>::max(),
+      static_assert(sizeof(CalcUInt) > sizeof(UInt));
+      CalcUInt tmp = 10 * a * b / precision;
+      EOS_ASSERT( tmp <= (CalcUInt)std::numeric_limits<UInt>::max(),
                   calc_overflow_exception,
                   std::string("multiply_decimal_ceil overflow when ") + (description ? description : ""));
       return (tmp + 9) / 10; // ceil
@@ -290,7 +320,7 @@ void resource_limits_manager::add_transaction_usage(transaction_res_usage& res_u
          convertible_gas = cgs->convertible_gas;
       }
 
-      res_utils::verify_add(acc_limits.gas, convertible_gas, "adding gas limit with reserved gas and convertible gas");
+      calc_utils::verify_add(acc_limits.gas, convertible_gas, "reserved gas and convertible gas of transaction payer");
       uint64_t gas_limit = acc_limits.gas + convertible_gas;
       // verify transaction gas
       EOS_ASSERT( used_gas <= gas_limit,
@@ -324,8 +354,8 @@ void resource_limits_manager::add_transaction_usage(transaction_res_usage& res_u
       res_utils::set_account_reserved_gas(_db, acc_limits, reserved_gas, _get_deep_mind_logger(is_trx_transient));
    }
 
-   res_utils::verify_add(usage.cpu_usage, cpu_usage, "adding cpu usage");
-   res_utils::verify_add(usage.net_usage, net_usage, "adding net usage");
+   calc_utils::verify_add(usage.cpu_usage, cpu_usage, "new cpu usage to existed of transaction payer");
+   calc_utils::verify_add(usage.net_usage, net_usage, "new net usage to existed of transaction payer");
 
    _db.modify( usage, [&]( auto& bu ){
       bu.net_usage += net_usage;
@@ -359,7 +389,7 @@ uint64_t res_utils::calc_transaction_gas_usage( transaction_res_usage& res_usage
    res_usage.cpu_gas = res_utils::convert_cpu_to_gas(config, res_usage.cpu_usage);
    res_usage.net_gas = res_utils::convert_net_to_gas(config, res_usage.net_usage);
 
-   res_utils::verify_add(res_usage.cpu_gas, res_usage.net_gas, "adding cpu gas and net gas of transaction");
+   calc_utils::verify_add(res_usage.cpu_gas, res_usage.net_gas, "cpu gas and net gas of transaction payer");
    return res_usage.cpu_gas + res_usage.net_gas;
 }
 
@@ -370,8 +400,8 @@ void resource_limits_manager::calc_transaction_gas_usage( transaction_res_usage&
 
 void resource_limits_manager::verify_transaction_gas_usage( transaction_res_usage& res_usage, uint64_t reserved_gas, uint64_t convertible_gas) {
 
-   res_utils::verify_add(res_usage.cpu_gas, res_usage.net_gas, "adding cpu gas and net gas of transaction");
-   res_utils::verify_add(reserved_gas, convertible_gas, "adding cpu gas and net gas of transaction");
+   calc_utils::verify_add(res_usage.cpu_gas, res_usage.net_gas, "cpu gas and net gas of transaction payer");
+   calc_utils::verify_add(reserved_gas, convertible_gas, "cpu gas and net gas of transaction payer");
    uint64_t used_gas = res_usage.cpu_gas + res_usage.net_gas;
    uint64_t gas_limit = reserved_gas + convertible_gas;
 
@@ -398,7 +428,7 @@ void resource_limits_manager::add_ram_usage( const account_name account, int64_t
 
    const auto& usage  = _db.get<resource_usage_object,by_owner>( account );
    if (ram_delta > 0) {
-      res_utils::verify_add(usage.ram_usage, (uint64_t)ram_delta, "adding delta to ram usage");
+      calc_utils::verify_add(usage.ram_usage, (uint64_t)ram_delta, "delta to existed ram usage of account");
    } else { // ram_delta < 0
       EOS_ASSERT( usage.ram_usage >= (uint64_t)(-ram_delta), transaction_exception,
                  "Ram usage insufficent when substracting delta");
@@ -426,7 +456,7 @@ void resource_limits_manager::add_ram_usage( const account_name account, int64_t
             }
          }
 
-         res_utils::verify_add(reserved_gas, convertible_gas, "adding gas limit with reserved gas and convertible gas");
+         calc_utils::verify_add(reserved_gas, convertible_gas, "reserved gas and convertible gas of ram account");
          uint64_t gas_limit = reserved_gas + convertible_gas;
          // verify transaction gas
          EOS_ASSERT( used_gas <= gas_limit,
@@ -450,15 +480,16 @@ void resource_limits_manager::add_ram_usage( const account_name account, int64_t
             reserved_gas -= used_gas;
          }
 
-
          res_utils::set_account_reserved_gas(_db, acc_limits, reserved_gas, _get_deep_mind_logger(is_trx_transient));
 
+         res_utils::verify_delta_converting(used_gas, "converting ram gas decreased delta");
          gas_trace->used_gas                 = used_gas;
          gas_trace->ram_gas_delta.gas_delta  = -used_gas; // sub gas
       } else { // ram_delta < 0
          auto ram_gas = res_utils::convert_ram_to_gas(config, (uint64_t)(-ram_delta));
-         res_utils::verify_add(acc_limits.gas, ram_gas, "adding ram gas");
+         calc_utils::verify_add(acc_limits.gas, ram_gas, "refunded ram gas to gas of account");
          res_utils::set_account_reserved_gas(_db, acc_limits, acc_limits.gas + ram_gas, _get_deep_mind_logger(is_trx_transient));
+         res_utils::verify_delta_converting(ram_gas, "converting ram gas increased delta");
          gas_trace->ram_gas_delta.gas_delta = ram_gas; // add gas
       }
       gas_trace->reserved_gas_after = acc_limits.gas;
@@ -512,7 +543,7 @@ uint64_t resource_limits_manager::get_account_convertible_gas( const account_nam
 
 uint64_t resource_limits_manager::get_account_gas_max( const account_name& account, uint64_t reserved_gas ) const {
    uint64_t convertible_gas = get_account_convertible_gas(account);
-   res_utils::verify_add(reserved_gas, convertible_gas, "adding gas limit with reserved gas and convertible gas");
+   calc_utils::verify_add(reserved_gas, convertible_gas, "reserved gas and convertible gas of getting account");
    return reserved_gas + convertible_gas;
 }
 
@@ -688,8 +719,8 @@ void core_gas_accessor::pay_gas(chainbase::database& db, uint64_t gas) {
    assert( payer_gas_account && sys_gas_account && convertible_gas > 0 );
    auto quant = res_utils::convert_gas_to_core_asset(gas);
    // transfer core asset of converted_gas from payer to system gas account
-   res_utils::verify_sub_core_asset(payer_gas_account->balance(), quant, "substracting core asset of converted gas from payer account");
-   res_utils::verify_add_core_asset(sys_gas_account->balance(), quant, "adding core asset of converted gas to system gas account");
+   res_utils::verify_sub_core_asset(payer_gas_account->balance(), quant, "core asset of converted gas from payer account");
+   res_utils::verify_add_core_asset(sys_gas_account->balance(), quant, "core asset of converted gas to system gas account");
    payer_gas_account->balance() -= quant;
    sys_gas_account->balance() += quant;
    payer_gas_account->save(db);
