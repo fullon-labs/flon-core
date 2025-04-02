@@ -208,7 +208,6 @@ namespace eosio::chain {
                }
 
                if( subjective_cpu_bill_us > 0) {
-                  // TODO: min_transaction_cpu
                   EOS_ASSERT( account_cpu_limit > (uint64_t)subjective_cpu_bill_us,
                      tx_gas_usage_exceeded,
                      "authorizing account '${n}' has insufficient gas for cpu to execute this transaction"
