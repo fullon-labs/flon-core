@@ -535,9 +535,6 @@ namespace eosio::chain {
       if(BOOST_LIKELY(transaction_timer.expired == false))
          return;
 
-      // TODO: update billed_cpu_time_us   if not explicit_billed_cpu_time
-      // TODO: if  billed_cpu_time_us > cpu_limit
-      // TODO: validate transaction usage ()
       auto now = fc::time_point::now();
       if( explicit_billed_cpu_time || deadline_exception_code == deadline_exception::code_value ) {
          EOS_THROW( deadline_exception, "deadline exceeded ${billing_timer}us",
