@@ -225,7 +225,7 @@ namespace eosio::chain {
 
          const chainbase::database& db()const;
          chainbase::database& mutable_db()const;
-         const vector<transaction_receipt>&     get_pending_trx_receipts()const;
+         const deque<transaction_receipt>&     get_pending_trx_receipts()const;
          const account_object&                 get_account( account_name n )const;
          const global_property_object&         get_global_properties()const;
          const dynamic_global_property_object& get_dynamic_global_properties()const;

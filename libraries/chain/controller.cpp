@@ -177,6 +177,10 @@ struct completed_block {
       return block_handle_accessor::apply<deque<transaction_metadata_ptr>>(bsp, [](auto& bsp) { return bsp->extract_trxs_metas(); });
    }
 
+   const deque<transaction_receipt>& get_trx_receipts() const {
+      return bsp.block()->transactions;
+   }
+
    const flat_set<digest_type>& get_activated_protocol_features() const {
       return block_handle_accessor::apply<const flat_set<digest_type>&>(bsp, [](const auto& bsp) -> const flat_set<digest_type>& {
          return bsp->get_activated_protocol_features()->protocol_features;
@@ -239,6 +243,10 @@ struct assembled_block {
 
       // Passed to completed_block, to be used by Legacy to Savanna transisition
       std::optional<digests_t>          action_receipt_digests_savanna;
+
+      const deque<transaction_receipt>& get_trx_receipts() const {
+         return unsigned_block->transactions;
+      }
    };
 
    // --------------------------------------------------------------------------------
@@ -253,6 +261,10 @@ struct assembled_block {
       digest_type                       action_mroot;
 
       block_header_state& get_bhs() { return bhs; }
+
+      const deque<transaction_receipt>& get_trx_receipts() const {
+         return trx_receipts;
+      }
    };
 
    std::variant<assembled_block_legacy, assembled_block_if> v;
@@ -269,6 +281,10 @@ struct assembled_block {
 
    deque<transaction_metadata_ptr> extract_trx_metas() {
       return std::visit([](auto& ab) { return std::move(ab.trx_metas); }, v);
+   }
+
+   const deque<transaction_receipt>& get_trx_receipts() const {
+      return std::visit([](const auto& ab)->const auto& { return ab.get_trx_receipts(); }, v);
    }
 
    bool is_protocol_feature_activated(const digest_type& digest) const {
@@ -565,6 +581,10 @@ struct building_block {
       return std::visit([](auto& bb) { return std::move(bb.pending_trx_metas); }, v);
    }
 
+   const deque<transaction_receipt>& get_trx_receipts() const {
+      return std::visit([](auto& bb)->const auto& { return bb.pending_trx_receipts; }, v);
+   }
+
    bool is_protocol_feature_activated(const digest_type& digest) const {
       return std::visit([&digest](const auto& bb) { return bb.is_protocol_feature_activated(digest); }, v);
    }
@@ -854,38 +874,8 @@ struct pending_state {
       _block_stage(building_block(prev, input))
    {}
 
-   const vector<transaction_receipt> get_trx_receipts()const {
-     // if( _block_stage.contains<building_block>() )
-     if(std::holds_alternative<building_block>(_block_stage)){
-         auto& block = std::get<building_block>(_block_stage);
-
-         if(std::holds_alternative<building_block::building_block_legacy>(block.v)){
-            auto receipt = std::get<building_block::building_block_legacy>(block.v).pending_trx_receipts;
-            std::vector<transaction_receipt> vec( receipt.begin(),  receipt.end());
-            return vec;
-         }
-         if(std::holds_alternative<building_block::building_block_if>(block.v)){
-            auto receipt = std::get<building_block::building_block_if>(block.v).pending_trx_receipts;
-            std::vector<transaction_receipt> vec( receipt.begin(),  receipt.end());
-            return vec;
-         }
-     }
-
-      if(std::holds_alternative<completed_block>(_block_stage)){
-         auto& block = std::get<completed_block>(_block_stage);
-         auto transactions = block.bsp.block()->transactions;
-         std::vector<transaction_receipt> vec( transactions.begin(),  transactions.end());
-         return vec;
-      }
-
-      auto& block = std::get<assembled_block>(_block_stage);
-      if(std::holds_alternative<assembled_block::assembled_block_if>(block.v)){
-         auto receipt = std::get<assembled_block::assembled_block_if>(block.v).trx_receipts;
-         std::vector<transaction_receipt> vec( receipt.begin(),  receipt.end());
-         return vec;
-      }
-
-      // return block._unsigned_block->transactions;
+   const deque<transaction_receipt>& get_trx_receipts() const {
+      return std::visit([](auto& stage)->const auto& { return stage.get_trx_receipts(); }, _block_stage);
    }
 
 
@@ -5546,7 +5536,7 @@ size_t controller::fork_db_size() const {
    return my->fork_db_size();
 }
 
-const vector<transaction_receipt>& controller::get_pending_trx_receipts()const {
+const deque<transaction_receipt>& controller::get_pending_trx_receipts()const {
    EOS_ASSERT( my->pending, block_validate_exception, "no pending block" );
    return my->pending->get_trx_receipts();
 }

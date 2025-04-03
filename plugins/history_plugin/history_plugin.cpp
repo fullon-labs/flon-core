@@ -503,9 +503,8 @@ namespace eosio {
 
             auto blk = chain.fetch_block_by_number( result.block_num );
             if( blk || chain.is_building_block() ) {
-               const vector<transaction_receipt>& receipts = blk ?
-                        vector<transaction_receipt>(blk->transactions.begin(), blk->transactions.end()) :
-                        chain.get_pending_trx_receipts();
+               const deque<transaction_receipt>& receipts = blk ?
+                        blk->transactions : chain.get_pending_trx_receipts();
 
                for (const auto &receipt: receipts) {
                      if (std::holds_alternative<packed_transaction>(receipt.trx)) {
