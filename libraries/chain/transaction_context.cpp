@@ -400,29 +400,6 @@ namespace eosio::chain {
          }
       }
 
-      // Calculate the new highest network usage and CPU time that all of the billed accounts can afford to be billed
-      // int64_t account_net_limit = 0;
-      // int64_t account_cpu_limit = 0;
-      // bool greylisted_net = false, greylisted_cpu = false;
-      // std::tie( account_net_limit, account_cpu_limit, greylisted_net, greylisted_cpu) = max_bandwidth_billed_accounts_can_pay();
-      // net_limit_due_to_greylist |= greylisted_net;
-      // cpu_limit_due_to_greylist |= greylisted_cpu;
-
-      // Possibly lower net_limit to what the billed accounts can pay
-      // if( static_cast<uint64_t>(account_net_limit) <= net_limit ) {
-      //    // NOTE: net_limit may possibly not be objective anymore due to net greylisting, but it should still be no greater than the truly objective net_limit
-      //    net_limit = static_cast<uint64_t>(account_net_limit);
-      //    net_limit_due_to_block = false;
-      // }
-
-      // Possibly lower objective_duration_limit to what the billed accounts can pay
-      // if( account_cpu_limit <= objective_duration_limit.count() ) {
-      //    // NOTE: objective_duration_limit may possibly not be objective anymore due to cpu greylisting, but it should still be no greater than the truly objective objective_duration_limit
-      //    objective_duration_limit = fc::microseconds(account_cpu_limit);
-      //    initial_cpu_exception_code = tx_cpu_usage_exceeded::code_value;
-      //    tx_cpu_usage_reason = tx_cpu_usage_exceeded_reason::account_cpu_limit;
-      // }
-
       calc_utils::verify_add(net_usage, 7, "net_usage and 7");
       net_usage = ((net_usage + 7)/8)*8; // Round up to nearest multiple of word size (8 bytes)
       check_net_limit();
@@ -497,19 +474,11 @@ namespace eosio::chain {
 
                // fc::microseconds limit;
                assert_msg += get_tx_cpu_usage_exceeded_reason_msg(initial_tx_cpu_usage_reason);
-               // TODO: processing greylist?
-               if (cpu_limit_due_to_greylist) {
-                  assert_msg = "greylisted " + assert_msg;
-                  EOS_THROW( greylist_cpu_usage_exceeded, assert_msg, ("id", packed_trx.id())
-                           ("billed_cpu_time_us", billed_cpu_time_us)
-                           ("subjective", subjective_cpu_bill_us)
-                           ("limit", initial_objective_duration_limit) );
-               } else {
-                  EOS_THROW( tx_cpu_usage_exceeded, assert_msg, ("id", packed_trx.id())
-                           ("billed_cpu_time_us", billed_cpu_time_us)
-                           ("subjective", subjective_cpu_bill_us)
-                           ("limit", initial_objective_duration_limit) );
-               }
+               EOS_THROW( tx_cpu_usage_exceeded, assert_msg, ("id", packed_trx.id())
+                        ("billed_cpu_time_us", billed_cpu_time_us)
+                        ("subjective", subjective_cpu_bill_us)
+                        ("limit", initial_objective_duration_limit) );
+
             }
          }
       }
@@ -521,10 +490,6 @@ namespace eosio::chain {
             if ( net_limit_due_to_block ) {
                EOS_THROW( block_net_usage_exceeded,
                           "not enough space left in block: ${net_usage} > ${net_limit}",
-                          ("net_usage", net_usage)("net_limit", net_limit) );
-            }  else if (net_limit_due_to_greylist) {
-               EOS_THROW( greylist_net_usage_exceeded,
-                          "greylisted transaction net usage is too high: ${net_usage} > ${net_limit}",
                           ("net_usage", net_usage)("net_limit", net_limit) );
             } else {
                EOS_THROW( tx_net_usage_exceeded,
@@ -588,25 +553,9 @@ namespace eosio::chain {
          }
          // fc::microseconds limit;
          assert_msg += get_tx_cpu_usage_exceeded_reason_msg(tx_cpu_usage_reason);
-         if (cpu_limit_due_to_greylist) {
-            assert_msg = "greylisted " + assert_msg;
-            EOS_THROW( greylist_cpu_usage_exceeded, assert_msg, ("id", packed_trx.id())
-                     ("billing_timer", now - pseudo_start)("subjective", subjective_cpu_bill_us)("limit", objective_duration_limit) );
-         } else {
-            EOS_THROW( tx_cpu_usage_exceeded, assert_msg, ("id", packed_trx.id())
-                     ("billing_timer", now - pseudo_start)("subjective", subjective_cpu_bill_us)("limit", objective_duration_limit) );
-         }
+         EOS_THROW( tx_cpu_usage_exceeded, assert_msg, ("id", packed_trx.id())
+                  ("billing_timer", now - pseudo_start)("subjective", subjective_cpu_bill_us)("limit", objective_duration_limit) );
 
-         assert_msg += get_tx_cpu_usage_exceeded_reason_msg(tx_cpu_usage_reason);
-         // TODO: processing greylist?
-         if (cpu_limit_due_to_greylist) {
-            assert_msg = "greylisted " + assert_msg;
-            EOS_THROW( greylist_cpu_usage_exceeded, assert_msg, ("id", packed_trx.id())
-                     ("billed_cpu_time_us", billed_cpu_time_us)("limit", initial_objective_duration_limit) );
-         } else {
-            EOS_THROW( tx_cpu_usage_exceeded, assert_msg, ("id", packed_trx.id())
-                     ("billed_cpu_time_us", billed_cpu_time_us)("limit", initial_objective_duration_limit) );
-         }
       } else if( deadline_exception_code == leeway_deadline_exception::code_value ) {
          EOS_THROW( leeway_deadline_exception,
                      "the transaction was unable to complete by deadline, "
