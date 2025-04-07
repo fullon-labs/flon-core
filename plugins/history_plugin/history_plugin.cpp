@@ -73,10 +73,34 @@ namespace eosio {
       >
    >;
 
+   struct transaction_history_object : public chainbase::object<transaction_history_object_type, transaction_history_object> {
+      OBJECT_CTOR( transaction_history_object );
+
+      id_type                          id;
+      uint32_t                         block_num;
+      block_timestamp_type             block_time;
+      transaction_id_type              trx_id;
+      transaction_res_usage            res_usage;
+      flat_set<account_gas_trace>      gas_traces;
+   };
+
+   using transaction_history_id_type  = transaction_history_object::id_type;
+
+   using transaction_history_index = chainbase::shared_multi_index_container<
+   transaction_history_object,
+      indexed_by<
+         ordered_unique<tag<by_id>, member<transaction_history_object, transaction_history_object::id_type,
+                        &transaction_history_object::id>>,
+         ordered_unique<tag<by_trx_id>, member<transaction_history_object, transaction_id_type,
+                        &transaction_history_object::trx_id>>
+      >
+   >;
+
 } /// namespace eosio
 
 CHAINBASE_SET_INDEX_TYPE(eosio::account_history_object, eosio::account_history_index)
 CHAINBASE_SET_INDEX_TYPE(eosio::action_history_object, eosio::action_history_index)
+CHAINBASE_SET_INDEX_TYPE(eosio::transaction_history_object, eosio::transaction_history_index)
 
 namespace eosio {
 
@@ -278,8 +302,20 @@ namespace eosio {
 
          void on_applied_transaction( const transaction_trace_ptr& trace, const packed_transaction_ptr& t ) {
             if( !trace->receipt || (trace->receipt->status != transaction_receipt_header::executed &&
-                  trace->receipt->status != transaction_receipt_header::soft_fail) )
+                  trace->receipt->status != transaction_receipt_header::soft_fail) ) {
                return;
+            }
+
+            auto& chain = chain_plug->chain();
+            chainbase::database& db = const_cast<chainbase::database&>( chain.db() ); // Override read-only access to state DB (highly unrecommended practice!)
+            db.create<transaction_history_object>( [&]( transaction_history_object& tho ) {
+               tho.block_num        = trace->block_num;
+               tho.block_time       = trace->block_time;
+               tho.trx_id           = trace->id;
+               tho.res_usage        = trace->res_usage;
+               tho.gas_traces       = trace->gas_traces;
+            });
+
             for( const auto& atrace : trace->action_traces ) {
                if( !atrace.receipt ) continue;
                on_action_trace( atrace );
@@ -352,6 +388,7 @@ namespace eosio {
          chainbase::database& db = const_cast<chainbase::database&>( chain.db() ); // Override read-only access to state DB (highly unrecommended practice!)
          // TODO: Use separate chainbase database for managing the state of the history_plugin (or remove deprecated history_plugin entirely)
          db.add_index<account_history_index>();
+         db.add_index<transaction_history_index>();
          db.add_index<action_history_index>();
          db.add_index<account_control_history_multi_index>();
          db.add_index<public_key_history_multi_index>();
@@ -474,10 +511,15 @@ namespace eosio {
          };
 
          const auto& db = chain.db();
-         const auto& idx = db.get_index<action_history_index, by_trx_id>();
-         auto itr = idx.lower_bound( boost::make_tuple( input_id ) );
 
-         bool in_history = (itr != idx.end() && txn_id_matched(itr->trx_id) );
+
+         const auto& trx_idx = db.get_index<transaction_history_index, by_trx_id>();
+         const auto& act_idx = db.get_index<action_history_index, by_trx_id>();
+         auto trx_itr = trx_idx.lower_bound( input_id );
+         auto act_itr = act_idx.lower_bound( boost::make_tuple( input_id ) );
+
+         bool in_history = (trx_itr != trx_idx.end() && txn_id_matched(trx_itr->trx_id) ) &&
+                           (act_itr != act_idx.end() && txn_id_matched(act_itr->trx_id) );
 
          if( !in_history && !p.block_num_hint ) {
             EOS_THROW(tx_not_found, "Transaction ${id} not found in history and no block hint was given", ("id",p.id));
@@ -486,19 +528,21 @@ namespace eosio {
          get_transaction_result result;
 
          if( in_history ) {
-            result.id         = itr->trx_id;
+            result.id         = act_itr->trx_id;
             result.last_irreversible_block = chain.last_irreversible_block_num();
-            result.block_num  = itr->block_num;
-            result.block_time = itr->block_time;
+            result.block_num  = act_itr->block_num;
+            result.block_time = act_itr->block_time;
+            result.res_usage = chain.to_variant_with_abi(trx_itr->res_usage, abi_serializer::create_yield_function( abi_serializer_max_time ));
+            result.gas_traces = chain.to_variant_with_abi(trx_itr->gas_traces, abi_serializer::create_yield_function( abi_serializer_max_time ));
 
-            while( itr != idx.end() && itr->trx_id == result.id ) {
+            while( act_itr != act_idx.end() && act_itr->trx_id == result.id ) {
 
-              fc::datastream<const char*> ds( itr->packed_action_trace.data(), itr->packed_action_trace.size() );
+              fc::datastream<const char*> ds( act_itr->packed_action_trace.data(), act_itr->packed_action_trace.size() );
               action_trace t;
               fc::raw::unpack( ds, t );
               result.traces.emplace_back( chain.to_variant_with_abi(t, abi_serializer::create_yield_function( abi_serializer_max_time )) );
 
-              ++itr;
+              ++act_itr;
             }
 
             auto blk = chain.fetch_block_by_number( result.block_num );
@@ -507,22 +551,22 @@ namespace eosio {
                         blk->transactions : chain.get_pending_trx_receipts();
 
                for (const auto &receipt: receipts) {
-                     if (std::holds_alternative<packed_transaction>(receipt.trx)) {
-                        auto &pt = std::get<packed_transaction>(receipt.trx);
-                        if (pt.id() == result.id) {
-                            fc::mutable_variant_object r("receipt", receipt);
-                            r("trx", chain.to_variant_with_abi(pt.get_signed_transaction(), abi_serializer::create_yield_function( abi_serializer_max_time )));
-                            result.trx = move(r);
-                            break;
-                        }
-                    } else {
-                        auto &id = std::get<transaction_id_type>(receipt.trx);
-                        if (id == result.id) {
-                            fc::mutable_variant_object r("receipt", receipt);
-                            result.trx = move(r);
-                            break;
-                        }
-                    }
+                  if (std::holds_alternative<packed_transaction>(receipt.trx)) {
+                     auto &pt = std::get<packed_transaction>(receipt.trx);
+                     if (pt.id() == result.id) {
+                        fc::mutable_variant_object r("receipt", receipt);
+                        r("trx", chain.to_variant_with_abi(pt.get_signed_transaction(), abi_serializer::create_yield_function( abi_serializer_max_time )));
+                        result.trx = move(r);
+                        break;
+                     }
+                  } else {
+                     auto &id = std::get<transaction_id_type>(receipt.trx);
+                     if (id == result.id) {
+                        fc::mutable_variant_object r("receipt", receipt);
+                        result.trx = move(r);
+                        break;
+                     }
+                  }
                }
             }
          } else {

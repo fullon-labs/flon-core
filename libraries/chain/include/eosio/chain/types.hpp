@@ -157,7 +157,7 @@ namespace eosio::chain {
       UNUSED_chain_property_object_type,
       account_control_history_object_type,     ///< Defined by history_plugin
       UNUSED_account_transaction_history_object_type,
-      UNUSED_transaction_history_object_type,
+      transaction_history_object_type,
       public_key_history_object_type,          ///< Defined by history_plugin
       UNUSED_balance_object_type,
       UNUSED_staked_balance_object_type,
