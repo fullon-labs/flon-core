@@ -2596,6 +2596,7 @@ struct controller_impl {
 
       create_native_account( genesis.initial_timestamp, config::null_account_name, empty_authority, empty_authority );
       create_native_account( genesis.initial_timestamp, config::producers_account_name, empty_authority, active_producers_authority );
+      create_native_account( genesis.initial_timestamp, config::gas_account_name, empty_authority, active_producers_authority );
       const auto& active_permission       = authorization.get_permission({config::producers_account_name, config::active_name});
       const auto& majority_permission     = authorization.create_permission( config::producers_account_name,
                                                                              config::majority_producers_permission_name,

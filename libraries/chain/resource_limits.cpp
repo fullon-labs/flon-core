@@ -512,6 +512,8 @@ int64_t resource_limits_manager::get_account_ram_usage( const account_name& name
 
 void resource_limits_manager::set_account_limits( const account_name& account, uint64_t gas, bool is_unlimited, bool is_trx_transient) {
 
+   // make sure the system gas account must be resource unlimited, so that it does not need to pay GAS
+   EOS_ASSERT( account != config::gas_account_name, resource_limit_exception, "can not set the resource limits of account ${a}", ("a", config::gas_account_name) );
    const auto& limits = _db.get<resource_limits_object, by_owner>( account );
    _db.modify( limits, [&]( resource_limits_object& rlo ){
       rlo.gas = gas;
