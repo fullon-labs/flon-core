@@ -6,6 +6,7 @@
 #include <eosio/chain/deep_mind.hpp>
 #include <boost/tuple/tuple_io.hpp>
 #include <eosio/chain/database_utils.hpp>
+#include <eosio/chain/global_property_object.hpp>
 #include <algorithm>
 
 namespace eosio { namespace chain {
@@ -507,6 +508,24 @@ void resource_limits_manager::add_ram_usage( const account_name account, int64_t
       }
    });
 
+
+   const auto& state = _db.get<resource_limits_state_object>();
+   if (ram_delta > 0) {
+      calc_utils::verify_add(state.total_ram_usage, (uint64_t)ram_delta, "delta to total ram usage");
+   } else { // ram_delta < 0
+      EOS_ASSERT( state.total_ram_usage >= (uint64_t)(-ram_delta), transaction_exception,
+                 "Total ram usage insufficent when substracting delta");
+   }
+
+   // account for this transaction in the block and do not exceed those limits either
+   _db.modify(state, [&](resource_limits_state_object& rls){
+      rls.total_ram_usage += ram_delta;
+   });
+
+   const auto& chain_config = _db.get<global_property_object>().configuration;
+   EOS_ASSERT( state.total_ram_usage <= chain_config.max_total_ram_usage, resource_exhausted_exception,
+               "Total ram usage ${t} exceeds the max limit ${max}",
+               ("t", state.total_ram_usage)("max", chain_config.max_total_ram_usage));
 }
 
 int64_t resource_limits_manager::get_account_ram_usage( const account_name& name )const {
