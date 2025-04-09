@@ -432,6 +432,7 @@ extern const char* const state_history_plugin_abi = R"({
                 { "type": "uint32", "name": "max_inline_action_size" },
                 { "type": "uint16", "name": "max_inline_action_depth" },
                 { "type": "uint16", "name": "max_authority_depth" },
+                { "type": "uint64", "name": "max_total_ram_usage" },
                 { "type": "uint32", "name": "gas_per_cpu_ms" },
                 { "type": "uint32", "name": "gas_per_net_kb" },
                 { "type": "uint32", "name": "gas_per_ram_kb" }
@@ -456,6 +457,7 @@ extern const char* const state_history_plugin_abi = R"({
                 { "type": "uint32", "name": "max_inline_action_size" },
                 { "type": "uint16", "name": "max_inline_action_depth" },
                 { "type": "uint16", "name": "max_authority_depth" },
+                { "type": "uint64", "name": "max_total_ram_usage" },
                 { "type": "uint32", "name": "gas_per_cpu_ms" },
                 { "type": "uint32", "name": "gas_per_net_kb" },
                 { "type": "uint32", "name": "gas_per_ram_kb" },

@@ -88,6 +88,8 @@ const static uint32_t   default_max_transaction_cpu_usage            = 3*default
 const static uint32_t   default_min_transaction_cpu_usage            = 100; /// min trx cpu usage in microseconds (10000 TPS equiv)
 const static uint32_t   default_subjective_cpu_leeway_us             = 31000; /// default subjective cpu leeway in microseconds
 
+const static uint64_t   default_max_total_ram_usage                  = 64*1024*1024*1024ULL; /// max total ram usage in bytes
+
 const static uint32_t   default_max_trx_lifetime                     = 60*60; // 1 hour
 const static uint32_t   default_deferred_trx_expiration_window       = 10*60; // 10 minutes
 const static uint32_t   default_max_trx_delay                        = 45*24*3600; // 45 days

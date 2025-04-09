@@ -36,6 +36,7 @@ read -d '' genesis << EOF
     "max_inline_action_size": 4096,
     "max_inline_action_depth": 4,
     "max_authority_depth": 6,
+    "max_total_ram_usage": 68719476736,
     "gas_per_cpu_ms": 10000,
     "gas_per_net_kb": 50000,
     "gas_per_ram_kb": 50000

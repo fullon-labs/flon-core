@@ -34,6 +34,7 @@ struct chain_config_v0 {
       max_inline_action_size_id,
       max_inline_action_depth_id,
       max_authority_depth_id,
+      max_total_ram_usage_id,
       gas_per_cpu_ms_id,
       gas_per_net_kb_id,
       gas_per_ram_kb_id,
@@ -59,6 +60,7 @@ struct chain_config_v0 {
    uint32_t   max_inline_action_size;              ///< maximum allowed size (in bytes) of an inline action
    uint16_t   max_inline_action_depth;             ///< recursion depth limit on sending inline actions
    uint16_t   max_authority_depth;                 ///< recursion depth limit for checking if an authority is satisfied
+   uint64_t   max_total_ram_usage;                 ///< the maxiumum total ram usage in bytes.
    uint32_t   gas_per_cpu_ms;                      ///< gas per cpu millisecond
    uint32_t   gas_per_net_kb;                      ///< gas per net kilobyte
    uint32_t   gas_per_ram_kb;                      ///< gas per ram per kilobyte
@@ -91,6 +93,7 @@ struct chain_config_v0 {
                            lhs.max_inline_action_size,
                            lhs.max_inline_action_depth,
                            lhs.max_authority_depth,
+                           lhs.max_total_ram_usage,
                            lhs.gas_per_cpu_ms,
                            lhs.gas_per_net_kb,
                            lhs.gas_per_ram_kb
@@ -113,6 +116,7 @@ struct chain_config_v0 {
                            rhs.max_inline_action_size,
                            rhs.max_inline_action_depth,
                            rhs.max_authority_depth,
+                           rhs.max_total_ram_usage,
                            rhs.gas_per_cpu_ms,
                            rhs.gas_per_net_kb,
                            rhs.gas_per_ram_kb
@@ -142,6 +146,7 @@ protected:
                      << "Max Inline Action Size: " << max_inline_action_size << ", "
                      << "Max Inline Action Depth: " << max_inline_action_depth << ", "
                      << "Max Authority Depth: " << max_authority_depth << ", "
+                     << "Max Authority Depth: " << max_total_ram_usage << ", "
                      << "Max Authority Depth: " << gas_per_cpu_ms << ", "
                      << "Max Authority Depth: " << gas_per_net_kb << ", "
                      << "Max Authority Depth: " << gas_per_ram_kb;
@@ -222,7 +227,7 @@ FC_REFLECT(eosio::chain::chain_config_v0,
 
            (max_transaction_lifetime)(deferred_trx_expiration_window)(max_transaction_delay)
            (max_inline_action_size)(max_inline_action_depth)(max_authority_depth)
-           (gas_per_cpu_ms)(gas_per_net_kb)(gas_per_ram_kb)
+           (max_total_ram_usage)(gas_per_cpu_ms)(gas_per_net_kb)(gas_per_ram_kb)
 )
 
 FC_REFLECT_DERIVED(eosio::chain::chain_config_v1, (eosio::chain::chain_config_v0),
@@ -297,6 +302,9 @@ inline DataStream &operator<<(DataStream &s, const eosio::chain::data_entry<eosi
       break;
       case chain_config_v0::max_authority_depth_id:
       fc::raw::pack(s, entry.config.max_authority_depth);
+      break;
+      case chain_config_v0::max_total_ram_usage_id:
+      fc::raw::pack(s, entry.config.max_total_ram_usage);
       break;
       case chain_config_v0::gas_per_cpu_ms_id:
       fc::raw::pack(s, entry.config.gas_per_cpu_ms);
@@ -409,6 +417,9 @@ inline DataStream &operator>>(DataStream &s, eosio::chain::data_entry<eosio::cha
       break;
       case chain_config_v0::max_authority_depth_id:
       fc::raw::unpack(s, entry.config.max_authority_depth);
+      break;
+      case chain_config_v0::max_total_ram_usage_id:
+      fc::raw::unpack(s, entry.config.max_total_ram_usage);
       break;
       case chain_config_v0::gas_per_cpu_ms_id:
       fc::raw::unpack(s, entry.config.gas_per_cpu_ms);

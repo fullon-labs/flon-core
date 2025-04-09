@@ -36,6 +36,7 @@ struct genesis_state {
       .max_inline_action_size               = config::default_max_inline_action_size,
       .max_inline_action_depth              = config::default_max_inline_action_depth,
       .max_authority_depth                  = config::default_max_auth_depth,
+      .max_total_ram_usage                  = config::default_max_total_ram_usage,
       .gas_per_cpu_ms                       = config::default_gas_per_cpu_ms,
       .gas_per_net_kb                       = config::default_gas_per_net_kb,
       .gas_per_ram_kb                       = config::default_gas_per_ram_kb,

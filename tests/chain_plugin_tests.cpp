@@ -156,6 +156,7 @@ BOOST_AUTO_TEST_CASE( get_consensus_parameters ) try {
    BOOST_TEST(parms.chain_config.max_inline_action_size == t.control->get_global_properties().configuration.max_inline_action_size);
    BOOST_TEST(parms.chain_config.max_inline_action_depth == t.control->get_global_properties().configuration.max_inline_action_depth);
    BOOST_TEST(parms.chain_config.max_authority_depth == t.control->get_global_properties().configuration.max_authority_depth);
+   BOOST_TEST(parms.chain_config.max_total_ram_usage == t.control->get_global_properties().configuration.max_total_ram_usage);
    BOOST_TEST(parms.chain_config.gas_per_cpu_ms == t.control->get_global_properties().configuration.gas_per_cpu_ms);
    BOOST_TEST(parms.chain_config.gas_per_net_kb == t.control->get_global_properties().configuration.gas_per_net_kb);
    BOOST_TEST(parms.chain_config.gas_per_ram_kb == t.control->get_global_properties().configuration.gas_per_ram_kb);
