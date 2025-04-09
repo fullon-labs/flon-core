@@ -2512,7 +2512,6 @@ read_only::get_account_return_t read_only::get_account( const get_account_params
    const auto& code_account = db.db().get<account_object,by_name>( config::system_account_name );
    struct http_params_t {
       std::optional<vector<char>> total_resources;
-      std::optional<vector<char>> self_delegated_bandwidth;
       std::optional<vector<char>> refund_request;
       std::optional<vector<char>> voter_info;
    };
@@ -2556,7 +2555,6 @@ read_only::get_account_return_t read_only::get_account( const get_account_params
       };
 
       http_params.total_resources          = lookup_object("userres"_n, params.account_name);
-      http_params.self_delegated_bandwidth = lookup_object("delband"_n, params.account_name);
       http_params.refund_request           = lookup_object("refunds"_n, params.account_name);
       http_params.voter_info               = lookup_object("voters"_n, config::system_account_name);
 
@@ -2567,8 +2565,6 @@ read_only::get_account_return_t read_only::get_account( const get_account_params
 
          if (http_params.total_resources)
             result.total_resources = abis.binary_to_variant("user_resources", *http_params.total_resources, yield(), shorten_abi_errors);
-         if (http_params.self_delegated_bandwidth)
-            result.self_delegated_bandwidth = abis.binary_to_variant("delegated_bandwidth", *http_params.self_delegated_bandwidth, yield(), shorten_abi_errors);
          if (http_params.refund_request)
             result.refund_request = abis.binary_to_variant("refund_request", *http_params.refund_request, yield(), shorten_abi_errors);
          if (http_params.voter_info)

@@ -776,17 +776,6 @@ chain::action create_buygas(const name& payer, const name& receiver, const asset
                         config::system_account_name, "buygas"_n, act_payload);
 }
 
-chain::action create_delegate(const name& from, const name& receiver, const asset& net, const asset& cpu, bool transfer) {
-   fc::variant act_payload = fc::mutable_variant_object()
-         ("from", from.to_string())
-         ("receiver", receiver.to_string())
-         ("stake_net_quantity", net.to_string())
-         ("stake_cpu_quantity", cpu.to_string())
-         ("transfer", transfer);
-   return create_action(get_account_permissions(tx_permission, {from,config::active_name}),
-                        config::system_account_name, "delegatebw"_n, act_payload);
-}
-
 fc::variant regproducer_variant(const account_name& producer, const public_key_type& key, const string& url, uint16_t location) {
    return fc::mutable_variant_object()
             ("producer", producer)
@@ -1602,67 +1591,6 @@ struct get_transaction_id_subcommand {
    }
 };
 
-struct delegate_bandwidth_subcommand {
-   string from_str;
-   string receiver_str;
-   string stake_net_amount;
-   string stake_cpu_amount;
-   string stake_storage_amount;
-   string buy_ram_amount;
-   uint32_t buy_ram_bytes = 0;
-   bool transfer = false;
-
-   delegate_bandwidth_subcommand(CLI::App* actionRoot) {
-      auto delegate_bandwidth = actionRoot->add_subcommand("delegatebw", localized("Delegate bandwidth"));
-      delegate_bandwidth->add_option("from", from_str, localized("The account to delegate bandwidth from"))->required();
-      delegate_bandwidth->add_option("receiver", receiver_str, localized("The account to receive the delegated bandwidth"))->required();
-      delegate_bandwidth->add_option("stake_net_quantity", stake_net_amount, localized("The amount of tokens to stake for network bandwidth"))->required();
-      delegate_bandwidth->add_option("stake_cpu_quantity", stake_cpu_amount, localized("The amount of tokens to stake for CPU bandwidth"))->required();
-      delegate_bandwidth->add_option("--buy-ram-bytes", buy_ram_bytes, localized("The amount of RAM to buy in bytes"));
-      delegate_bandwidth->add_flag("--transfer", transfer, localized("Transfer voting power and right to unstake tokens to receiver"));
-      add_standard_transaction_options_plus_signing(delegate_bandwidth, "from@active");
-
-      delegate_bandwidth->callback([this] {
-         fc::variant act_payload = fc::mutable_variant_object()
-                  ("from", from_str)
-                  ("receiver", receiver_str)
-                  ("stake_net_quantity", to_asset(stake_net_amount))
-                  ("stake_cpu_quantity", to_asset(stake_cpu_amount))
-                  ("transfer", transfer);
-         auto accountPermissions = get_account_permissions(tx_permission, {name(from_str), config::active_name});
-         std::vector<chain::action> acts{create_action(accountPermissions, config::system_account_name, "delegatebw"_n, act_payload)};
-         send_actions(std::move(acts), signing_keys_opt.get_keys());
-      });
-   }
-};
-
-struct undelegate_bandwidth_subcommand {
-   string from_str;
-   string receiver_str;
-   string unstake_net_amount;
-   string unstake_cpu_amount;
-   uint64_t unstake_storage_bytes;
-
-   undelegate_bandwidth_subcommand(CLI::App* actionRoot) {
-      auto undelegate_bandwidth = actionRoot->add_subcommand("undelegatebw", localized("Undelegate bandwidth"));
-      undelegate_bandwidth->add_option("from", from_str, localized("The account undelegating bandwidth"))->required();
-      undelegate_bandwidth->add_option("receiver", receiver_str, localized("The account to undelegate bandwidth from"))->required();
-      undelegate_bandwidth->add_option("unstake_net_quantity", unstake_net_amount, localized("The amount of tokens to undelegate for network bandwidth"))->required();
-      undelegate_bandwidth->add_option("unstake_cpu_quantity", unstake_cpu_amount, localized("The amount of tokens to undelegate for CPU bandwidth"))->required();
-      add_standard_transaction_options_plus_signing(undelegate_bandwidth, "from@active");
-
-      undelegate_bandwidth->callback([this] {
-         fc::variant act_payload = fc::mutable_variant_object()
-                  ("from", from_str)
-                  ("receiver", receiver_str)
-                  ("unstake_net_quantity", to_asset(unstake_net_amount))
-                  ("unstake_cpu_quantity", to_asset(unstake_cpu_amount));
-         auto accountPermissions = get_account_permissions(tx_permission, {name(from_str), config::active_name});
-         send_actions({create_action(accountPermissions, config::system_account_name, "undelegatebw"_n, act_payload)}, signing_keys_opt.get_keys());
-      });
-   }
-};
-
 struct bidname_subcommand {
    string bidder_str;
    string newname_str;
@@ -1724,43 +1652,6 @@ struct bidname_info_subcommand {
                    << std::left << std::setw(18) << "highest bid:" << std::right << std::setw(24) << (bid > 0 ? bid : -bid) << "\n"
                    << std::left << std::setw(18) << "last bid time:" << std::right << std::setw(24) << time << std::endl;
          if (bid < 0) std::cout << "This auction has already closed" << std::endl;
-      });
-   }
-};
-
-struct list_bw_subcommand {
-   string account;
-   bool print_json = false;
-
-   list_bw_subcommand(CLI::App* actionRoot) {
-      auto list_bw = actionRoot->add_subcommand("listbw", localized("List delegated bandwidth"));
-      list_bw->add_option("account", account, localized("The account delegated bandwidth"))->required();
-      list_bw->add_flag("--json,-j", print_json, localized("Output in JSON format") );
-
-      list_bw->callback([this] {
-            //get entire table in scope of user account
-            auto result = call(get_table_func, fc::mutable_variant_object("json", true)
-                               ("code", name(config::system_account_name).to_string())
-                               ("scope", name(account).to_string())
-                               ("table", "delband")
-            );
-            if (!print_json) {
-               auto res = result.as<eosio::chain_apis::read_only::get_table_rows_result>();
-               if ( !res.rows.empty() ) {
-                  std::cout << std::setw(13) << std::left << "Receiver" << std::setw(21) << std::left << "Net bandwidth"
-                            << std::setw(21) << std::left << "CPU bandwidth" << std::endl;
-                  for ( auto& r : res.rows ){
-                     std::cout << std::setw(13) << std::left << r["to"].as_string()
-                               << std::setw(21) << std::left << r["net_weight"].as_string()
-                               << std::setw(21) << std::left << r["cpu_weight"].as_string()
-                               << std::endl;
-                  }
-               } else {
-                  std::cerr << "Delegated bandwidth not found" << std::endl;
-               }
-            } else {
-               std::cout << fc::json::to_pretty_string(result) << std::endl;
-            }
       });
    }
 };
@@ -2129,23 +2020,6 @@ void get_account( const string& accountName, const string& coresym, bool json_fo
             unstaking = asset( 0, net_total.get_symbol() ); // Correct core symbol for unstaking asset.
             staked = asset( 0, net_total.get_symbol() ); // Correct core symbol for staked asset.
          }
-
-         if( res.self_delegated_bandwidth.is_object() ) {
-            asset net_own =  asset::from_string( res.self_delegated_bandwidth.get_object()["net_weight"].as_string() );
-            staked = net_own;
-
-            auto net_others = net_total - net_own;
-
-            std::cout << indent << "staked:" << std::setw(20) << net_own
-                      << std::string(11, ' ') << "(total stake delegated from account to self)" << std::endl
-                      << indent << "delegated:" << std::setw(17) << net_others
-                      << std::string(11, ' ') << "(total staked delegated to account from others)" << std::endl;
-         }
-         else {
-            auto net_others = net_total;
-            std::cout << indent << "delegated:" << std::setw(17) << net_others
-                      << std::string(11, ' ') << "(total staked delegated to account from others)" << std::endl;
-         }
       }
 
 
@@ -2197,22 +2071,6 @@ void get_account( const string& accountName, const string& coresym, bool json_fo
 
       if ( res.total_resources.is_object() ) {
          auto cpu_total = to_asset(res.total_resources.get_object()["cpu_weight"].as_string());
-
-         if( res.self_delegated_bandwidth.is_object() ) {
-            asset cpu_own = asset::from_string( res.self_delegated_bandwidth.get_object()["cpu_weight"].as_string() );
-            staked += cpu_own;
-
-            auto cpu_others = cpu_total - cpu_own;
-
-            std::cout << indent << "staked:" << std::setw(20) << cpu_own
-                      << std::string(11, ' ') << "(total stake delegated from account to self)" << std::endl
-                      << indent << "delegated:" << std::setw(17) << cpu_others
-                      << std::string(11, ' ') << "(total staked delegated to account from others)" << std::endl;
-         } else {
-            auto cpu_others = cpu_total;
-            std::cout << indent << "delegated:" << std::setw(17) << cpu_others
-                      << std::string(11, ' ') << "(total staked delegated to account from others)" << std::endl;
-         }
       }
 
       std::cout << std::fixed << setprecision(3);
@@ -4059,9 +3917,6 @@ int main( int argc, char** argv ) {
 
    auto listProducers = list_producers_subcommand(system);
 
-   auto delegateBandWidth = delegate_bandwidth_subcommand(system);
-   auto undelegateBandWidth = undelegate_bandwidth_subcommand(system);
-   auto listBandWidth = list_bw_subcommand(system);
    auto bidname = bidname_subcommand(system);
    auto bidnameinfo = bidname_info_subcommand(system);
 

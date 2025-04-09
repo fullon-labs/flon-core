@@ -391,36 +391,6 @@ BOOST_FIXTURE_TEST_CASE(account_results_total_resources_test, chain_plugin_teste
 
 } FC_LOG_AND_RETHROW() }
 
-BOOST_FIXTURE_TEST_CASE(account_results_self_delegated_bandwidth_test, chain_plugin_tester) { try {
-
-    produce_block();
-    setup_system_accounts();
-    produce_block();
-    const asset nstake = core_from_string("1.0000");
-    const asset cstake = core_from_string("2.0000");
-    create_account_with_resources("alice1111111"_n, config::system_account_name, core_from_string("1.0000"), false);
-    BOOST_CHECK_EQUAL(success(), stake(config::system_account_name, name("alice1111111"), nstake, cstake));
-
-    read_only::get_account_results results = get_account_info(name("alice1111111"));
-    BOOST_CHECK(results.total_resources.get_type() != fc::variant::type_id::null_type);
-    BOOST_CHECK_EQUAL(core_from_string("11.0000"), results.total_resources["net_weight"].as<asset>());
-    BOOST_CHECK_EQUAL(core_from_string("12.0000"), results.total_resources["cpu_weight"].as<asset>());
-
-    //self delegate bandwidth
-    transfer( name("eosio"), name("alice1111111"), core_from_string("650000000.0000"), name("eosio") );
-    BOOST_CHECK_EQUAL(success(), stake(name("alice1111111"), name("alice1111111"), nstake, cstake));
-
-    results = get_account_info(name("alice1111111"));
-    BOOST_CHECK(results.self_delegated_bandwidth.get_type() != fc::variant::type_id::null_type);
-    BOOST_CHECK_EQUAL(core_from_string("1.0000"), results.self_delegated_bandwidth["net_weight"].as<asset>());
-    BOOST_CHECK_EQUAL(core_from_string("2.0000"), results.self_delegated_bandwidth["cpu_weight"].as<asset>());
-
-    BOOST_CHECK(results.total_resources.get_type() != fc::variant::type_id::null_type);
-    BOOST_CHECK_EQUAL(core_from_string("12.0000"), results.total_resources["net_weight"].as<asset>());
-    BOOST_CHECK_EQUAL(core_from_string("14.0000"), results.total_resources["cpu_weight"].as<asset>());
-
-} FC_LOG_AND_RETHROW() }
-
 BOOST_FIXTURE_TEST_CASE(account_results_refund_request_test, chain_plugin_tester) { try {
 
     produce_block();

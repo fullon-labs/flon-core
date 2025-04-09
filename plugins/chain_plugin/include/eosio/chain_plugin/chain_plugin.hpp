@@ -286,7 +286,6 @@ public:
       vector<permission>         permissions;
 
       fc::variant                total_resources;
-      fc::variant                self_delegated_bandwidth;
       fc::variant                refund_request;
       fc::variant                voter_info;
 
@@ -1085,7 +1084,7 @@ FC_REFLECT( eosio::chain_apis::read_only::account_resource_info, (used)(availabl
 FC_REFLECT( eosio::chain_apis::read_only::get_account_results,
             (account_name)(head_block_num)(head_block_time)(privileged)(last_code_update)(created)
             (core_liquid_balance)(is_res_unlimited)(gas_reserved)(gas_max)(ram_quota)(net_limit)(cpu_limit)(ram_usage)(permissions)
-            (total_resources)(self_delegated_bandwidth)(refund_request)(voter_info)
+            (total_resources)(refund_request)(voter_info)
             (subjective_cpu_bill_limit) (eosio_any_linked_actions) )
 // @swap code_hash
 FC_REFLECT( eosio::chain_apis::read_only::get_code_results, (account_name)(code_hash)(wast)(wasm)(abi) )
