@@ -366,16 +366,19 @@ void resource_limits_manager::add_transaction_usage(transaction_res_usage& res_u
       }
    });
 
+   calc_utils::verify_add(state.pending_cpu_usage, cpu_usage, "new cpu usage to pending cpu usage of block");
+   calc_utils::verify_add(state.pending_net_usage, net_usage, "new net usage to pending net usage of block");
+
+   calc_utils::verify_add(state.total_cpu_usage, cpu_usage, "new cpu usage to total cpu usage");
+   calc_utils::verify_add(state.total_net_usage, net_usage, "new net usage to total net usage");
+
    // account for this transaction in the block and do not exceed those limits either
-   EOS_ASSERT( std::numeric_limits<uint64_t>::max() - state.pending_cpu_usage >= cpu_usage,
-            rate_limiting_state_inconsistent,
-            "Overflow when adding block pending cpu usage!");
-   EOS_ASSERT( std::numeric_limits<uint64_t>::max() - state.pending_net_usage >= net_usage,
-            rate_limiting_state_inconsistent,
-            "Overflow when adding block pending net usage!");
    _db.modify(state, [&](resource_limits_state_object& rls){
       rls.pending_cpu_usage += cpu_usage;
       rls.pending_net_usage += net_usage;
+
+      rls.total_cpu_usage += cpu_usage;
+      rls.total_net_usage += net_usage;
    });
 
    EOS_ASSERT( state.pending_cpu_usage <= config.cpu_limit_parameters.max, block_resource_exhausted, "Block has insufficient cpu resources" );
