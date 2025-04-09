@@ -2011,18 +2011,6 @@ void get_account( const string& accountName, const string& coresym, bool json_fo
       std::cout << "memory: " << std::endl
                 << indent << "quota: " << std::setw(15) << to_pretty_net(res.ram_quota) << "  used: " << std::setw(15) << to_pretty_net(res.ram_usage) << std::endl << std::endl;
 
-      std::cout << "net bandwidth: " << std::endl;
-      if ( res.total_resources.is_object() ) {
-         auto net_total = to_asset(res.total_resources.get_object()["net_weight"].as_string());
-
-         if( net_total.get_symbol() != unstaking.get_symbol() ) {
-            // Core symbol of node responding to the request is different than core symbol built into client
-            unstaking = asset( 0, net_total.get_symbol() ); // Correct core symbol for unstaking asset.
-            staked = asset( 0, net_total.get_symbol() ); // Correct core symbol for staked asset.
-         }
-      }
-
-
       auto to_pretty_time = []( int64_t nmicro, uint8_t width_for_units = 5 ) {
          if(nmicro == -1) {
              // special case. Treat it as unlimited
@@ -2068,10 +2056,6 @@ void get_account( const string& accountName, const string& coresym, bool json_fo
       std::cout << std::endl;
 
       std::cout << "cpu bandwidth:" << std::endl;
-
-      if ( res.total_resources.is_object() ) {
-         auto cpu_total = to_asset(res.total_resources.get_object()["cpu_weight"].as_string());
-      }
 
       std::cout << std::fixed << setprecision(3);
       std::cout << indent << std::left << std::setw(11) << "used:" << std::right << std::setw(18);

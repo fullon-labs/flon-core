@@ -88,7 +88,6 @@ fucli get account eosio --json
       }
     }
   ],
-  "total_resources": null,
   "voter_info": {
     "owner": "eosio",
     "proxy": "",
