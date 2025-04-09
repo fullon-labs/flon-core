@@ -5,6 +5,9 @@ set(EOSIO_WASM_OLD_BEHAVIOR "Off")
 find_package( flon.cdt REQUIRED )
 set(CMAKE_ARGS_VAL -DCMAKE_TOOLCHAIN_FILE=${CDT_TOOLCHAIN_FILE} -DEOSIO_COMPILE_TEST_CONTRACTS=${EOSIO_COMPILE_TEST_CONTRACTS} )
 
+set(CONTRACT_COMPILE_OPTIONS_FILE ${CMAKE_CURRENT_BINARY_DIR}/contracts/compile_options.txt)
+file(GENERATE OUTPUT ${CONTRACT_COMPILE_OPTIONS_FILE} CONTENT "-no-missing-ricardian-clause")
+
 message( STATUS "Building contracts in directory `./unittests/system_contracts/contracts/`" )
 ExternalProject_Add(
   system_contracts_project
@@ -15,6 +18,7 @@ ExternalProject_Add(
              -DSYSTEM_CONFIGURABLE_WASM_LIMITS=On
              -DSYSTEM_BLOCKCHAIN_PARAMETERS=On
              -DBUILD_TESTS=Off
+             -DCONTRACT_COMPILE_OPTIONS_FILE=${CONTRACT_COMPILE_OPTIONS_FILE}
   UPDATE_COMMAND ""
   PATCH_COMMAND ""
   TEST_COMMAND ""
