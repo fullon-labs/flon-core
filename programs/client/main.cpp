@@ -1783,27 +1783,6 @@ struct buygas_subcommand {
    }
 };
 
-struct sellram_subcommand {
-   string from_str;
-   string receiver_str;
-   uint64_t amount;
-
-   sellram_subcommand(CLI::App* actionRoot) {
-      auto sellram = actionRoot->add_subcommand("sellram", localized("Sell RAM"));
-      sellram->add_option("account", receiver_str, localized("The account to receive tokens for sold RAM"))->required();
-      sellram->add_option("bytes", amount, localized("The amount of RAM bytes to sell"))->required();
-      add_standard_transaction_options_plus_signing(sellram, "account@active");
-
-      sellram->callback([this] {
-            fc::variant act_payload = fc::mutable_variant_object()
-               ("account", receiver_str)
-               ("bytes", amount);
-            auto accountPermissions = get_account_permissions(tx_permission, {name(receiver_str), config::active_name});
-            send_actions({create_action(accountPermissions, config::system_account_name, "sellram"_n, act_payload)}, signing_keys_opt.get_keys());
-         });
-   }
-};
-
 struct claimrewards_subcommand {
    string owner;
 
@@ -4498,7 +4477,6 @@ int main( int argc, char** argv ) {
    auto bidnameinfo = bidname_info_subcommand(system);
 
    auto buygas = buygas_subcommand(system);
-   auto sellram = sellram_subcommand(system);
 
    auto claimRewards = claimrewards_subcommand(system);
 
