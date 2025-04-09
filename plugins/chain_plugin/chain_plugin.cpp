@@ -2515,7 +2515,6 @@ read_only::get_account_return_t read_only::get_account( const get_account_params
       std::optional<vector<char>> self_delegated_bandwidth;
       std::optional<vector<char>> refund_request;
       std::optional<vector<char>> voter_info;
-      std::optional<vector<char>> rex_info;
    };
 
    http_params_t http_params;
@@ -2560,7 +2559,6 @@ read_only::get_account_return_t read_only::get_account( const get_account_params
       http_params.self_delegated_bandwidth = lookup_object("delband"_n, params.account_name);
       http_params.refund_request           = lookup_object("refunds"_n, params.account_name);
       http_params.voter_info               = lookup_object("voters"_n, config::system_account_name);
-      http_params.rex_info                 = lookup_object("rexbal"_n, config::system_account_name);
 
       return [http_params = std::move(http_params), result = std::move(result), abi=std::move(abi), shorten_abi_errors=shorten_abi_errors,
               abi_serializer_max_time=abi_serializer_max_time]() mutable ->  chain::t_or_exception<read_only::get_account_results> {
@@ -2575,8 +2573,6 @@ read_only::get_account_return_t read_only::get_account( const get_account_params
             result.refund_request = abis.binary_to_variant("refund_request", *http_params.refund_request, yield(), shorten_abi_errors);
          if (http_params.voter_info)
             result.voter_info = abis.binary_to_variant("voter_info", *http_params.voter_info, yield(), shorten_abi_errors);
-         if (http_params.rex_info)
-            result.rex_info = abis.binary_to_variant("rex_balance", *http_params.rex_info, yield(), shorten_abi_errors);
          return std::move(result);
       };
    }
