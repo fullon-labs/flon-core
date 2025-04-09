@@ -106,8 +106,8 @@ namespace eosio { namespace chain {
          void process_block_usage( uint32_t block_num );
 
          // accessors
-         uint64_t get_total_cpu_weight() const;
-         uint64_t get_total_net_weight() const;
+         uint64_t get_total_cpu_usage() const;
+         uint64_t get_total_net_usage() const;
 
          uint64_t get_virtual_block_cpu_limit() const;
          uint64_t get_virtual_block_net_limit() const;

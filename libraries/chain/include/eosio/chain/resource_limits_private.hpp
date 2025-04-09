@@ -284,9 +284,9 @@ namespace eosio { namespace chain { namespace resource_limits {
       uint64_t pending_net_usage = 0ULL;
       uint64_t pending_cpu_usage = 0ULL;
 
-      uint64_t total_net_weight = 0ULL;
-      uint64_t total_cpu_weight = 0ULL;
-      uint64_t total_ram_bytes = 0ULL;
+      uint64_t total_net_usage = 0ULL;
+      uint64_t total_cpu_usage = 0ULL;
+      uint64_t total_ram_usage = 0ULL;
 
       /**
        * The virtual number of bytes that would be consumed over blocksize_average_window_ms
@@ -331,4 +331,4 @@ FC_REFLECT(eosio::chain::resource_limits::usage_accumulator, (last_ordinal)(valu
 FC_REFLECT(eosio::chain::resource_limits::resource_limits_object, (owner)(gas)(is_unlimited))
 FC_REFLECT(eosio::chain::resource_limits::resource_usage_object,  (owner)(net_usage)(cpu_usage)(ram_usage))
 FC_REFLECT(eosio::chain::resource_limits::resource_limits_config_object, (cpu_limit_parameters)(net_limit_parameters)(account_cpu_usage_average_window)(account_net_usage_average_window)(gas_per_cpu_ms)(gas_per_net_kb)(gas_per_ram_kb))
-FC_REFLECT(eosio::chain::resource_limits::resource_limits_state_object, (average_block_net_usage)(average_block_cpu_usage)(pending_net_usage)(pending_cpu_usage)(total_net_weight)(total_cpu_weight)(total_ram_bytes)(virtual_net_limit)(virtual_cpu_limit))
+FC_REFLECT(eosio::chain::resource_limits::resource_limits_state_object, (average_block_net_usage)(average_block_cpu_usage)(pending_net_usage)(pending_cpu_usage)(total_net_usage)(total_cpu_usage)(total_ram_usage)(virtual_net_limit)(virtual_cpu_limit))

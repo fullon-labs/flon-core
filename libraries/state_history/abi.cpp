@@ -588,9 +588,9 @@ extern const char* const state_history_plugin_abi = R"({
             "name": "resource_limits_state_v0", "fields": [
                 { "type": "usage_accumulator", "name": "average_block_net_usage" },
                 { "type": "usage_accumulator", "name": "average_block_cpu_usage" },
-                { "type": "uint64", "name": "total_net_weight" },
-                { "type": "uint64", "name": "total_cpu_weight" },
-                { "type": "uint64", "name": "total_ram_bytes" },
+                { "type": "uint64", "name": "total_net_usage" },
+                { "type": "uint64", "name": "total_cpu_usage" },
+                { "type": "uint64", "name": "total_ram_usage" },
                 { "type": "uint64", "name": "virtual_net_limit" },
                 { "type": "uint64", "name": "virtual_cpu_limit" }
             ]

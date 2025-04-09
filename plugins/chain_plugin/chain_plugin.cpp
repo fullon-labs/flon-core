@@ -1319,8 +1319,8 @@ read_only::get_info_results read_only::get_info(const read_only::get_info_params
       block_header::num_from_id(fhead_id),
       fhead_id,
       app().full_version_string(),
-      rm.get_total_cpu_weight(),
-      rm.get_total_net_weight(),
+      rm.get_total_cpu_usage(),
+      rm.get_total_net_usage(),
       db.earliest_available_block_num(),
       db.last_irreversible_block_time()
    };

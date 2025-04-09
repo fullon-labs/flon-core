@@ -515,9 +515,9 @@ datastream<ST>& operator<<(datastream<ST>& ds, const history_serial_wrapper<eosi
    fc::raw::pack(ds, fc::unsigned_int(0));
    fc::raw::pack(ds, make_history_serial_wrapper(as_type<eosio::chain::resource_limits::usage_accumulator>(obj.obj.average_block_net_usage)));
    fc::raw::pack(ds, make_history_serial_wrapper(as_type<eosio::chain::resource_limits::usage_accumulator>(obj.obj.average_block_cpu_usage)));
-   fc::raw::pack(ds, as_type<uint64_t>(obj.obj.total_net_weight));
-   fc::raw::pack(ds, as_type<uint64_t>(obj.obj.total_cpu_weight));
-   fc::raw::pack(ds, as_type<uint64_t>(obj.obj.total_ram_bytes));
+   fc::raw::pack(ds, as_type<uint64_t>(obj.obj.total_net_usage));
+   fc::raw::pack(ds, as_type<uint64_t>(obj.obj.total_cpu_usage));
+   fc::raw::pack(ds, as_type<uint64_t>(obj.obj.total_ram_usage));
    fc::raw::pack(ds, as_type<uint64_t>(obj.obj.virtual_net_limit));
    fc::raw::pack(ds, as_type<uint64_t>(obj.obj.virtual_cpu_limit));
    return ds;

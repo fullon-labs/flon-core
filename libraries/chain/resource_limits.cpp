@@ -579,14 +579,14 @@ void resource_limits_manager::process_block_usage(uint32_t block_num) {
 
 }
 
-uint64_t resource_limits_manager::get_total_cpu_weight() const {
+uint64_t resource_limits_manager::get_total_cpu_usage() const {
    const auto& state = _db.get<resource_limits_state_object>();
-   return state.total_cpu_weight;
+   return state.total_cpu_usage;
 }
 
-uint64_t resource_limits_manager::get_total_net_weight() const {
+uint64_t resource_limits_manager::get_total_net_usage() const {
    const auto& state = _db.get<resource_limits_state_object>();
-   return state.total_net_weight;
+   return state.total_net_usage;
 }
 
 uint64_t resource_limits_manager::get_virtual_block_cpu_limit() const {

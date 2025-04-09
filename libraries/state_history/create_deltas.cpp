@@ -29,11 +29,11 @@ bool include_delta(const chain::resource_limits::resource_limits_state_object& o
        old.average_block_cpu_usage.last_ordinal != curr.average_block_cpu_usage.last_ordinal || //
        old.average_block_cpu_usage.value_ex != curr.average_block_cpu_usage.value_ex ||         //
        old.average_block_cpu_usage.consumed != curr.average_block_cpu_usage.consumed ||         //
-       old.total_net_weight != curr.total_net_weight ||                                         //
-       old.total_cpu_weight != curr.total_cpu_weight ||                                         //
-       old.total_ram_bytes != curr.total_ram_bytes ||                                           //
-       old.virtual_net_limit != curr.virtual_net_limit ||                                       //
-       old.virtual_cpu_limit != curr.virtual_cpu_limit;
+       old.total_net_usage    != curr.total_net_usage ||                                         //
+       old.total_cpu_usage    != curr.total_cpu_usage ||                                         //
+       old.total_ram_usage    != curr.total_ram_usage ||                                         //
+       old.virtual_net_limit  != curr.virtual_net_limit ||                                       //
+       old.virtual_cpu_limit  != curr.virtual_cpu_limit;
 }
 
 bool include_delta(const chain::account_metadata_object& old, const chain::account_metadata_object& curr) {
