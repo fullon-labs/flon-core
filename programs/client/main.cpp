@@ -776,24 +776,6 @@ chain::action create_buygas(const name& payer, const name& receiver, const asset
                         config::system_account_name, "buygas"_n, act_payload);
 }
 
-chain::action create_buyram(const name& creator, const name& newaccount, const asset& quantity) {
-   fc::variant act_payload = fc::mutable_variant_object()
-         ("payer", creator.to_string())
-         ("receiver", newaccount.to_string())
-         ("quant", quantity.to_string());
-   return create_action(get_account_permissions(tx_permission, {creator,config::active_name}),
-                        config::system_account_name, "buyram"_n, act_payload);
-}
-
-chain::action create_buyrambytes(const name& creator, const name& newaccount, uint32_t numbytes) {
-   fc::variant act_payload = fc::mutable_variant_object()
-         ("payer", creator.to_string())
-         ("receiver", newaccount.to_string())
-         ("bytes", numbytes);
-   return create_action(get_account_permissions(tx_permission, {creator,config::active_name}),
-                        config::system_account_name, "buyrambytes"_n, act_payload);
-}
-
 chain::action create_delegate(const name& from, const name& receiver, const asset& net, const asset& cpu, bool transfer) {
    fc::variant act_payload = fc::mutable_variant_object()
          ("from", from.to_string())
@@ -1636,7 +1618,6 @@ struct delegate_bandwidth_subcommand {
       delegate_bandwidth->add_option("receiver", receiver_str, localized("The account to receive the delegated bandwidth"))->required();
       delegate_bandwidth->add_option("stake_net_quantity", stake_net_amount, localized("The amount of tokens to stake for network bandwidth"))->required();
       delegate_bandwidth->add_option("stake_cpu_quantity", stake_cpu_amount, localized("The amount of tokens to stake for CPU bandwidth"))->required();
-      delegate_bandwidth->add_option("--buyram", buy_ram_amount, localized("The amount of tokens to buy RAM with"));
       delegate_bandwidth->add_option("--buy-ram-bytes", buy_ram_bytes, localized("The amount of RAM to buy in bytes"));
       delegate_bandwidth->add_flag("--transfer", transfer, localized("Transfer voting power and right to unstake tokens to receiver"));
       add_standard_transaction_options_plus_signing(delegate_bandwidth, "from@active");
@@ -1650,12 +1631,6 @@ struct delegate_bandwidth_subcommand {
                   ("transfer", transfer);
          auto accountPermissions = get_account_permissions(tx_permission, {name(from_str), config::active_name});
          std::vector<chain::action> acts{create_action(accountPermissions, config::system_account_name, "delegatebw"_n, act_payload)};
-         EOSC_ASSERT( !(buy_ram_amount.size()) || !buy_ram_bytes, "ERROR: --buyram and --buy-ram-bytes cannot be set at the same time" );
-         if (buy_ram_amount.size()) {
-            acts.push_back( create_buyram(name(from_str), name(receiver_str), to_asset(buy_ram_amount)) );
-         } else if (buy_ram_bytes) {
-            acts.push_back( create_buyrambytes(name(from_str), name(receiver_str), buy_ram_bytes) );
-         }
          send_actions(std::move(acts), signing_keys_opt.get_keys());
       });
    }
@@ -1790,28 +1765,20 @@ struct list_bw_subcommand {
    }
 };
 
-struct buyram_subcommand {
+struct buygas_subcommand {
    string from_str;
    string receiver_str;
-   string amount;
-   bool kbytes = false;
-   bool bytes = false;
+   string quant;
 
-   buyram_subcommand(CLI::App* actionRoot) {
-      auto buyram = actionRoot->add_subcommand("buyram", localized("Buy RAM"));
-      buyram->add_option("payer", from_str, localized("The account paying for RAM"))->required();
-      buyram->add_option("receiver", receiver_str, localized("The account receiving bought RAM"))->required();
-      buyram->add_option("amount", amount, localized("The amount of tokens to pay for RAM, or number of bytes/kibibytes of RAM if --bytes/--kbytes is set"))->required();
-      buyram->add_flag("--kbytes,-k", kbytes, localized("The amount to buy in kibibytes (KiB)"));
-      buyram->add_flag("--bytes,-b", bytes, localized("The amount to buy in bytes"));
-      add_standard_transaction_options_plus_signing(buyram, "payer@active");
-      buyram->callback([this] {
-         EOSC_ASSERT( !kbytes || !bytes, "ERROR: --kbytes and --bytes cannot be set at the same time" );
-         if (kbytes || bytes) {
-            send_actions( { create_buyrambytes(name(from_str), name(receiver_str), fc::to_uint64(amount) * ((kbytes) ? 1024ull : 1ull)) }, signing_keys_opt.get_keys());
-         } else {
-            send_actions( { create_buyram(name(from_str), name(receiver_str), to_asset(amount)) }, signing_keys_opt.get_keys());
-         }
+   buygas_subcommand(CLI::App* actionRoot) {
+      auto buygas = actionRoot->add_subcommand("buygas", localized("Buy GAS"));
+      buygas->add_option("payer", from_str, localized("The account paying for GAS"))->required();
+      buygas->add_option("receiver", receiver_str, localized("The account receiving bought GAS"))->required();
+      buygas->add_option("quant", quant, localized("The quantity of core tokens to buy GAS with"))->required();
+      add_standard_transaction_options_plus_signing(buygas, "payer@active");
+      buygas->callback([this] {
+         send_actions( { create_buygas(name(from_str), name(receiver_str), to_asset(quant)) }, signing_keys_opt.get_keys());
+
       });
    }
 };
@@ -4530,7 +4497,7 @@ int main( int argc, char** argv ) {
    auto bidname = bidname_subcommand(system);
    auto bidnameinfo = bidname_info_subcommand(system);
 
-   auto buyram = buyram_subcommand(system);
+   auto buygas = buygas_subcommand(system);
    auto sellram = sellram_subcommand(system);
 
    auto claimRewards = claimrewards_subcommand(system);
