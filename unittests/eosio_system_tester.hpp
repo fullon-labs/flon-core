@@ -307,30 +307,6 @@ public:
       return data.empty() ? asset(0, symbol{}) : abi_ser.binary_to_variant("rex_fund", data, abi_serializer::create_yield_function(T::abi_serializer_max_time))["balance"].template as<asset>();
    }
 
-   void setup_rex_accounts( const std::vector<account_name>& accounts,
-                            const asset& init_balance,
-                            const asset& net = core_from_string("80.0000"),
-                            const asset& cpu = core_from_string("80.0000"),
-                            bool deposit_into_rex_fund = true ) {
-      const asset nstake = core_from_string("10.0000");
-      const asset cstake = core_from_string("10.0000");
-      create_account_with_resources( "proxyaccount"_n, config::system_account_name, core_from_string("1.0000"), false, net, cpu );
-      BOOST_REQUIRE_EQUAL( T::success(), push_action( "proxyaccount"_n, "regproxy"_n, mvo()("proxy", "proxyaccount")("isproxy", true) ) );
-      for (const auto& a: accounts) {
-         create_account_with_resources( a, config::system_account_name, core_from_string("1.0000"), false, net, cpu );
-         transfer( config::system_account_name, a, init_balance + nstake + cstake, config::system_account_name );
-         BOOST_REQUIRE_EQUAL( T::success(),                        stake( a, a, nstake, cstake) );
-         BOOST_REQUIRE_EQUAL( T::success(),                        vote( a, { }, "proxyaccount"_n ) );
-         BOOST_REQUIRE_EQUAL( init_balance,                     get_balance(a) );
-         BOOST_REQUIRE_EQUAL( asset::from_string("0.0000 REX"), get_rex_balance(a) );
-         if (deposit_into_rex_fund) {
-            BOOST_REQUIRE_EQUAL( T::success(),    deposit( a, init_balance ) );
-            BOOST_REQUIRE_EQUAL( init_balance, get_rex_fund( a ) );
-            BOOST_REQUIRE_EQUAL( 0,            get_balance( a ).get_amount() );
-         }
-      }
-   }
-
    static fc::variant_object producer_parameters_example( int n ) {
       return mutable_variant_object()
          ("max_block_net_usage", 10000000 + n )
