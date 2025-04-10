@@ -1,5 +1,5 @@
 ## config cmake
-set( PROJECT_NAME                   fullon      )
+set( PROJECT_NAME                   flon-core      )
 
 ## config system account
 set( SYSTEM_ACCOUNT_NAME            flon        )
