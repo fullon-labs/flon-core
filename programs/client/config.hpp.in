@@ -3,8 +3,6 @@
  */
 #pragma once
 
-#define CLIENT_EXECUTABLE_NAME                  "${CLIENT_EXECUTABLE_NAME}"
-
 namespace eosio { namespace client { namespace config {
    constexpr char    locale_path[]              {"${LOCALEDIR}"                  };
    constexpr char    locale_domain[]            {"${LOCALEDOMAIN}"               };
