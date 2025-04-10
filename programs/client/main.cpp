@@ -1109,7 +1109,7 @@ void ensure_wallet_running(CLI::App* app) {
     if (app->get_subcommand("multisig")->got_subcommand("review")) // multisig review does not require wallet
        return;
     if (auto* subapp = app->get_subcommand("system")) {
-       if (subapp->got_subcommand("listproducers") || subapp->got_subcommand("listbw") || subapp->got_subcommand("bidnameinfo")) // system list* do not require wallet
+       if (subapp->got_subcommand("listproducers") || subapp->got_subcommand("bidnameinfo")) // system list* do not require wallet
          return;
     }
     if (wallet_url != default_wallet_url && wallet_url != default_eos_wallet_url)
