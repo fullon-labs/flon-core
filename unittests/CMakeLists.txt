@@ -13,7 +13,7 @@ ExternalProject_Add(
   system_contracts_project
   SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/system_contracts/contracts
   BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR}/system_contracts
-  CMAKE_ARGS ${CMAKE_ARGS_VAL}
+  CMAKE_ARGS -DCMAKE_TOOLCHAIN_FILE=${CDT_TOOLCHAIN_FILE}
              -DCMAKE_BUILD_TYPE=Release
              -DSYSTEM_CONFIGURABLE_WASM_LIMITS=On
              -DSYSTEM_BLOCKCHAIN_PARAMETERS=On
