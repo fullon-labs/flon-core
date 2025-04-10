@@ -611,6 +611,11 @@ uint64_t resource_limits_manager::get_total_net_usage() const {
    return state.total_net_usage;
 }
 
+uint64_t resource_limits_manager::get_total_ram_usage() const {
+   const auto& state = _db.get<resource_limits_state_object>();
+   return state.total_ram_usage;
+}
+
 uint64_t resource_limits_manager::get_virtual_block_cpu_limit() const {
    const auto& state = _db.get<resource_limits_state_object>();
    return state.virtual_cpu_limit;

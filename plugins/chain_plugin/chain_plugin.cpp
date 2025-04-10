@@ -1321,6 +1321,7 @@ read_only::get_info_results read_only::get_info(const read_only::get_info_params
       app().full_version_string(),
       rm.get_total_cpu_usage(),
       rm.get_total_net_usage(),
+      rm.get_total_ram_usage(),
       db.earliest_available_block_num(),
       db.last_irreversible_block_time()
    };
