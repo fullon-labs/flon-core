@@ -9,8 +9,10 @@ ARCH=$( uname )
 [[ "$VERSION_ID" != "22.04" ]] && echo "- Only support Ubuntu version 22.04, but got version $VERSION_ID!" 1>&2 && exit 1
 
 CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE:-"Release"}
-sudo apt-get update
-sudo apt-get install -y \
+INSTALL_DEPENDENT_LIBS=${INSTALL_DEPENDENT_LIBS:-true}
+if [[ ${INSTALL_DEPENDENT_LIBS} == true ]]; then
+    sudo apt-get update
+    sudo apt-get install -y \
         build-essential \
         cmake \
         git \
@@ -20,6 +22,7 @@ sudo apt-get install -y \
         python3-numpy \
         file \
         zlib1g-dev
+fi
 export CPU_CORES=${CPU_CORES:-$(nproc)}
 export BUILD_DIR=${BUILD_DIR:-"build"}
 mkdir -p ${BUILD_DIR}
