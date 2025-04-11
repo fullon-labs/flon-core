@@ -1910,9 +1910,20 @@ void get_account( const string& accountName, const string& coresym, bool json_fo
 
       if (res.is_res_unlimited ) std::cout << "resource unlimited: true" << std::endl;
 
+      auto to_pretty_gas = []( uint64_t gas, bool is_res_unlimited = false ) {
+         if(is_res_unlimited) {
+             // special case. Treat it as unlimited
+             return std::string("unlimited");
+         }
+
+         std::stringstream ss;
+         ss << gas << " ELON";
+         return ss.str();
+      };
+
       std::cout << "gas:" << std::endl;
-      std::cout << indent << std::left << std::setw(11) << "reserved:"  << std::right << std::setw(25) << res.gas_reserved << " ELON" << std::endl;
-      std::cout << indent << std::left << std::setw(11) << "max:"       << std::right << std::setw(25) << res.gas_max      << " ELON" << std::endl;
+      std::cout << indent << std::left << std::setw(11) << "reserved:"  << std::right << std::setw(25) << to_pretty_gas(res.gas_reserved) << std::endl;
+      std::cout << indent << std::left << std::setw(11) << "max:"       << std::right << std::setw(25) << to_pretty_gas(res.gas_max, res.is_res_unlimited) << std::endl;
       std::cout << std::endl;
 
       auto to_pretty_net = []( uint64_t nbytes, bool is_res_unlimited = false, uint8_t width_for_units = 0 ) {
