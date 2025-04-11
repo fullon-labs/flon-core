@@ -2464,9 +2464,7 @@ read_only::get_account_return_t read_only::get_account( const get_account_params
    result.ram_res.used = account_usage.ram_usage;
    result.ram_res.max = rm.convert_gas_to_ram(result.gas_max);
 
-   eosio::chain::resource_limits::account_resource_limit subjective_cpu_bill_limit;
-   subjective_cpu_bill_limit.used = db.get_subjective_billing().get_subjective_bill( result.account_name, fc::time_point::now() );
-   result.subjective_cpu_bill_limit = subjective_cpu_bill_limit;
+   result.subjective_cpu_bill = db.get_subjective_billing().get_subjective_bill( result.account_name, fc::time_point::now() );
 
    const auto linked_action_map = ([&](){
       const auto& links = d.get_index<permission_link_index,by_permission_name>();

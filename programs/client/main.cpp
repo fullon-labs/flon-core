@@ -1998,9 +1998,9 @@ void get_account( const string& accountName, const string& coresym, bool json_fo
       std::cout << indent << std::left << std::setw(11) << "limit:" << std::right << std::setw(18) << to_pretty_net( res.ram_res.max, res.is_res_unlimited )  << std::endl;
       std::cout << std::endl;
 
-      if( res.subjective_cpu_bill_limit ) {
+      if( res.subjective_cpu_bill ) {
          std::cout << "subjective cpu bandwidth:" << std::endl;
-         std::cout << indent << std::left << std::setw(11) << "used:"      << std::right << std::setw(18) << to_pretty_time( (res.subjective_cpu_bill_limit)->used ) << "\n";
+         std::cout << indent << std::left << std::setw(11) << "used:"      << std::right << std::setw(18) << to_pretty_time( (*res.subjective_cpu_bill) ) << "\n";
          std::cout << std::endl;
       }
 

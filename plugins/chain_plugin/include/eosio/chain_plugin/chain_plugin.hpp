@@ -286,7 +286,7 @@ public:
       fc::variant                refund_request;
       fc::variant                voter_info;
 
-      std::optional<eosio::chain::resource_limits::account_resource_limit> subjective_cpu_bill_limit;
+      std::optional<int64_t>     subjective_cpu_bill;
       std::vector<linked_action> eosio_any_linked_actions;
    };
 
@@ -1083,7 +1083,7 @@ FC_REFLECT( eosio::chain_apis::read_only::get_account_results,
             (account_name)(head_block_num)(head_block_time)(privileged)(last_code_update)(created)
             (core_liquid_balance)(is_res_unlimited)(gas_reserved)(gas_max)(net_res)(cpu_res)(ram_res)(permissions)
             (refund_request)(voter_info)
-            (subjective_cpu_bill_limit) (eosio_any_linked_actions) )
+            (subjective_cpu_bill) (eosio_any_linked_actions) )
 // @swap code_hash
 FC_REFLECT( eosio::chain_apis::read_only::get_code_results, (account_name)(code_hash)(wast)(wasm)(abi) )
 FC_REFLECT( eosio::chain_apis::read_only::get_code_hash_results, (account_name)(code_hash) )
