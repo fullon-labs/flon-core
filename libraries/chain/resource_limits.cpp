@@ -7,6 +7,7 @@
 #include <boost/tuple/tuple_io.hpp>
 #include <eosio/chain/database_utils.hpp>
 #include <eosio/chain/global_property_object.hpp>
+#include <eosio/chain/contract_table_utils.hpp>
 #include <algorithm>
 
 namespace eosio { namespace chain {
@@ -166,8 +167,8 @@ namespace res_utils {
 struct core_gas_accessor;
 using core_gas_accessor_ptr = std::shared_ptr<core_gas_accessor>;
 struct core_gas_accessor {
-   core_asset_account_ptr sys_gas_account;
-   core_asset_account_ptr payer_gas_account;
+   contract_table_utils::core_asset_account_ptr sys_gas_account;
+   contract_table_utils::core_asset_account_ptr payer_gas_account;
    uint64_t convertible_gas   = 0;
 
    static core_gas_accessor_ptr create(chainbase::database& db, const account_name& payer);
@@ -554,9 +555,9 @@ void resource_limits_manager::get_account_limits( const account_name& account, u
 }
 
 uint64_t resource_limits_manager::get_account_convertible_gas( const account_name& account ) const {
-   auto payer_gas_account = core_asset_account::create(_db, account);
+   auto payer_gas_account = contract_table_utils::core_asset_account::create(_db, account);
    if (payer_gas_account && payer_gas_account->balance().get_amount() > 0) {
-      auto sys_gas_account = core_asset_account::create(_db, config::gas_account_name);
+      auto sys_gas_account = contract_table_utils::core_asset_account::create(_db, config::gas_account_name);
       if (sys_gas_account) {
          return res_utils::convert_core_asset_to_gas(payer_gas_account->balance());
       }
@@ -684,63 +685,18 @@ uint64_t resource_limits_manager::convert_gas_to_ram(uint64_t gas) const {
    return res_utils::convert_gas_to_ram(config, gas);
 }
 
-token_account_data token_account_data::unpack_from(const key_value_object& obj) {
-   fc::datastream<const char*> ds(obj.value.data(), obj.value.size());
-   token_account_data ret;
-   fc::raw::unpack(ds, ret.balance);
-   ds.read(ret.remaining_data.data(), ret.remaining_data.size());
-   return ret;
-}
-
-void token_account_data::pack_to(key_value_object& obj) {
-   // Should not process the payer of ram
-   size_t sz = fc::raw::pack_size( balance ) + remaining_data.size();
-   obj.value.resize_and_fill( sz, [&](char* data, std::size_t size) {
-      fc::datastream<char*> ds( data, size );
-      fc::raw::pack( ds, balance );
-      ds.write(remaining_data.data(), remaining_data.size());
-   });
-}
-
-core_asset_account_ptr core_asset_account::create(chainbase::database& db, const account_name& account) {
-   const auto* t_id = db.find<chain::table_id_object, chain::by_code_scope_table>(boost::make_tuple( config::token_account_name, account, "accounts"_n ));
-   if (!t_id) return nullptr;
-
-   const auto &idx = db.get_index<key_value_index, by_scope_primary>();
-
-   auto itr = idx.find(boost::make_tuple( t_id->id, config::core_symbol_code.value ));
-   if (itr == idx.end()) return nullptr;
-
-   const key_value_object& obj = *itr;
-   auto data = token_account_data::unpack_from(obj);
-   EOS_ASSERT( data.balance.get_symbol() == config::core_symbol,
-               tx_gas_exception,
-               "precision of core symbol ${sym} in token contract mismatch with config ${cfg_sym}",
-               ("sym", data.balance.get_symbol())("cfg_sym", config::core_symbol)
-   );
-
-   return std::make_shared<core_asset_account>(obj, std::move(data));
-}
-
-void core_asset_account::save(chainbase::database& db) {
-   db.modify(table_obj, [&](auto& obj) {
-      acct_data.pack_to(obj);
-      // TODO: dmlog
-   });
-}
-
 core_gas_accessor_ptr core_gas_accessor::create(chainbase::database& db, const account_name& payer) {
 
-   core_asset_account_ptr sys_gas_account;
-   core_asset_account_ptr payer_gas_account;
+   contract_table_utils::core_asset_account_ptr sys_gas_account;
+   contract_table_utils::core_asset_account_ptr payer_gas_account;
    uint64_t convertible_gas   = 0;
-   payer_gas_account = core_asset_account::create(db, payer);
+   payer_gas_account = contract_table_utils::core_asset_account::create(db, payer);
    if (!payer_gas_account) return nullptr;
 
    convertible_gas = res_utils::convert_core_asset_to_gas(payer_gas_account->balance());
    if (convertible_gas == 0) return nullptr;
 
-   sys_gas_account = core_asset_account::create(db, config::gas_account_name);
+   sys_gas_account = contract_table_utils::core_asset_account::create(db, config::gas_account_name);
    // if the core asset account of system gas not exists,
    // can not transfer core asset of converted_gas to system gas account
    if (!sys_gas_account) return nullptr;

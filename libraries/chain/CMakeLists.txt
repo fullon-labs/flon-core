@@ -98,6 +98,7 @@ add_library( eosio_chain
              block_header_state_legacy.cpp
              block_state_legacy.cpp
              fork_database.cpp
+             contract_table_utils.cpp
              controller.cpp
              authorization_manager.cpp
              resource_limits.cpp

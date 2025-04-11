@@ -4,7 +4,6 @@
 #include <eosio/chain/contract_types.hpp>
 #include <eosio/chain/multi_index_includes.hpp>
 #include <eosio/chain/snapshot.hpp>
-#include <eosio/chain/database_utils.hpp>
 
 #include <array>
 #include <type_traits>
