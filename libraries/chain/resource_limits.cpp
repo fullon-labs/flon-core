@@ -7,7 +7,6 @@
 #include <boost/tuple/tuple_io.hpp>
 #include <eosio/chain/database_utils.hpp>
 #include <eosio/chain/global_property_object.hpp>
-#include <eosio/chain/contract_table_utils.hpp>
 #include <algorithm>
 
 namespace eosio { namespace chain {
@@ -555,21 +554,29 @@ void resource_limits_manager::get_account_limits( const account_name& account, u
 }
 
 uint64_t resource_limits_manager::get_account_convertible_gas( const account_name& account ) const {
-   auto payer_gas_account = contract_table_utils::core_asset_account::create(_db, account);
-   if (payer_gas_account && payer_gas_account->balance().get_amount() > 0) {
+   return get_account_convertible_gas(contract_table_utils::core_asset_account::create(_db, account));
+}
+
+uint64_t resource_limits_manager::get_account_convertible_gas( const contract_table_utils::core_asset_account_ptr& account ) const {
+   if (account && account->balance().get_amount() > 0) {
       auto sys_gas_account = contract_table_utils::core_asset_account::create(_db, config::gas_account_name);
       if (sys_gas_account) {
-         return res_utils::convert_core_asset_to_gas(payer_gas_account->balance());
+         return res_utils::convert_core_asset_to_gas(account->balance());
       }
    }
    return 0;
 }
 
 uint64_t resource_limits_manager::get_account_gas_max( const account_name& account, uint64_t reserved_gas ) const {
+   return get_account_gas_max(contract_table_utils::core_asset_account::create(_db, account), reserved_gas);
+}
+
+uint64_t resource_limits_manager::get_account_gas_max( const contract_table_utils::core_asset_account_ptr& account, uint64_t reserved_gas ) const {
    uint64_t convertible_gas = get_account_convertible_gas(account);
    calc_utils::verify_add(reserved_gas, convertible_gas, "reserved gas and convertible gas of getting account");
    return reserved_gas + convertible_gas;
 }
+
 
 uint64_t resource_limits_manager::get_account_gas( const account_name& account) const {
    return res_utils::get_account_limits(_db, account).gas;

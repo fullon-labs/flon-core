@@ -20,6 +20,7 @@
 #include <eosio/chain/block_header_state_utils.hpp>
 
 #include <eosio/resource_monitor_plugin/resource_monitor_plugin.hpp>
+#include <eosio/chain/contract_table_utils.hpp>
 
 #include <boost/signals2/connection.hpp>
 #include <boost/algorithm/string.hpp>
@@ -2450,10 +2451,12 @@ read_only::get_account_return_t read_only::get_account( const get_account_params
    result.last_code_update = accnt_metadata_obj.last_code_update;
    result.created          = accnt_obj.creation_date;
 
+   auto asset_account = contract_table_utils::core_asset_account::create(d, result.account_name);
+
    const auto& account_usage = d.get<resource_limits::resource_usage_object, resource_limits::by_owner>( result.account_name );
    rm.get_account_limits(result.account_name, result.gas_reserved, result.is_res_unlimited);
    // get account gas max, include gas_reserved and convertible_gas
-   result.gas_max = rm.get_account_gas_max(result.account_name, result.gas_reserved);
+   result.gas_max = rm.get_account_gas_max(asset_account, result.gas_reserved);
 
    result.cpu_res.used = account_usage.cpu_usage;
    result.cpu_res.max = rm.convert_gas_to_cpu(result.gas_max);
@@ -2522,22 +2525,12 @@ read_only::get_account_return_t read_only::get_account( const get_account_params
 
    http_params_t http_params;
 
-   if( abi_def abi; abi_serializer::to_abi(code_account.abi, abi) ) {
+   if (asset_account) {
+      result.core_liquid_balance = asset_account->acct_data.balance;
+   }
 
-      const auto* t_id = d.find<chain::table_id_object, chain::by_code_scope_table>(boost::make_tuple( config::token_account_name, params.account_name, "accounts"_n ));
-      if( t_id != nullptr ) {
-         const auto &idx = d.get_index<key_value_index, by_scope_primary>();
-         auto it = idx.find(boost::make_tuple( t_id->id, config::core_symbol_code ));
-         if( it != idx.end() && it->value.size() >= sizeof(asset) ) {
-            asset bal;
-            fc::datastream<const char *> ds(it->value.data(), it->value.size());
-            fc::raw::unpack(ds, bal);
-
-            if( bal.get_symbol().valid() && bal.get_symbol() == config::core_symbol ) {
-               result.core_liquid_balance = bal;
-            }
-         }
-      }
+   abi_def abi;
+   if( asset_account && abi_serializer::to_abi(code_account.abi, abi) ) {
 
       auto lookup_object = [&](const name& obj_name, const name& account_name) -> std::optional<vector<char>> {
          auto t_id = d.find<chain::table_id_object, chain::by_code_scope_table>(boost::make_tuple( config::system_account_name, account_name, obj_name ));

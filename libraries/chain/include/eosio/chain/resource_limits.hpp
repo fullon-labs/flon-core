@@ -9,6 +9,7 @@
 #include <set>
 
 #include <eosio/chain/contract_table_objects.hpp>
+#include <eosio/chain/contract_table_utils.hpp>
 #include <eosio/chain/asset.hpp>
 
 namespace eosio { namespace chain {
@@ -98,7 +99,10 @@ namespace eosio { namespace chain {
 
          void get_account_limits( const account_name& account, uint64_t& gas, bool& is_unlimited ) const;
          uint64_t get_account_convertible_gas( const account_name& account ) const;
+         uint64_t get_account_convertible_gas( const contract_table_utils::core_asset_account_ptr& account ) const;
+
          uint64_t get_account_gas_max( const account_name& account, uint64_t reserved_gas ) const;
+         uint64_t get_account_gas_max( const contract_table_utils::core_asset_account_ptr& account, uint64_t reserved_gas ) const;
          uint64_t get_account_gas( const account_name& account) const;
 
          bool is_account_unlimited( const account_name& account ) const;

@@ -20,7 +20,7 @@ namespace eosio { namespace chain { namespace contract_table_utils {
       });
    }
 
-   core_asset_account_ptr core_asset_account::create(chainbase::database& db, const account_name& account) {
+   core_asset_account_ptr core_asset_account::create(const chainbase::database& db, const account_name& account) {
       const auto* t_id = db.find<chain::table_id_object, chain::by_code_scope_table>(boost::make_tuple( config::token_account_name, account, "accounts"_n ));
       if (!t_id) return nullptr;
 

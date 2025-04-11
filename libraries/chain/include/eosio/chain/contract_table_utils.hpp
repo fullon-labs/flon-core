@@ -26,7 +26,7 @@ namespace eosio { namespace chain { namespace contract_table_utils {
       core_asset_account( const key_value_object& table_obj, token_account_data acct_data)
       :table_obj(table_obj), acct_data(acct_data) {}
 
-      static core_asset_account_ptr create(chainbase::database& db, const account_name& account);
+      static core_asset_account_ptr create(const chainbase::database& db, const account_name& account);
 
       void save(chainbase::database& db);
 
