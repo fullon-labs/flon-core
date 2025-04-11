@@ -1908,15 +1908,12 @@ void get_account( const string& accountName, const string& coresym, bool json_fo
       std::cout << std::endl;
 
 
-      std::cout << "is resource unlimited: " << res.is_res_unlimited << std::endl;
+      if (res.is_res_unlimited ) std::cout << "resource unlimited: true" << std::endl;
 
-      auto to_pretty_gas = []( uint64_t gas ) {
-         // TODO: to_pretty_gas
-         return std::to_string(gas);
-      };
-
-      std::cout << "gas: " << std::endl
-                << indent << "reserved: " << std::setw(15) << to_pretty_gas(res.gas_reserved) << "  max: " << std::setw(15) << to_pretty_gas(res.gas_max) << std::endl << std::endl;
+      std::cout << "gas:" << std::endl;
+      std::cout << indent << std::left << std::setw(11) << "reserved:"  << std::right << std::setw(18) << res.gas_reserved << " ELON" << std::endl;
+      std::cout << indent << std::left << std::setw(11) << "max:"       << std::right << std::setw(18) << res.gas_max      << " ELON" << std::endl;
+      std::cout << std::endl;
 
       auto to_pretty_net = []( uint64_t nbytes, bool is_res_unlimited = false, uint8_t width_for_units = 0 ) {
          if(is_res_unlimited) {
