@@ -1810,7 +1810,7 @@ void get_account( const string& accountName, const string& coresym, bool json_fo
       json = call(get_account_func, fc::mutable_variant_object("account_name", accountName));
    }
    else {
-      json = call(get_account_func, fc::mutable_variant_object("account_name", accountName)("expected_core_symbol", symbol::from_string(coresym)));
+      json = call(get_account_func, fc::mutable_variant_object("account_name", accountName));
    }
 
    auto res = json.as<eosio::chain_apis::read_only::get_account_results>();
@@ -1911,8 +1911,8 @@ void get_account( const string& accountName, const string& coresym, bool json_fo
       if (res.is_res_unlimited ) std::cout << "resource unlimited: true" << std::endl;
 
       std::cout << "gas:" << std::endl;
-      std::cout << indent << std::left << std::setw(11) << "reserved:"  << std::right << std::setw(18) << res.gas_reserved << " ELON" << std::endl;
-      std::cout << indent << std::left << std::setw(11) << "max:"       << std::right << std::setw(18) << res.gas_max      << " ELON" << std::endl;
+      std::cout << indent << std::left << std::setw(11) << "reserved:"  << std::right << std::setw(25) << res.gas_reserved << " ELON" << std::endl;
+      std::cout << indent << std::left << std::setw(11) << "max:"       << std::right << std::setw(25) << res.gas_max      << " ELON" << std::endl;
       std::cout << std::endl;
 
       auto to_pretty_net = []( uint64_t nbytes, bool is_res_unlimited = false, uint8_t width_for_units = 0 ) {
@@ -1981,60 +1981,35 @@ void get_account( const string& accountName, const string& coresym, bool json_fo
       std::cout << std::fixed << setprecision(3);
 
       std::cout << "cpu bandwidth:" << std::endl;
-      std::cout << indent << std::left << std::setw(11) << "used:"  << std::right << std::setw(18) << to_pretty_time( res.cpu_res.used ) << std::endl;
-      std::cout << indent << std::left << std::setw(11) << "limit:" << std::right << std::setw(18) << to_pretty_time( res.cpu_res.max, res.is_res_unlimited ) << std::endl;
+      std::cout << indent << std::left << std::setw(11) << "used:"  << std::right << std::setw(25) << to_pretty_time( res.cpu_res.used ) << std::endl;
+      std::cout << indent << std::left << std::setw(11) << "limit:" << std::right << std::setw(25) << to_pretty_time( res.cpu_res.max, res.is_res_unlimited ) << std::endl;
       std::cout << std::endl;
 
       std::cout << "net bandwidth: " << std::endl;
-      std::cout << indent << std::left << std::setw(11) << "used:"  << std::right << std::setw(18) << to_pretty_net( res.net_res.used ) << std::endl;
-      std::cout << indent << std::left << std::setw(11) << "limit:" << std::right << std::setw(18) << to_pretty_net( res.net_res.max, res.is_res_unlimited )  << std::endl;
+      std::cout << indent << std::left << std::setw(11) << "used:"  << std::right << std::setw(25) << to_pretty_net( res.net_res.used ) << std::endl;
+      std::cout << indent << std::left << std::setw(11) << "limit:" << std::right << std::setw(25) << to_pretty_net( res.net_res.max, res.is_res_unlimited )  << std::endl;
       std::cout << std::endl;
 
       std::cout << "memory: " << std::endl;
-      std::cout << indent << std::left << std::setw(11) << "used:"  << std::right << std::setw(18) << to_pretty_net( res.ram_res.used ) << std::endl;
-      std::cout << indent << std::left << std::setw(11) << "limit:" << std::right << std::setw(18) << to_pretty_net( res.ram_res.max, res.is_res_unlimited )  << std::endl;
+      std::cout << indent << std::left << std::setw(11) << "used:"  << std::right << std::setw(25) << to_pretty_net( res.ram_res.used ) << std::endl;
+      std::cout << indent << std::left << std::setw(11) << "limit:" << std::right << std::setw(25) << to_pretty_net( res.ram_res.max, res.is_res_unlimited )  << std::endl;
       std::cout << std::endl;
 
       if( res.subjective_cpu_bill ) {
          std::cout << "subjective cpu bandwidth:" << std::endl;
-         std::cout << indent << std::left << std::setw(11) << "used:"      << std::right << std::setw(18) << to_pretty_time( (*res.subjective_cpu_bill) ) << "\n";
+         std::cout << indent << std::left << std::setw(11) << "used:"      << std::right << std::setw(25) << to_pretty_time( (*res.subjective_cpu_bill) ) << "\n";
          std::cout << std::endl;
-      }
-
-      if( res.refund_request.is_object() ) {
-         auto obj = res.refund_request.get_object();
-         auto request_time = fc::time_point_sec::from_iso_string( obj["request_time"].as_string() );
-         fc::time_point refund_time = request_time.to_time_point() + fc::days(3);
-         auto now = res.head_block_time;
-         asset net = asset::from_string( obj["net_amount"].as_string() );
-         asset cpu = asset::from_string( obj["cpu_amount"].as_string() );
-         unstaking = net + cpu;
-
-         if( unstaking > asset( 0, unstaking.get_symbol() ) ) {
-            std::cout << std::fixed << setprecision(3);
-            std::cout << "unstaking tokens:" << std::endl;
-            std::cout << indent << std::left << std::setw(25) << "time of unstake request:" << std::right << std::setw(20) << request_time.to_iso_string();
-            if( now >= refund_time ) {
-               std::cout << " (available to claim now with 'refund' action of system contract)\n";
-            } else {
-               std::cout << " (funds will be available in " << to_pretty_time( (refund_time - now).count(), 0 ) << ")\n";
-            }
-            std::cout << indent << std::left << std::setw(25) << "from net bandwidth:" << std::right << std::setw(18) << net << std::endl;
-            std::cout << indent << std::left << std::setw(25) << "from cpu bandwidth:" << std::right << std::setw(18) << cpu << std::endl;
-            std::cout << indent << std::left << std::setw(25) << "total:" << std::right << std::setw(18) << unstaking << std::endl;
-            std::cout << std::endl;
-         }
       }
 
       if( res.core_liquid_balance ) {
          std::cout << res.core_liquid_balance->get_symbol().name() << " balances: " << std::endl;
          std::cout << indent << std::left << std::setw(11)
-                   << "liquid:" << std::right << std::setw(18) << *res.core_liquid_balance << std::endl;
+                   << "liquid:" << std::right << std::setw(25) << *res.core_liquid_balance << std::endl;
          std::cout << indent << std::left << std::setw(11)
-                   << "staked:" << std::right << std::setw(18) << staked << std::endl;
+                   << "staked:" << std::right << std::setw(25) << staked << std::endl;
          std::cout << indent << std::left << std::setw(11)
-                   << "unstaking:" << std::right << std::setw(18) << unstaking << std::endl;
-         std::cout << indent << std::left << std::setw(11) << "total:" << std::right << std::setw(18) << (*res.core_liquid_balance + staked + unstaking) << std::endl;
+                   << "unstaking:" << std::right << std::setw(25) << unstaking << std::endl;
+         std::cout << indent << std::left << std::setw(11) << "total:" << std::right << std::setw(25) << (*res.core_liquid_balance + staked + unstaking) << std::endl;
          std::cout << std::endl;
       }
 

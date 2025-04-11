@@ -2524,21 +2524,16 @@ read_only::get_account_return_t read_only::get_account( const get_account_params
 
    if( abi_def abi; abi_serializer::to_abi(code_account.abi, abi) ) {
 
-      auto core_symbol = extract_core_symbol();
-
-      if (params.expected_core_symbol)
-         core_symbol = *(params.expected_core_symbol);
-
       const auto* t_id = d.find<chain::table_id_object, chain::by_code_scope_table>(boost::make_tuple( config::token_account_name, params.account_name, "accounts"_n ));
       if( t_id != nullptr ) {
          const auto &idx = d.get_index<key_value_index, by_scope_primary>();
-         auto it = idx.find(boost::make_tuple( t_id->id, core_symbol.to_symbol_code() ));
+         auto it = idx.find(boost::make_tuple( t_id->id, config::core_symbol_code ));
          if( it != idx.end() && it->value.size() >= sizeof(asset) ) {
             asset bal;
             fc::datastream<const char *> ds(it->value.data(), it->value.size());
             fc::raw::unpack(ds, bal);
 
-            if( bal.get_symbol().valid() && bal.get_symbol() == core_symbol ) {
+            if( bal.get_symbol().valid() && bal.get_symbol() == config::core_symbol ) {
                result.core_liquid_balance = bal;
             }
          }
@@ -2635,45 +2630,6 @@ read_only::get_accounts_by_authorizers( const account_query_db::get_accounts_by_
    return aqdb->get_accounts_by_authorizers(args);
 }
 
-namespace detail {
-   struct ram_market_exchange_state_t {
-      asset  ignore1;
-      asset  ignore2;
-      double ignore3;
-      asset  core_symbol;
-      double ignore4;
-   };
-}
-
-chain::symbol read_only::extract_core_symbol()const {
-   symbol core_symbol(0);
-
-   // The following code makes assumptions about the contract deployed on eosio account (i.e. the system contract) and how it stores its data.
-   const auto& d = db.db();
-   const auto* t_id = d.find<chain::table_id_object, chain::by_code_scope_table>(boost::make_tuple( config::system_account_name, config::system_account_name, "rammarket"_n ));
-   if( t_id != nullptr ) {
-      const auto &idx = d.get_index<key_value_index, by_scope_primary>();
-      auto it = idx.find(boost::make_tuple( t_id->id, eosio::chain::string_to_symbol_c(4,"RAMCORE") ));
-      if( it != idx.end() ) {
-         detail::ram_market_exchange_state_t ram_market_exchange_state;
-
-         fc::datastream<const char *> ds( it->value.data(), it->value.size() );
-
-         try {
-            fc::raw::unpack(ds, ram_market_exchange_state);
-         } catch( ... ) {
-            return core_symbol;
-         }
-
-         if( ram_market_exchange_state.core_symbol.get_symbol().valid() ) {
-            core_symbol = ram_market_exchange_state.core_symbol.get_symbol();
-         }
-      }
-   }
-
-   return core_symbol;
-}
-
 read_only::get_consensus_parameters_results
 read_only::get_consensus_parameters(const get_consensus_parameters_params&, const fc::time_point& ) const {
    get_consensus_parameters_results results;
@@ -2718,5 +2674,3 @@ const controller::config& chain_plugin::chain_config() const {
 }
 
 } // namespace eosio
-
-FC_REFLECT( eosio::chain_apis::detail::ram_market_exchange_state_t, (ignore1)(ignore2)(ignore3)(core_symbol)(ignore4) )

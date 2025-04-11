@@ -283,7 +283,6 @@ public:
 
    struct get_account_params {
       name                  account_name;
-      std::optional<symbol> expected_core_symbol;
    };
    using get_account_return_t = std::function<chain::t_or_exception<get_account_results>()>;
    get_account_return_t get_account( const get_account_params& params, const fc::time_point& deadline )const;
@@ -828,8 +827,6 @@ public:
    using get_accounts_by_authorizers_params = account_query_db::get_accounts_by_authorizers_params;
    get_accounts_by_authorizers_result get_accounts_by_authorizers( const get_accounts_by_authorizers_params& args, const fc::time_point& deadline) const;
 
-   chain::symbol extract_core_symbol()const;
-
    using get_consensus_parameters_params = empty;
    struct get_consensus_parameters_results {
      chain::chain_config               chain_config;
@@ -1079,7 +1076,7 @@ FC_REFLECT( eosio::chain_apis::read_only::get_account_results,
 FC_REFLECT( eosio::chain_apis::read_only::get_code_results, (account_name)(code_hash)(wast)(wasm)(abi) )
 FC_REFLECT( eosio::chain_apis::read_only::get_code_hash_results, (account_name)(code_hash) )
 FC_REFLECT( eosio::chain_apis::read_only::get_abi_results, (account_name)(abi) )
-FC_REFLECT( eosio::chain_apis::read_only::get_account_params, (account_name)(expected_core_symbol) )
+FC_REFLECT( eosio::chain_apis::read_only::get_account_params, (account_name) )
 FC_REFLECT( eosio::chain_apis::read_only::get_code_params, (account_name)(code_as_wasm) )
 FC_REFLECT( eosio::chain_apis::read_only::get_code_hash_params, (account_name) )
 FC_REFLECT( eosio::chain_apis::read_only::get_abi_params, (account_name) )
