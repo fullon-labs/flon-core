@@ -679,6 +679,11 @@ uint64_t resource_limits_manager::convert_gas_to_net(uint64_t gas) const {
    return res_utils::convert_gas_to_net(config, gas);
 }
 
+uint64_t resource_limits_manager::convert_gas_to_ram(uint64_t gas) const {
+   const auto& config = _db.get<resource_limits_config_object>();
+   return res_utils::convert_gas_to_ram(config, gas);
+}
+
 token_account_data token_account_data::unpack_from(const key_value_object& obj) {
    fc::datastream<const char*> ds(obj.value.data(), obj.value.size());
    token_account_data ret;

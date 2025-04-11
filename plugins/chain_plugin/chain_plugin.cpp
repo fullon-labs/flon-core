@@ -2443,9 +2443,6 @@ read_only::get_account_return_t read_only::get_account( const get_account_params
    result.head_block_num  = db.head().block_num();
    result.head_block_time = db.head().block_time();
 
-   // TODO: fix me
-   // rm.get_account_limits( result.account_name, result.ram_quota, result.cpu_weight );
-
    const auto& accnt_obj = db.get_account( result.account_name );
    const auto& accnt_metadata_obj = db.db().get<account_metadata_object,by_name>( result.account_name );
 
@@ -2453,10 +2450,19 @@ read_only::get_account_return_t read_only::get_account( const get_account_params
    result.last_code_update = accnt_metadata_obj.last_code_update;
    result.created          = accnt_obj.creation_date;
 
+   const auto& account_usage = d.get<resource_limits::resource_usage_object, resource_limits::by_owner>( result.account_name );
    rm.get_account_limits(result.account_name, result.gas_reserved, result.is_res_unlimited);
+   // get account gas max, include gas_reserved and convertible_gas
    result.gas_max = rm.get_account_gas_max(result.account_name, result.gas_reserved);
-   // TODO: get account gas max, include gas_reserved and convertible_gas
-   result.ram_usage = rm.get_account_ram_usage( result.account_name );
+
+   result.cpu_res.used = account_usage.cpu_usage;
+   result.cpu_res.max = rm.convert_gas_to_cpu(result.gas_max);
+
+   result.net_res.used = account_usage.net_usage;
+   result.net_res.max = rm.convert_gas_to_net(result.gas_max);
+
+   result.ram_res.used = account_usage.ram_usage;
+   result.ram_res.max = rm.convert_gas_to_ram(result.gas_max);
 
    eosio::chain::resource_limits::account_resource_limit subjective_cpu_bill_limit;
    subjective_cpu_bill_limit.used = db.get_subjective_billing().get_subjective_bill( result.account_name, fc::time_point::now() );

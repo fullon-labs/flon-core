@@ -1918,17 +1918,17 @@ void get_account( const string& accountName, const string& coresym, bool json_fo
       std::cout << "gas: " << std::endl
                 << indent << "reserved: " << std::setw(15) << to_pretty_gas(res.gas_reserved) << "  max: " << std::setw(15) << to_pretty_gas(res.gas_max) << std::endl << std::endl;
 
-      auto to_pretty_net = []( int64_t nbytes, uint8_t width_for_units = 5 ) {
-         if(nbytes == -1) {
+      auto to_pretty_net = []( uint64_t nbytes, bool is_res_unlimited = false, uint8_t width_for_units = 0 ) {
+         if(is_res_unlimited) {
              // special case. Treat it as unlimited
              return std::string("unlimited");
          }
 
          string unit = "bytes";
          double bytes = static_cast<double> (nbytes);
-         if (bytes >= 1024 * 1024 * 1024 * 1024ll) {
+         if (bytes >= 1024 * 1024 * 1024 * 1024ull) {
              unit = "TiB";
-             bytes /= 1024 * 1024 * 1024 * 1024ll;
+             bytes /= 1024 * 1024 * 1024 * 1024ull;
          } else if (bytes >= 1024 * 1024 * 1024) {
              unit = "GiB";
              bytes /= 1024 * 1024 * 1024;
@@ -1948,19 +1948,16 @@ void get_account( const string& accountName, const string& coresym, bool json_fo
          return ss.str();
       };
 
-      std::cout << "memory: " << std::endl
-                << indent << "quota: " << std::setw(15) << to_pretty_net(res.ram_quota) << "  used: " << std::setw(15) << to_pretty_net(res.ram_usage) << std::endl << std::endl;
-
-      auto to_pretty_time = []( int64_t nmicro, uint8_t width_for_units = 5 ) {
-         if(nmicro == -1) {
+      auto to_pretty_time = []( uint64_t nmicro, bool is_res_unlimited = false, uint8_t width_for_units = 0 ) {
+         if(is_res_unlimited) {
              // special case. Treat it as unlimited
              return std::string("unlimited");
          }
          string unit = "us";
          double micro = static_cast<double>(nmicro);
 
-         if( micro > 1000000*60*60ll ) {
-            micro /= 1000000*60*60ll;
+         if( micro > 1000000*60*60ull ) {
+            micro /= 1000000*60*60ull;
             unit = "hr";
          }
          else if( micro > 1000000*60 ) {
@@ -1985,27 +1982,20 @@ void get_account( const string& accountName, const string& coresym, bool json_fo
       };
 
       std::cout << std::fixed << setprecision(3);
-      std::cout << indent << std::left << std::setw(11) << "used:" << std::right << std::setw(18);
-      if( res.net_limit.current_used ) {
-         std::cout << to_pretty_net(*res.net_limit.current_used) << "\n";
-      } else {
-         std::cout << to_pretty_net(res.net_limit.used) << "    ( out of date )\n";
-      }
-      std::cout << indent << std::left << std::setw(11) << "available:" << std::right << std::setw(18) << to_pretty_net( res.net_limit.available ) << "\n";
-      std::cout << indent << std::left << std::setw(11) << "limit:"     << std::right << std::setw(18) << to_pretty_net( res.net_limit.max ) << "\n";
-      std::cout << std::endl;
 
       std::cout << "cpu bandwidth:" << std::endl;
+      std::cout << indent << std::left << std::setw(11) << "used:"  << std::right << std::setw(18) << to_pretty_time( res.cpu_res.used ) << std::endl;
+      std::cout << indent << std::left << std::setw(11) << "limit:" << std::right << std::setw(18) << to_pretty_time( res.cpu_res.max, res.is_res_unlimited ) << std::endl;
+      std::cout << std::endl;
 
-      std::cout << std::fixed << setprecision(3);
-      std::cout << indent << std::left << std::setw(11) << "used:" << std::right << std::setw(18);
-      if( res.cpu_limit.current_used ) {
-         std::cout << to_pretty_time(*res.cpu_limit.current_used) << "\n";
-      } else {
-         std::cout << to_pretty_time(res.cpu_limit.used) << "    ( out of date )\n";
-      }
-      std::cout << indent << std::left << std::setw(11) << "available:" << std::right << std::setw(18) << to_pretty_time( res.cpu_limit.available ) << "\n";
-      std::cout << indent << std::left << std::setw(11) << "limit:"     << std::right << std::setw(18) << to_pretty_time( res.cpu_limit.max ) << "\n";
+      std::cout << "net bandwidth: " << std::endl;
+      std::cout << indent << std::left << std::setw(11) << "used:"  << std::right << std::setw(18) << to_pretty_net( res.net_res.used ) << std::endl;
+      std::cout << indent << std::left << std::setw(11) << "limit:" << std::right << std::setw(18) << to_pretty_net( res.net_res.max, res.is_res_unlimited )  << std::endl;
+      std::cout << std::endl;
+
+      std::cout << "memory: " << std::endl;
+      std::cout << indent << std::left << std::setw(11) << "used:"  << std::right << std::setw(18) << to_pretty_net( res.ram_res.used ) << std::endl;
+      std::cout << indent << std::left << std::setw(11) << "limit:" << std::right << std::setw(18) << to_pretty_net( res.ram_res.max, res.is_res_unlimited )  << std::endl;
       std::cout << std::endl;
 
       if( res.subjective_cpu_bill_limit ) {

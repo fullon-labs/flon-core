@@ -249,14 +249,12 @@ public:
    // account_resource_info holds similar data members as in account_resource_limit, but decoupling making them independently to be refactored in future
    struct account_resource_info {
       int64_t used = 0;
-      int64_t available = 0;
       int64_t max = 0;
       std::optional<chain::block_timestamp_type> last_usage_update_time;    // optional for backward node support
       std::optional<int64_t> current_used;  // optional for backward node support
       void set( const eosio::chain::resource_limits::account_resource_limit& arl)
       {
          used = arl.used;
-         available = arl.available;
          max = arl.max;
          last_usage_update_time = arl.last_usage_update_time;
          current_used = arl.current_used;
@@ -278,11 +276,10 @@ public:
       uint64_t                   gas_reserved = 0;
       uint64_t                   gas_max = 0;
 
-      int64_t                    ram_quota  = 0;
 
-      account_resource_info      net_limit;
-      account_resource_info      cpu_limit;
-      int64_t                    ram_usage = 0;
+      account_resource_info      net_res;
+      account_resource_info      cpu_res;
+      account_resource_info      ram_res;
 
       vector<permission>         permissions;
 
@@ -1081,10 +1078,10 @@ FC_REFLECT( eosio::chain_apis::read_only::get_producer_schedule_result, (active)
 FC_REFLECT( eosio::chain_apis::read_only::get_scheduled_transactions_params, (json)(lower_bound)(limit)(time_limit_ms) )
 FC_REFLECT( eosio::chain_apis::read_only::get_scheduled_transactions_result, (transactions)(more) );
 
-FC_REFLECT( eosio::chain_apis::read_only::account_resource_info, (used)(available)(max)(last_usage_update_time)(current_used) )
+FC_REFLECT( eosio::chain_apis::read_only::account_resource_info, (used)(max)(last_usage_update_time)(current_used) )
 FC_REFLECT( eosio::chain_apis::read_only::get_account_results,
             (account_name)(head_block_num)(head_block_time)(privileged)(last_code_update)(created)
-            (core_liquid_balance)(is_res_unlimited)(gas_reserved)(gas_max)(ram_quota)(net_limit)(cpu_limit)(ram_usage)(permissions)
+            (core_liquid_balance)(is_res_unlimited)(gas_reserved)(gas_max)(net_res)(cpu_res)(ram_res)(permissions)
             (refund_request)(voter_info)
             (subjective_cpu_bill_limit) (eosio_any_linked_actions) )
 // @swap code_hash
