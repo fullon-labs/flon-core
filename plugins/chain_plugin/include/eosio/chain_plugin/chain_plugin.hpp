@@ -250,15 +250,6 @@ public:
    struct account_resource_info {
       int64_t used = 0;
       int64_t max = 0;
-      std::optional<chain::block_timestamp_type> last_usage_update_time;    // optional for backward node support
-      std::optional<int64_t> current_used;  // optional for backward node support
-      void set( const eosio::chain::resource_limits::account_resource_limit& arl)
-      {
-         used = arl.used;
-         max = arl.max;
-         last_usage_update_time = arl.last_usage_update_time;
-         current_used = arl.current_used;
-      }
    };
 
    struct get_account_results {
@@ -1078,7 +1069,7 @@ FC_REFLECT( eosio::chain_apis::read_only::get_producer_schedule_result, (active)
 FC_REFLECT( eosio::chain_apis::read_only::get_scheduled_transactions_params, (json)(lower_bound)(limit)(time_limit_ms) )
 FC_REFLECT( eosio::chain_apis::read_only::get_scheduled_transactions_result, (transactions)(more) );
 
-FC_REFLECT( eosio::chain_apis::read_only::account_resource_info, (used)(max)(last_usage_update_time)(current_used) )
+FC_REFLECT( eosio::chain_apis::read_only::account_resource_info, (used)(max) )
 FC_REFLECT( eosio::chain_apis::read_only::get_account_results,
             (account_name)(head_block_num)(head_block_time)(privileged)(last_code_update)(created)
             (core_liquid_balance)(is_res_unlimited)(gas_reserved)(gas_max)(net_res)(cpu_res)(ram_res)(permissions)
