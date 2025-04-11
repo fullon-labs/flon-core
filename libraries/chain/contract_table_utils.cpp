@@ -21,23 +21,20 @@ namespace eosio { namespace chain { namespace contract_table_utils {
    }
 
    core_asset_account_ptr core_asset_account::create(const chainbase::database& db, const account_name& account) {
-      const auto* t_id = db.find<chain::table_id_object, chain::by_code_scope_table>(boost::make_tuple( config::token_account_name, account, "accounts"_n ));
-      if (!t_id) return nullptr;
+      const auto* tid_obj = table_id_finder::find( db, config::token_account_name, account, "accounts"_n );
+      if (!tid_obj) return nullptr;
 
-      const auto &idx = db.get_index<key_value_index, by_scope_primary>();
+      auto kv_obj = key_value_finder::find(db, tid_obj, config::core_symbol_code.value );
+      if (!kv_obj) return nullptr;
 
-      auto itr = idx.find(boost::make_tuple( t_id->id, config::core_symbol_code.value ));
-      if (itr == idx.end()) return nullptr;
-
-      const key_value_object& obj = *itr;
-      auto data = token_account_data::unpack_from(obj);
+      auto data = token_account_data::unpack_from(*kv_obj);
       EOS_ASSERT( data.balance.get_symbol() == config::core_symbol,
                   tx_gas_exception,
                   "precision of core symbol ${sym} in token contract mismatch with config ${cfg_sym}",
                   ("sym", data.balance.get_symbol())("cfg_sym", config::core_symbol)
       );
 
-      return std::make_shared<core_asset_account>(obj, std::move(data));
+      return std::make_shared<core_asset_account>(*kv_obj, std::move(data));
    }
 
    void core_asset_account::save(chainbase::database& db) {
