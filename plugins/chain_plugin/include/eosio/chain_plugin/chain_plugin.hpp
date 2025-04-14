@@ -260,6 +260,7 @@ public:
       bool                       privileged = false;
       fc::time_point             last_code_update;
       fc::time_point             created;
+      chain::account_name        creator;
 
       std::optional<asset>       core_liquid_balance;
 
@@ -1068,7 +1069,7 @@ FC_REFLECT( eosio::chain_apis::read_only::get_scheduled_transactions_result, (tr
 
 FC_REFLECT( eosio::chain_apis::read_only::account_resource_info, (used)(max) )
 FC_REFLECT( eosio::chain_apis::read_only::get_account_results,
-            (account_name)(head_block_num)(head_block_time)(privileged)(last_code_update)(created)
+            (account_name)(head_block_num)(head_block_time)(privileged)(last_code_update)(created)(creator)
             (core_liquid_balance)(is_res_unlimited)(gas_reserved)(gas_max)(net_res)(cpu_res)(ram_res)(permissions)
             (refund_request)(voter_info)
             (subjective_cpu_bill) (eosio_any_linked_actions) )

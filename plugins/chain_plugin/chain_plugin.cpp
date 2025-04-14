@@ -2451,6 +2451,10 @@ read_only::get_account_return_t read_only::get_account( const get_account_params
    result.last_code_update = accnt_metadata_obj.last_code_update;
    result.created          = accnt_obj.creation_date;
 
+   if (const auto user = contract_table_utils::system_user_account::create( d, result.account_name) ) {
+      result.creator = user->creator;
+   }
+
    auto asset_account = contract_table_utils::core_asset_account::create(d, result.account_name);
 
    const auto& account_usage = d.get<resource_limits::resource_usage_object, resource_limits::by_owner>( result.account_name );

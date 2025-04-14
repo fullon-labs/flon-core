@@ -8,29 +8,51 @@
 
 namespace eosio { namespace chain { namespace contract_table_utils {
 
-
-
    struct table_id_finder {
       static inline const table_id_object* find( const chainbase::database& db,
                                           const account_name&        code,
                                           const scope_name&          scope,
                                           const table_name&          table)
       {
-         auto itr = db.find<chain::table_id_object, chain::by_code_scope_table>(
+         return db.find<chain::table_id_object, chain::by_code_scope_table>(
                   boost::make_tuple( code, scope, table ));
-         return itr ? &(*itr) : nullptr;
       }
    };
 
    struct key_value_finder {
       static inline const key_value_object* find(const chainbase::database& db, const table_id_object* tid_obj, uint64_t pk) {
-         if (!tid_obj) return nullptr;
-
-         const auto &idx = db.get_index<key_value_index, by_scope_primary>();
-         auto itr = idx.find(boost::make_tuple( tid_obj->id, pk ));
-         return itr ? &(*itr) : nullptr;
+         return tid_obj ? db.find<key_value_object, by_scope_primary>( boost::make_tuple( tid_obj->id, pk ) ) : nullptr;
       }
 
+      static inline const key_value_object* find(const chainbase::database& db, const table_id_object* tid_obj, const name& pk) {
+         return find(db, tid_obj, pk.to_uint64_t());
+      }
+
+      template<typename T>
+      static inline const key_value_object* find(  const chainbase::database& db,
+                                                   const account_name&        code,
+                                                   const scope_name&          scope,
+                                                   const table_name&          table,
+                                                   const T&                   pk)
+      {
+         return find(db, table_id_finder::find(db, code, scope, table), pk);
+      }
+
+   };
+
+   struct system_user_account;
+   using system_user_account_ptr = std::shared_ptr<system_user_account>;
+
+   /**
+    * user account table in system contract
+    * readonly
+    */
+   struct system_user_account {
+      name                 owner;                     /// the user account name
+      name                 creator;                   /// the creator account name
+      // ignore the remaining data
+
+      static system_user_account_ptr create(const chainbase::database& db, const account_name& account);
    };
 
    struct core_asset_account;
@@ -64,5 +86,8 @@ namespace eosio { namespace chain { namespace contract_table_utils {
 
    };
 
+   static constexpr size_t min_packed_size = 16;
+
 } } }  // namespace eosio::chain::contract_table_utils
 
+FC_REFLECT( eosio::chain::contract_table_utils::system_user_account, (owner)(creator) )
