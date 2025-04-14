@@ -1824,6 +1824,8 @@ void get_account( const string& accountName, const string& coresym, bool json_fo
       }
 
       std::cout << "created: " << res.created.to_iso_string() << std::endl;
+      if (!res.creator.empty())
+         std::cout << "creator: " << res.creator.to_string() << std::endl;
 
       if(res.privileged) std::cout << "privileged: true" << std::endl;
 
