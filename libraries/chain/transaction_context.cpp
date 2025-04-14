@@ -416,12 +416,11 @@ namespace eosio::chain {
       std::optional<account_gas_trace> trx_gas_trace;
       rl.add_transaction_usage( trace->res_usage, trx_gas_trace, is_transient() ); // Should never fail
       if (trx_gas_trace) {
-         auto itr = trace->gas_traces.find(trace->res_usage.payer);
-         if (itr == trace->gas_traces.end()) {
-            trace->gas_traces.emplace(std::move(*trx_gas_trace));
+         auto itr = gas_traces.find(trace->res_usage.payer);
+         if (itr == gas_traces.end()) {
+            gas_traces.emplace(std::move(*trx_gas_trace));
          } else {
             // the itr->reserved_gas_before exists, can not assign again
-
             calc_utils::verify_add(itr->used_gas, trx_gas_trace->used_gas, "new used gas to existed of transaction payer");
             calc_utils::verify_add(itr->converted_gas, trx_gas_trace->converted_gas, "new converted gas to existed of transaction payer");
             itr->reserved_gas_after = trx_gas_trace->reserved_gas_after;
