@@ -17,8 +17,8 @@ namespace eosio::chain {
    };
 
    struct ram_gas_delta_t {
-      int64_t ram_delta = 0;
-      int64_t gas_delta = 0;
+      int64_t ram_delta = 0; // ram usage delta
+      int64_t gas_delta = 0; // reserved gas delta
    };
 
    struct account_gas_trace {
@@ -114,10 +114,20 @@ namespace eosio::chain {
 
    struct transaction_res_usage {
       account_name                               payer;
-      uint64_t                                   net_usage = 0;
-      uint64_t                                   net_gas = 0;
-      uint64_t                                   cpu_usage = 0;
-      uint64_t                                   cpu_gas = 0;
+      uint64_t                                   net_usage  = 0;
+      uint64_t                                   net_gas    = 0; // gas of net usage
+      uint64_t                                   cpu_usage  = 0;
+      uint64_t                                   cpu_gas    = 0; // gas of net usage
+
+      inline void set_res_usage(uint64_t net, uint64_t  cpu) {
+         net_usage = net;
+         cpu_usage = cpu;
+      }
+
+      inline void set_gas_usage(uint64_t net_gas, uint64_t  cpu_gas) {
+         this->net_gas = net_gas;
+         this->cpu_gas = cpu_gas;
+      }
    };
 
    struct transaction_trace {

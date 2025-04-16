@@ -281,8 +281,8 @@ namespace eosio { namespace chain { namespace resource_limits {
       void update_virtual_net_limit( const resource_limits_config_object& cfg );
       void update_virtual_cpu_limit( const resource_limits_config_object& cfg );
 
-      uint64_t pending_net_usage = 0ULL;
-      uint64_t pending_cpu_usage = 0ULL;
+      uint64_t pending_net_usage = 0ULL; // pending net usage of current executing block
+      uint64_t pending_cpu_usage = 0ULL; // pending cpu usage of current executing block
 
       uint64_t total_net_usage = 0ULL;
       uint64_t total_cpu_usage = 0ULL;

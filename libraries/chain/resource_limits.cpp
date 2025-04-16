@@ -353,14 +353,16 @@ void resource_limits_manager::add_transaction_usage(transaction_res_usage& res_u
       gas_trace->used_gas = used_gas;
 
       res_utils::set_account_reserved_gas(_db, acc_limits, reserved_gas, _get_deep_mind_logger(is_trx_transient));
+   } else {
+      res_usage.set_gas_usage(0, 0);
    }
 
    calc_utils::verify_add(usage.cpu_usage, cpu_usage, "new cpu usage to existed of transaction payer");
    calc_utils::verify_add(usage.net_usage, net_usage, "new net usage to existed of transaction payer");
 
-   _db.modify( usage, [&]( auto& bu ){
+   _db.modify( usage, [&]( auto& bu ) {
+      bu.cpu_usage += cpu_usage;
       bu.net_usage += net_usage;
-      bu.cpu_usage += net_usage;
 
       if (auto dm_logger = _get_deep_mind_logger(is_trx_transient)) {
          dm_logger->on_update_account_usage(bu);

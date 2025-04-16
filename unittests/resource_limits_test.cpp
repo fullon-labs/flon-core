@@ -1,11 +1,13 @@
-#if 0
+
 // TODO: fix me
 #include <algorithm>
 
 #include <eosio/chain/config.hpp>
 #include <eosio/chain/resource_limits.hpp>
+#include <eosio/chain/resource_limits_private.hpp>
 #include <eosio/chain/config.hpp>
 #include <eosio/testing/chainbase_fixture.hpp>
+#include <eosio/testing/tester.hpp>
 
 #include <boost/test/unit_test.hpp>
 
@@ -21,7 +23,7 @@ class resource_limits_fixture: private chainbase_fixture<1024*1024>, public reso
       ,resource_limits_manager(*chainbase_fixture::_db, [](bool) { return nullptr; })
       {
          add_indices();
-         initialize_database();
+         initialize_database(chain_config);
       }
 
       ~resource_limits_fixture() {}
@@ -29,6 +31,13 @@ class resource_limits_fixture: private chainbase_fixture<1024*1024>, public reso
       chainbase::database::session start_session() {
          return chainbase_fixture::_db->start_undo_session(true);
       }
+
+      auto& db() {
+         return *chainbase_fixture::_db;
+      }
+
+      eosio::chain::chain_config chain_config;
+
 };
 
 constexpr uint64_t expected_elastic_iterations(uint64_t from, uint64_t to, uint64_t rate_num, uint64_t rate_den ) {
@@ -59,45 +68,82 @@ constexpr uint64_t expected_exponential_average_iterations( uint64_t from, uint6
 
 BOOST_AUTO_TEST_SUITE(resource_limits_test)
 
-   /**
-    * Test to make sure that the elastic limits for blocks relax and contract as expected
-    */
-   BOOST_FIXTURE_TEST_CASE(elastic_cpu_relax_contract, resource_limits_fixture) try {
-      const uint64_t desired_virtual_limit = config::default_max_block_cpu_usage * config::maximum_elastic_resource_multiplier;
-      const uint64_t expected_relax_iterations = expected_elastic_iterations( config::default_max_block_cpu_usage, desired_virtual_limit, 1000, 999 );
+   BOOST_FIXTURE_TEST_CASE(trx_usage_test, resource_limits_fixture) try {
 
-      // this is enough iterations for the average to reach/exceed the target (triggering congestion handling) and then the iterations to contract down to the min
-      // subtracting 1 for the iteration that pulls double duty as reaching/exceeding the target and starting congestion handling
-      const uint64_t expected_contract_iterations =
-              expected_exponential_average_iterations(0, EOS_PERCENT(config::default_max_block_cpu_usage, config::default_target_block_cpu_usage_pct), config::default_max_block_cpu_usage, config::block_cpu_usage_average_window_ms / config::block_interval_ms ) +
-              expected_elastic_iterations( desired_virtual_limit, config::default_max_block_cpu_usage, 99, 100 ) - 1;
-
+      auto& db = this->db();
       const account_name account(1);
       initialize_account(account, false);
-      set_account_limits(account, -1, -1, -1, false);
-      process_account_limit_updates();
+      uint64_t gas = 0;
+      bool is_unlimited = false;
+      get_account_limits(account, gas, is_unlimited);
+      BOOST_REQUIRE_EQUAL(gas, 0);
+      BOOST_REQUIRE_EQUAL(is_unlimited, true);
 
-      // relax from the starting state (congested) to the idle state as fast as possible
-      uint32_t iterations = 0;
-      while( get_virtual_block_cpu_limit() < desired_virtual_limit && iterations <= expected_relax_iterations ) {
-         add_transaction_usage(account,0,0,iterations);
-         process_block_usage(iterations++);
-      }
+      BOOST_REQUIRE_EQUAL(gas, 0);
 
-      BOOST_REQUIRE_EQUAL(iterations, expected_relax_iterations);
-      BOOST_REQUIRE_EQUAL(get_virtual_block_cpu_limit(), desired_virtual_limit);
+      transaction_res_usage res_usage(account);
+      std::optional<account_gas_trace> gas_trace;
 
-      // push maximum resources to go from idle back to congested as fast as possible
-      while( get_virtual_block_cpu_limit() > config::default_max_block_cpu_usage
-              && iterations <= expected_relax_iterations + expected_contract_iterations ) {
-         add_transaction_usage(account, config::default_max_block_cpu_usage, 0, iterations);
-         process_block_usage(iterations++);
-      }
+      res_usage.set_res_usage(100, 300);
+      res_usage.set_gas_usage(100 * config::default_gas_per_net_kb, 300 * config::default_gas_per_cpu_ms);
+      add_transaction_usage(res_usage, gas_trace, false);
 
-      BOOST_REQUIRE_EQUAL(iterations, expected_relax_iterations + expected_contract_iterations);
-      BOOST_REQUIRE_EQUAL(get_virtual_block_cpu_limit(), config::default_max_block_cpu_usage);
+      BOOST_REQUIRE_EQUAL(res_usage.payer, account);
+      BOOST_REQUIRE_EQUAL(res_usage.net_usage, 100);
+      BOOST_REQUIRE_EQUAL(res_usage.cpu_usage, 300);
+      BOOST_REQUIRE_EQUAL(res_usage.net_gas, 0);
+      BOOST_REQUIRE_EQUAL(res_usage.cpu_gas, 0);
+
+      const auto& usage_obj = db.get<resource_usage_object, by_owner>( account );
+      BOOST_REQUIRE_EQUAL(usage_obj.cpu_usage, res_usage.cpu_usage);
+      BOOST_REQUIRE_EQUAL(usage_obj.net_usage, res_usage.net_usage);
+
+      const auto& rls_obj = db.get<resource_limits_state_object>();
+      idump((rls_obj));
+      BOOST_REQUIRE_EQUAL(rls_obj.pending_cpu_usage, res_usage.cpu_usage);
+      BOOST_REQUIRE_EQUAL(rls_obj.pending_net_usage, res_usage.net_usage);
+      BOOST_REQUIRE_EQUAL(rls_obj.total_cpu_usage, res_usage.cpu_usage);
+      BOOST_REQUIRE_EQUAL(rls_obj.total_net_usage, res_usage.net_usage);
+
+      uint32_t block_num = 0;
+      process_block_usage(block_num++);
+      idump((rls_obj));
+
+      res_usage.set_res_usage(std::numeric_limits<uint64_t>::max() - 100 + 1, 300);
+      BOOST_CHECK_EXCEPTION( add_transaction_usage(res_usage, gas_trace, true),
+         calc_overflow_exception, fc_exception_message_contains(
+            "Overflow when adding(uint64) new net usage to existed of transaction payer") );
+
+      res_usage.set_res_usage(100, std::numeric_limits<uint64_t>::max() - 300 + 1);
+      BOOST_CHECK_EXCEPTION( add_transaction_usage(res_usage, gas_trace, true),
+         calc_overflow_exception, fc_exception_message_contains(
+            "Overflow when adding(uint64) new net usage to existed of transaction payer") );
+
+      // set_account_limits(account, 10'000'000'000'000'000'000ull, false);
+      // // process_account_limit_updates();
+
+      // // relax from the starting state (congested) to the idle state as fast as possible
+      // uint32_t iterations = 0;
+      // while( get_virtual_block_cpu_limit() < desired_virtual_limit && iterations <= expected_relax_iterations ) {
+      //    add_transaction_usage(account,0,0,iterations);
+      //    process_block_usage(iterations++);
+      // }
+
+      // BOOST_REQUIRE_EQUAL(iterations, expected_relax_iterations);
+      // BOOST_REQUIRE_EQUAL(get_virtual_block_cpu_limit(), desired_virtual_limit);
+
+      // // push maximum resources to go from idle back to congested as fast as possible
+      // while( get_virtual_block_cpu_limit() > config::default_max_block_cpu_usage
+      //         && iterations <= expected_relax_iterations + expected_contract_iterations ) {
+      //    add_transaction_usage(account, config::default_max_block_cpu_usage, 0, iterations);
+      //    process_block_usage(iterations++);
+      // }
+
+      // BOOST_REQUIRE_EQUAL(iterations, expected_relax_iterations + expected_contract_iterations);
+      // BOOST_REQUIRE_EQUAL(get_virtual_block_cpu_limit(), config::default_max_block_cpu_usage);
    } FC_LOG_AND_RETHROW();
 
+   #if 0
    /**
     * Test to make sure that the elastic limits for blocks relax and contract as expected
     */
@@ -430,6 +476,5 @@ BOOST_AUTO_TEST_SUITE(resource_limits_test)
 
    } FC_LOG_AND_RETHROW()
 
-
+   #endif
    BOOST_AUTO_TEST_SUITE_END()
-#endif
