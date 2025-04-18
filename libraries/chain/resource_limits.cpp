@@ -318,7 +318,9 @@ void resource_limits_manager::add_transaction_usage(transaction_res_usage& res_u
 
       if ( used_gas > reserved_gas ) {
          cgs = core_gas_accessor::create(_db, res_usage.payer);
-         convertible_gas = cgs->convertible_gas;
+         if (cgs) {
+            convertible_gas = cgs->convertible_gas;
+         }
       }
 
       calc_utils::verify_add(acc_limits.gas, convertible_gas, "reserved gas and convertible gas of transaction payer");
