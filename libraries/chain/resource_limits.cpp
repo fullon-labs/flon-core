@@ -280,8 +280,14 @@ void resource_limits_manager::set_block_parameters(const chain_config& cfg, cons
    cpu_limit_parameters.validate();
    net_limit_parameters.validate();
    const auto& config = _db.get<resource_limits_config_object>();
-   if( config.cpu_limit_parameters == cpu_limit_parameters && config.net_limit_parameters == net_limit_parameters )
+   if(   config.cpu_limit_parameters   == cpu_limit_parameters &&
+         config.net_limit_parameters   == net_limit_parameters &&
+         config.gas_per_cpu_ms         == cfg.gas_per_cpu_ms &&
+         config.gas_per_net_kb         == cfg.gas_per_net_kb &&
+         config.gas_per_ram_kb         == cfg.gas_per_ram_kb )
+   {
       return;
+   }
    _db.modify(config, [&](resource_limits_config_object& c){
       c.cpu_limit_parameters = cpu_limit_parameters;
       c.net_limit_parameters = net_limit_parameters;
