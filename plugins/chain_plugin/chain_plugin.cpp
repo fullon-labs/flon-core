@@ -8,6 +8,7 @@
 #include <eosio/chain/config.hpp>
 #include <eosio/chain/wasm_interface.hpp>
 #include <eosio/chain/resource_limits.hpp>
+#include <eosio/chain/resource_limits_private.hpp>
 #include <eosio/chain/controller.hpp>
 #include <eosio/chain/generated_transaction_object.hpp>
 #include <eosio/chain/snapshot.hpp>
@@ -1295,7 +1296,8 @@ namespace chain_apis {
 const string read_only::KEYi64 = "i64";
 
 read_only::get_info_results read_only::get_info(const read_only::get_info_params&, const fc::time_point&) const {
-   const auto& rm = db.get_resource_limits_manager();
+   const auto& rl_config = db.db().get<resource_limits::resource_limits_config_object>();
+   const auto& rl_state = db.db().get<resource_limits::resource_limits_state_object>();
 
    auto head_id = db.head().id();
    auto lib_id = db.last_irreversible_block_id();
@@ -1310,19 +1312,22 @@ read_only::get_info_results read_only::get_info(const read_only::get_info_params
       head_id,
       db.head().block_time(),
       db.head().producer(),
-      rm.get_virtual_block_cpu_limit(),
-      rm.get_virtual_block_net_limit(),
-      rm.get_block_cpu_limit(),
-      rm.get_block_net_limit(),
+      rl_state.virtual_cpu_limit,
+      rl_state.virtual_net_limit,
+      rl_config.cpu_limit_parameters.max - rl_state.pending_cpu_usage,
+      rl_config.net_limit_parameters.max - rl_state.pending_net_usage,
       //std::bitset<64>(db.get_dynamic_global_properties().recent_slots_filled).to_string(),
       //__builtin_popcountll(db.get_dynamic_global_properties().recent_slots_filled) / 64.0,
       app().version_string(),
       block_header::num_from_id(fhead_id),
       fhead_id,
       app().full_version_string(),
-      rm.get_total_cpu_usage(),
-      rm.get_total_net_usage(),
-      rm.get_total_ram_usage(),
+      rl_state.total_cpu_usage,
+      rl_state.total_net_usage,
+      rl_state.total_ram_usage,
+      rl_config.gas_per_cpu_ms,
+      rl_config.gas_per_net_kb,
+      rl_config.gas_per_ram_kb,
       db.earliest_available_block_num(),
       db.last_irreversible_block_time()
    };
