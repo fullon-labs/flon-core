@@ -2179,7 +2179,7 @@ int main( int argc, char** argv ) {
    auto createAccount = create_account_subcommand( create, true /*simple*/ );
 
    // convert subcommand
-   auto convert = app.add_subcommand("convert", localized("Pack and unpack transactions")); // TODO also add converting action args based on abi from here ?
+   auto convert = app.add_subcommand("convert", localized("Convert data format, such as pack and unpack transactions"));
    convert->require_subcommand();
 
    // pack transaction
@@ -2290,6 +2290,32 @@ int main( int argc, char** argv ) {
          fc::variant abi_var;
          fc::to_variant(abi, abi_var);
          std::cout << fc::json::to_pretty_string(abi_var) << std::endl;
+      });
+   }
+
+
+
+   {
+      // encode name to uint64_t value
+      string name_input;
+      auto encode_name_cmd = convert->add_subcommand("encode_name", localized("Encode name to uint64_t value"));
+      encode_name_cmd->add_option("name", name_input, localized("The name"))->required();
+      encode_name_cmd->callback([&] {
+         try {
+            std::cout << name(name_input).to_uint64_t() << std::endl;
+         } EOS_RETHROW_EXCEPTIONS(transaction_type_exception, "Fail to encode name to uint64_t value")
+      });
+   }
+
+   {
+      // decode name from uint64_t value
+      string name_input;
+      auto decode_name_cmd = convert->add_subcommand("decode_name", localized("Decode name from uint64_t value"));
+      decode_name_cmd->add_option("name", name_input, localized("The uint64_t value of name"))->required();
+      decode_name_cmd->callback([&] {
+         try {
+            std::cout << name(std::strtoull(name_input.c_str(), nullptr, 10)).to_string() << std::endl;
+         } EOS_RETHROW_EXCEPTIONS(transaction_type_exception, "Fail to decode name from uint64_t value")
       });
    }
 
