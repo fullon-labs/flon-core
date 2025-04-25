@@ -4,7 +4,9 @@ include(ExternalProject)
 if( EOSIO_COMPILE_TEST_CONTRACTS )
     set(EOSIO_WASM_OLD_BEHAVIOR "Off")
     find_package( flon.cdt REQUIRED )
-    set(CMAKE_ARGS_VAL -DCMAKE_TOOLCHAIN_FILE=${CDT_TOOLCHAIN_FILE} -DEOSIO_COMPILE_TEST_CONTRACTS=${EOSIO_COMPILE_TEST_CONTRACTS} )
+    set(CMAKE_ARGS_VAL  -DCMAKE_BUILD_TYPE=Release
+                        -DCMAKE_TOOLCHAIN_FILE=${CDT_TOOLCHAIN_FILE}
+                        -DEOSIO_COMPILE_TEST_CONTRACTS=${EOSIO_COMPILE_TEST_CONTRACTS} )
 
     message( STATUS "Building contracts in directory `./libraries/contracts/`" )
     ExternalProject_Add(

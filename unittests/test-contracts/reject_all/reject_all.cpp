@@ -3,7 +3,7 @@
 using namespace eosio;
 
 #define TO_STRING(x) #x
-#define TO_NAME(x) eosio::name{TO_STRING(X)}
+#define TO_NAME(x) eosio::name{TO_STRING(x)}
 
 #ifdef SYSTEM_ACCOUNT_NAME
    static const name system_account_name = TO_NAME(SYSTEM_ACCOUNT_NAME);
