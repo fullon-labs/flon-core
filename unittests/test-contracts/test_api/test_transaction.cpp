@@ -218,6 +218,7 @@ void test_transaction::test_transaction_size() {
    eosio_assert( trans_size == eosio::transaction_size(), "transaction size does not match" );
 }
 
+#ifdef ENABLE_DEFERRED_TRANSACTION
 void test_transaction::send_transaction(uint64_t receiver, uint64_t, uint64_t) {
    using namespace eosio;
    dummy_action payload = { DUMMY_ACTION_DEFAULT_A, DUMMY_ACTION_DEFAULT_B, DUMMY_ACTION_DEFAULT_C };
@@ -262,6 +263,7 @@ void test_transaction::send_transaction_trigger_error_handler( uint64_t receiver
    trx.actions.emplace_back( permissions, name{"testapi"}, name{WASM_TEST_ACTION("test_action", "assert_false")}, test_action );
    trx.send(0, name{receiver});
 }
+#endif//ENABLE_DEFERRED_TRANSACTION
 
 void test_transaction::assert_false_error_handler( const eosio::transaction& dtrx ) {
    eosio_assert( dtrx.actions.size() == 1, "transaction should only have one action" );
@@ -272,6 +274,7 @@ void test_transaction::assert_false_error_handler( const eosio::transaction& dtr
    eosio_assert( dtrx.actions[0].authorization[0].permission == "active"_n, "action's authorization has wrong permission" );
 }
 
+#ifdef ENABLE_DEFERRED_TRANSACTION
 /**
  * cause failure due to a large transaction size
  */
@@ -291,7 +294,6 @@ void test_transaction::send_transaction_large( uint64_t receiver, uint64_t, uint
    eosio_assert( false, "send_transaction_large() should've thrown an error" );
 }
 
-#ifdef ENABLE_DEFERRED_TRANSACTION
 /**
  * deferred transaction
  */

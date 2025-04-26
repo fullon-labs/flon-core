@@ -148,10 +148,12 @@ void test_action::test_cf_action() {
       eosio_assert( false, "system_api should not be allowed" );
    } else if ( cfa.payload == 210 ) {
       eosio::internal_use_do_not_use::send_inline( (char*)"hello", 6 );
-      eosio_assert( false, "transaction_api should not be allowed" );
+      eosio_assert( false, "transaction_api of send_inline should not be allowed" );
+   #ifdef ENABLE_DEFERRED_TRANSACTION
    } else if ( cfa.payload == 211 ) {
       eosio::send_deferred( "testapi"_n.value, "testapi"_n, "hello", 6, 0 );
-      eosio_assert( false, "transaction_api should not be allowed" );
+      eosio_assert( false, "transaction_api of send_deferred should not be allowed" );
+   #endif//ENABLE_DEFERRED_TRANSACTION
    } else if ( cfa.payload == 212 ) {
       set_action_return_value("hi", 2);
       eosio_assert( false, "set_action_return_value should not be allowed" );

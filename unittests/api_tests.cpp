@@ -538,8 +538,11 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(action_tests, T, validating_testers) { try {
    // test test_current_receiver
    CALL_TEST_FUNCTION( chain, "test_action", "test_current_receiver", fc::raw::pack("testapi"_n));
 
+
+   #ifdef ENABLE_DEFERRED_TRANSACTION
    // test send_action_sender
    CALL_TEST_FUNCTION( chain, "test_transaction", "send_action_sender", fc::raw::pack("testapi"_n));
+   #endif//ENABLE_DEFERRED_TRANSACTION
 
    chain.produce_block();
 
@@ -690,6 +693,9 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(cf_action_tests, T, validating_testers) { try {
          trx.actions.push_back(act1);
          // attempt to access non context free api
          for (uint32_t i = 200; i <= 212; ++i) {
+            #ifndef ENABLE_DEFERRED_TRANSACTION
+            if (i == 211) continue;
+            #endif
             trx.context_free_actions.clear();
             trx.context_free_data.clear();
             cfa.payload = i;
@@ -815,6 +821,7 @@ BOOST_FIXTURE_TEST_CASE(deferred_cfa_failed, validating_tester_no_disable_deferr
    BOOST_REQUIRE_EQUAL( validate(), true );
 } FC_LOG_AND_RETHROW()
 
+#ifdef ENABLE_DEFERRED_TRANSACTION
 BOOST_FIXTURE_TEST_CASE(deferred_cfa_success, validating_tester_no_disable_deferred_trx)  try {
 
    create_account( "testapi"_n );
@@ -850,6 +857,7 @@ BOOST_FIXTURE_TEST_CASE(deferred_cfa_success, validating_tester_no_disable_defer
       });
    BOOST_REQUIRE_EQUAL( validate(), true );
 } FC_LOG_AND_RETHROW()
+#endif//ENABLE_DEFERRED_TRANSACTION
 
 BOOST_AUTO_TEST_CASE_TEMPLATE(light_validation_skip_cfa, T, testers)  try {
    T chain;
@@ -1482,6 +1490,7 @@ void transaction_tests(T& chain) {
                           eosio_assert_message_exception,
                           eosio_assert_message_is("test_action::assert_false")                          );
 
+   #ifdef ENABLE_DEFERRED_TRANSACTION
    //   test send_transaction
       CALL_TEST_FUNCTION(chain, "test_transaction", "send_transaction", {});
 
@@ -1534,6 +1543,7 @@ void transaction_tests(T& chain) {
          c2.disconnect();
       }
    }
+   #endif//ENABLE_DEFERRED_TRANSACTION
 
    // test test_transaction_size
    CALL_TEST_FUNCTION(chain, "test_transaction", "test_transaction_size", fc::raw::pack(54) ); // TODO: Need a better way to test this.
