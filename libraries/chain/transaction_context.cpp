@@ -11,6 +11,13 @@
 
 #include <bit>
 
+// #define ENABLE_TRX_RES_TRACE 1
+#ifdef ENABLE_TRX_RES_TRACE
+#define RES_TRACE( FORMAT, ... ) dlog( FORMAT, __VA_ARGS__ )
+#else
+#define RES_TRACE( FORMAT, ... )
+#endif
+
 namespace eosio::chain {
 
    transaction_checktime_timer::transaction_checktime_timer(platform_timer& timer)
@@ -143,10 +150,6 @@ namespace eosio::chain {
          _deadline = start + objective_duration_limit;
       }
 
-      initial_objective_duration_limit = objective_duration_limit;
-      tx_cpu_usage_reason = initial_tx_cpu_usage_reason;
-      deadline_exception_code = initial_cpu_exception_code;
-
       if ( !is_read_only() ) {
          bill_to_account = trx.first_authorizer();
          // TODO: check first_authorizer is valid?
@@ -156,9 +159,14 @@ namespace eosio::chain {
 
       // Possibly limit deadline to caller provided wall clock block deadline
       if( block_deadline < _deadline ) {
+         RES_TRACE("Using block_deadline=${deadline} in transaction_context.init()", ("deadline", block_deadline));
          _deadline = block_deadline;
          initial_cpu_exception_code = deadline_exception::code_value;
       }
+
+      initial_objective_duration_limit = objective_duration_limit;
+      tx_cpu_usage_reason = initial_tx_cpu_usage_reason;
+      deadline_exception_code = initial_cpu_exception_code;
 
       net_limit = (net_limit/8)*8; // Round down to nearest multiple of word size (8 bytes) so check_net_limit can be efficient
 
@@ -205,6 +213,8 @@ namespace eosio::chain {
                   deadline_exception_code = leeway_deadline_exception::code_value;
                   tx_cpu_usage_reason = tx_cpu_usage_exceeded_reason::account_cpu_limit;
                   _deadline = start + objective_duration_limit;
+                  RES_TRACE("Using account_cpu_limit ${acl} in transaction_context.init()",
+                     ("acl", account_cpu_limit)("deadline", _deadline));
                }
 
                if( subjective_cpu_bill_us > 0) {
@@ -222,6 +232,8 @@ namespace eosio::chain {
                      deadline_exception_code = tx_cpu_usage_exceeded::code_value;
                      tx_cpu_usage_reason = tx_cpu_usage_exceeded_reason::account_cpu_limit;
                      _deadline = start + objective_duration_limit;
+                     RES_TRACE("Using account_cpu_limit ${acl} with subjective ${subjective} in transaction_context.init()",
+                        ("acl", account_cpu_limit)("subjective", (uint64_t)subjective_cpu_bill_us)("deadline", _deadline));
                   }
                }
             }
@@ -232,6 +244,20 @@ namespace eosio::chain {
       if( explicit_billed_cpu_time ) {
          _deadline = block_deadline;
          deadline_exception_code = deadline_exception::code_value;
+         RES_TRACE("Using explicit_billed_cpu_time deadline_exception in transaction_context.init(),deadline=${deadline}",
+            ("deadline", _deadline));
+      } else {
+         RES_TRACE("Using deadline_exception_code=${code} in transaction_context.init()"
+            ", objective_duration_limit=${objective_duration_limit}, limit=${limit},tx_cpu_msg=${tx_cpu_msg},"
+            "subjective_cpu_bill_us=${subjective_cpu_bill_us},deadline=${deadline},billing_timer=${billing_timer}",
+            ("code", deadline_exception_code)
+            ("objective_duration_limit", objective_duration_limit)
+            ("limit", initial_objective_duration_limit)
+            ("tx_cpu_msg", get_tx_cpu_usage_exceeded_reason_msg(tx_cpu_usage_reason))
+            ("subjective_cpu_bill_us", subjective_cpu_bill_us)
+            ("deadline", _deadline)
+            ("billing_timer", _deadline - pseudo_start));
+
       }
 
       if(control.skip_trx_checks()) {
