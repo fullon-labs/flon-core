@@ -98,8 +98,21 @@ namespace res_utils {
       return (tmp + 9) / 10; // ceil
    }
 
+   template<typename UInt, typename CalcUInt>
+   UInt divide_decimal(UInt a, UInt b, UInt precision, const char* description = nullptr) {
+      if (a == 0 || b == 0 || precision == 0) return 0;
+
+      static_assert(sizeof(CalcUInt) > sizeof(UInt));
+      CalcUInt tmp = a * precision / b;
+      EOS_ASSERT( tmp <= (CalcUInt)std::numeric_limits<UInt>::max(),
+                  calc_overflow_exception,
+                  std::string("divide_decimal overflow when ") + (description ? description : ""));
+      return tmp; // ceil
+   }
+
    #define MULTIPLY_DECIMAL_U64        multiply_decimal<uint64_t, uint128_t>
    #define MULTIPLY_DECIMAL_CEIL_U64   multiply_decimal_ceil<uint64_t, uint128_t>
+   #define DIVIDE_DECIMAL_U64          divide_decimal<uint64_t, uint128_t>
 
    uint64_t convert_cpu_to_gas(const resource_limits_config_object& config,  uint64_t value) {
       return MULTIPLY_DECIMAL_CEIL_U64(value, (uint64_t)config.gas_per_cpu_ms, (uint64_t)config::gas_rate_precision,
@@ -116,17 +129,17 @@ namespace res_utils {
    }
 
    uint64_t convert_gas_to_cpu(const resource_limits_config_object& config, uint64_t gas) {
-      return MULTIPLY_DECIMAL_U64(gas, config.gas_per_cpu_ms, config::gas_rate_precision,
+      return DIVIDE_DECIMAL_U64(gas, config.gas_per_cpu_ms, config::gas_rate_precision,
          "converting gas to cpu us");
    }
 
    uint64_t convert_gas_to_net(const resource_limits_config_object& config, uint64_t gas) {
-      return MULTIPLY_DECIMAL_U64(gas, config.gas_per_net_kb, config::gas_rate_precision,
+      return DIVIDE_DECIMAL_U64(gas, config.gas_per_net_kb, config::gas_rate_precision,
          "converting gas to net bytes");
    }
 
    uint64_t convert_gas_to_ram(const resource_limits_config_object& config, uint64_t gas) {
-      return MULTIPLY_DECIMAL_U64(gas, config.gas_per_ram_kb, config::gas_rate_precision,
+      return DIVIDE_DECIMAL_U64(gas, config.gas_per_ram_kb, config::gas_rate_precision,
          "converting gas to ram bytes");
    }
 
