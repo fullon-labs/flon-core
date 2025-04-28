@@ -91,11 +91,13 @@ namespace res_utils {
       if (a == 0 || b == 0 || precision == 0) return 0;
 
       static_assert(sizeof(CalcUInt) > sizeof(UInt));
-      CalcUInt tmp = 10 * a * b / precision;
-      EOS_ASSERT( tmp <= (CalcUInt)std::numeric_limits<UInt>::max(),
+      CalcUInt tmp = ( a * b + (precision - 1) ) / precision;
+      EOS_ASSERT( tmp <= (CalcUInt)std::numeric_limits<UInt>::max() &&
+                  ( std::numeric_limits<UInt>::max() - a > (precision - 1) ||
+                    std::numeric_limits<UInt>::max() - b > (precision - 1) ),
                   calc_overflow_exception,
                   std::string("multiply_decimal_ceil overflow when ") + (description ? description : ""));
-      return (tmp + 9) / 10; // ceil
+      return tmp;
    }
 
    template<typename UInt, typename CalcUInt>
