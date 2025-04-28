@@ -65,6 +65,7 @@ struct u128_action {
   unsigned __int128  values[3]; //16*3
 };
 
+#ifdef ENABLE_DEFERRED_TRANSACTION
 // Deferred Transaction Trigger Action
 struct dtt_action {
    static uint64_t get_name() {
@@ -80,6 +81,7 @@ struct dtt_action {
    uint64_t       permission_name = "active"_n.to_uint64_t();
    uint32_t       delay_sec = 2;
 };
+#endif//ENABLE_DEFERRED_TRANSACTION
 
 struct invalid_access_action {
    uint64_t code;
@@ -89,7 +91,11 @@ struct invalid_access_action {
 };
 
 FC_REFLECT( u128_action, (values) )
+
+#ifdef ENABLE_DEFERRED_TRANSACTION
 FC_REFLECT( dtt_action, (payer)(deferred_account)(deferred_action)(permission_name)(delay_sec) )
+#endif//ENABLE_DEFERRED_TRANSACTION
+
 FC_REFLECT( invalid_access_action, (code)(val)(index)(store) )
 
 using namespace eosio;
@@ -1675,6 +1681,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE( inline_action_objective_limit, T, testers ) { try
 
 } FC_LOG_AND_RETHROW() }
 
+#ifdef ENABLE_DEFERRED_TRANSACTION
 BOOST_AUTO_TEST_CASE(deferred_inline_action_limit) { try {
    const uint32_t _4k = 4 * 1024;
    tester chain(setup_policy::full_except_do_not_disable_deferred_trx, db_read_mode::HEAD, {_4k + 100});
@@ -1715,6 +1722,7 @@ BOOST_AUTO_TEST_CASE(deferred_inline_action_limit) { try {
    }
 
 } FC_LOG_AND_RETHROW() }
+#endif//ENABLE_DEFERRED_TRANSACTION
 
 BOOST_AUTO_TEST_SUITE_END()
 
