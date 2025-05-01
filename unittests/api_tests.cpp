@@ -2895,77 +2895,84 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(permission_tests, T, validating_testers) { try {
 
 } FC_LOG_AND_RETHROW() }
 
+// copy from system.contract.wasm.wast
+// (type (;11;) (func (param i64 i32 i32)))
+// (type (;12;) (func (param i64 i64 i32)))
+// (import "env" "get_resource_limits" (func (;17;) (type 11)))
+// (import "env" "set_resource_limits" (func (;18;) (type 12)))
+
+// (call $printi (i64.load (i32.const 0x100))
 // TODO: fix me
 static const char resource_limits_wast[] = R"=====(
 (module
- (func $set_resource_limits (import "env" "set_resource_limits") (param i64 i64 i64 i64))
- (func $get_resource_limits (import "env" "get_resource_limits") (param i64 i32 i32 i32))
+ (func $set_resource_limits (import "env" "set_resource_limits") (param i64 i64 i32))
+ (func $get_resource_limits (import "env" "get_resource_limits") (param i64 i32 i32))
  (func $eosio_assert (import "env" "eosio_assert") (param i32 i32))
+ (func $printi (import "env" "printi") (param i64))
+ (func $prints (import "env" "prints") (param i32))
  (memory 1)
  (func (export "apply") (param i64 i64 i64)
-  (call $set_resource_limits (get_local 2) (i64.const 2788) (i64.const 11) (i64.const 12))
-  (call $get_resource_limits (get_local 2) (i32.const 0x100) (i32.const 0x108) (i32.const 0x110))
-  (call $eosio_assert (i64.eq (i64.const 2788) (i64.load (i32.const 0x100))) (i32.const 8))
-  (call $eosio_assert (i64.eq (i64.const 11) (i64.load (i32.const 0x108))) (i32.const 32))
-  (call $eosio_assert (i64.eq (i64.const 12) (i64.load (i32.const 0x110))) (i32.const 64))
+  (call $set_resource_limits (get_local 2) (i64.const 0x0102030405060708) (i32.const 0))
+  (call $get_resource_limits (get_local 2) (i32.const 0x1000) (i32.const 0x1008))
+  (call $eosio_assert (i64.eq (i64.const 0x0102030405060708) (i64.load (i32.const 0x1000))) (i32.const 8))
+  (call $eosio_assert (i64.eq (i64.const 0) (i64.load (i32.const 0x1008))) (i32.const 32))
   ;; Aligned overlap
-  (call $get_resource_limits (get_local 2) (i32.const 0x100) (i32.const 0x100) (i32.const 0x110))
-  (call $eosio_assert (i64.eq (i64.const 11) (i64.load (i32.const 0x100))) (i32.const 96))
-  (call $get_resource_limits (get_local 2) (i32.const 0x100) (i32.const 0x110) (i32.const 0x110))
-  (call $eosio_assert (i64.eq (i64.const 12) (i64.load (i32.const 0x110))) (i32.const 128))
+  (call $get_resource_limits (get_local 2) (i32.const 0x1000) (i32.const 0x1000))
+  ;; the third arg "is_unlimited" is bool type, and only read to lowest byte.
+  (call $prints (i32.const 288))
+  (call $printi (i64.load (i32.const 0x1000)))
+  (call $prints (i32.const 256))
+  (call $eosio_assert (i64.eq (i64.const 0x0102030405060700) (i64.load (i32.const 0x1000))) (i32.const 64))
   ;; Unaligned beats aligned
-  (call $get_resource_limits (get_local 2) (i32.const 0x101) (i32.const 0x108) (i32.const 0x100))
-  (call $eosio_assert (i64.eq (i64.const 2788) (i64.load (i32.const 0x101))) (i32.const 160))
+  (call $get_resource_limits (get_local 2) (i32.const 0x1001) (i32.const 0x1008))
+  (call $prints (i32.const 320))
+  (call $printi (i64.load (i32.const 0x1001)))
+  (call $prints (i32.const 256))
+  (call $eosio_assert (i64.eq (i64.const 0x0102030405060708) (i64.load (i32.const 0x1001))) (i32.const 128))
   ;; Unaligned overlap
-  (call $get_resource_limits (get_local 2) (i32.const 0x101) (i32.const 0x101) (i32.const 0x110))
-  (call $eosio_assert (i64.eq (i64.const 11) (i64.load (i32.const 0x101))) (i32.const 192))
-  (call $get_resource_limits (get_local 2) (i32.const 0x100) (i32.const 0x111) (i32.const 0x111))
-  (call $eosio_assert (i64.eq (i64.const 12) (i64.load (i32.const 0x111))) (i32.const 224))
+  (call $get_resource_limits (get_local 2) (i32.const 0x1001) (i32.const 0x1001))
+  (call $prints (i32.const 352))
+  (call $printi (i64.load (i32.const 0x1001)))
+  (call $prints (i32.const 256))
+  (call $eosio_assert (i64.eq (i64.const 0) (i64.load (i32.const 0x101))) (i32.const 160))
  )
- (data (i32.const 8) "expected ram 2788")
- (data (i32.const 32) "expected net 11")
- (data (i32.const 64) "expected cpu 12")
- (data (i32.const 96) "expected net to overwrite ram")
- (data (i32.const 128) "expected cpu to overwrite net")
- (data (i32.const 160) "expected unaligned")
- (data (i32.const 192) "expected unet to overwrite uram")
- (data (i32.const 224) "expected ucpu to overwrite unet")
+ (data (i32.const 8) "expected gas 2788")
+ (data (i32.const 32) "expected is_unlimited 0")
+ (data (i32.const 64) "expected is_unlimited to overwrite ram")
+ (data (i32.const 128) "expected unaligned")
+ (data (i32.const 160) "expected u-is_unlimited to overwrite u-gas")
+ (data (i32.const 256) "\n")
+ (data (i32.const 288) "Aligned overlap value: ")
+ (data (i32.const 320) "Unaligned value: ")
+ (data (i32.const 352) "Unaligned overlap value: ")
 )
 )=====";
 
-static const char get_resource_limits_null_ram_wast[] = R"=====(
+static const char get_resource_limits_null_gas_wast[] = R"=====(
 (module
- (func $get_resource_limits (import "env" "get_resource_limits") (param i64 i32 i32 i32))
+ (func $get_resource_limits (import "env" "get_resource_limits") (param i64 i32 i32))
  (memory 1)
  (func (export "apply") (param i64 i64 i64)
-  (call $get_resource_limits (get_local 2) (i32.const 0) (i32.const 0x10) (i32.const 0x10))
- )
-)
-)=====";
-
-static const char get_resource_limits_null_net_wast[] = R"=====(
-(module
- (func $get_resource_limits (import "env" "get_resource_limits") (param i64 i32 i32 i32))
- (memory 1)
- (func (export "apply") (param i64 i64 i64)
-  (call $get_resource_limits (get_local 2) (i32.const 0x10) (i32.const 0) (i32.const 0x10))
+  (call $get_resource_limits (get_local 2) (i32.const 0) (i32.const 0x10))
  )
 )
 )=====";
 
-static const char get_resource_limits_null_cpu_wast[] = R"=====(
+static const char get_resource_limits_null_is_unlimited_wast[] = R"=====(
 (module
- (func $get_resource_limits (import "env" "get_resource_limits") (param i64 i32 i32 i32))
+ (func $get_resource_limits (import "env" "get_resource_limits") (param i64 i32 i32))
  (memory 1)
  (func (export "apply") (param i64 i64 i64)
-  (call $get_resource_limits (get_local 2) (i32.const 0x10) (i32.const 0x10) (i32.const 0))
+  (call $get_resource_limits (get_local 2) (i32.const 0x10) (i32.const 0))
  )
 )
 )=====";
 
 BOOST_AUTO_TEST_CASE_TEMPLATE(resource_limits_tests, T, validating_testers) {
    T chain;
-
+   int64_t aaa = 2788;
+   *((int32_t*)(&aaa)) = 0;
+   wdump((aaa));
    chain.create_accounts( { "rlimits"_n, "testacnt"_n } );
    chain.set_code("rlimits"_n, resource_limits_wast);
    chain.push_action( config::system_account_name, "setpriv"_n, config::system_account_name, mutable_variant_object()("account", "rlimits"_n)("is_priv", 1));
@@ -2981,13 +2988,10 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(resource_limits_tests, T, validating_testers) {
    pushit();
    chain.produce_block();
 
-   chain.set_code("rlimits"_n, get_resource_limits_null_ram_wast);
+   chain.set_code("rlimits"_n, get_resource_limits_null_gas_wast);
    BOOST_CHECK_THROW(pushit(), wasm_exception);
 
-   chain.set_code("rlimits"_n, get_resource_limits_null_net_wast);
-   BOOST_CHECK_THROW(pushit(), wasm_exception);
-
-   chain.set_code("rlimits"_n, get_resource_limits_null_cpu_wast);
+   chain.set_code("rlimits"_n, get_resource_limits_null_is_unlimited_wast);
    BOOST_CHECK_THROW(pushit(), wasm_exception);
 }
 
