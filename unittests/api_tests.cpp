@@ -3091,7 +3091,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(permission_usage_tests, T, validating_testers) { t
 
    chain.push_action(config::system_account_name, linkauth::get_name(), "bob"_n, fc::mutable_variant_object()
            ("account", "bob")
-           ("code", "eosio")
+           ("code", config::system_account_name)
            ("type", "reqauth")
            ("requirement", "perm1")
    );
