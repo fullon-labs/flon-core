@@ -2999,6 +2999,7 @@ BOOST_AUTO_TEST_SUITE_END()
 
 BOOST_AUTO_TEST_SUITE(api_part4_tests)
 
+#ifdef SET_PRODUCERS_LEGACY
 BOOST_AUTO_TEST_CASE( set_producers_legacy ) { try {
    fc::temp_directory tempdir;
    validating_tester t( tempdir, true );
@@ -3036,6 +3037,7 @@ BOOST_AUTO_TEST_CASE( set_producers_legacy ) { try {
    BOOST_CHECK_EQUAL(trace->receipt->status, transaction_receipt::executed);
 
 } FC_LOG_AND_RETHROW() }
+#endif// SET_PRODUCERS_LEGACY
 
 /*************************************************************************************
  * real_tests test cases

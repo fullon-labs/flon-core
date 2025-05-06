@@ -285,7 +285,9 @@ namespace eosio::testing {
          vector<producer_authority>  get_producer_authorities( const vector<account_name>& producer_names )const;
          transaction_trace_ptr       set_producers(const vector<account_name>& producer_names);
          transaction_trace_ptr       set_producer_schedule(const vector<producer_authority>& schedule);
+         #ifdef SET_PRODUCERS_LEGACY
          transaction_trace_ptr       set_producers_legacy(const vector<account_name>& producer_names);
+         #endif//SET_PRODUCERS_LEGACY
 
          // Finalizer policy input to set up a test: weights, threshold and local finalizers
          // which participate voting.

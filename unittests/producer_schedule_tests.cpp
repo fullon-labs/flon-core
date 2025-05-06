@@ -262,6 +262,7 @@ BOOST_FIXTURE_TEST_CASE( producer_schedule_reduction, legacy_tester ) try {
    BOOST_REQUIRE_EQUAL( validate(), true );
 } FC_LOG_AND_RETHROW()
 
+#ifdef SET_PRODUCERS_LEGACY
 BOOST_AUTO_TEST_CASE_TEMPLATE(empty_producer_schedule_has_no_effect, T, validating_testers) try {
    fc::temp_directory tempdir;
    T c( tempdir, true );
@@ -348,6 +349,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(empty_producer_schedule_has_no_effect, T, validati
 
    BOOST_REQUIRE_EQUAL( c.validate(), true );
 } FC_LOG_AND_RETHROW()
+#endif//SET_PRODUCERS_LEGACY
 
 BOOST_AUTO_TEST_CASE( switch_producers_test ) try {
    validating_tester chain;

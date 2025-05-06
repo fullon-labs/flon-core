@@ -1277,6 +1277,7 @@ namespace eosio::testing {
                           fc::mutable_variant_object()("schedule", schedule_variant));
    }
 
+   #ifdef SET_PRODUCERS_LEGACY
    transaction_trace_ptr base_tester::set_producers_legacy(const vector<account_name>& producer_names) {
       auto schedule = get_producer_authorities( producer_names );
       // down-rank to old version
@@ -1292,6 +1293,7 @@ namespace eosio::testing {
       return push_action( config::system_account_name, "setprods"_n, config::system_account_name,
                           fc::mutable_variant_object()("schedule", legacy_keys));
    }
+   #endif//SET_PRODUCERS_LEGACY
 
    base_tester::set_finalizers_output_t base_tester::set_finalizers(std::span<const account_name> finalizer_names) {
       auto num_finalizers = finalizer_names.size();

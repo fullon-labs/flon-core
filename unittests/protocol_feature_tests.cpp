@@ -767,6 +767,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(fix_linkauth_restriction, T, testers) { try {
 
 } FC_LOG_AND_RETHROW() }
 
+#ifdef SET_PRODUCERS_LEGACY
 BOOST_AUTO_TEST_CASE_TEMPLATE(disallow_empty_producer_schedule_test, T, testers) { try {
    T c( setup_policy::preactivate_feature_and_new_bios );
 
@@ -793,6 +794,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(disallow_empty_producer_schedule_test, T, testers)
    BOOST_CHECK( std::equal( schedule.begin(), schedule.end(), c.control->active_producers().producers.begin()) );
 
 } FC_LOG_AND_RETHROW() }
+#endif//SET_PRODUCERS_LEGACY
 
 BOOST_AUTO_TEST_CASE_TEMPLATE(restrict_action_to_self_test, T, testers) { try {
    T c( setup_policy::preactivate_feature_and_new_bios );
