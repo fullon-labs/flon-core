@@ -21,6 +21,7 @@ const static auto default_state_guard_size    =    128*1024*1024ll;
 
 #define SYS_NAME(n)  string_to_name(STR(SYSTEM_ACCOUNT_PREFIX) "." STR(n))
 #define PUB_KEY_STR(k)   STR(PUBLIC_KEY_LEGACY_PREFIX) k
+#define SYSTEM_ACCOUNT_NAME_STR STR(SYSTEM_ACCOUNT_NAME)
 
 const static name system_account_name     { NAME(SYSTEM_ACCOUNT_NAME) };
 const static name null_account_name       { SYS_NAME(null) }; // "[pre].null"

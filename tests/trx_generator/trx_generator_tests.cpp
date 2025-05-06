@@ -368,7 +368,7 @@ BOOST_AUTO_TEST_CASE(tps_cant_keep_up_monitored)
 
 BOOST_AUTO_TEST_CASE(trx_generator_constructor)
 {
-   trx_generator_base_config tg_config{1, chain::chain_id_type("999"), chain::name("eosio"), fc::seconds(3600),
+   trx_generator_base_config tg_config{1, chain::chain_id_type("999"), chain::config::system_account_name, fc::seconds(3600),
                                        fc::variant("00000062989f69fd251df3e0b274c3364ffc2f4fce73de3f1c7b5e11a4c92f21").as<chain::block_id_type>(), ".", true};
    provider_base_config p_config{"p2p", "127.0.0.1", 9876};
    const std::string abi_file = "../../unittests/system_contracts/flon.token/flon.token.abi";

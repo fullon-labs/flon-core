@@ -726,11 +726,11 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(fix_linkauth_restriction, T, testers) { try {
       );
    };
 
-   validate_disallow("eosio", "linkauth");
-   validate_disallow("eosio", "unlinkauth");
-   validate_disallow("eosio", "deleteauth");
-   validate_disallow("eosio", "updateauth");
-   validate_disallow("eosio", "canceldelay");
+   validate_disallow(SYSTEM_ACCOUNT_NAME_STR, "linkauth");
+   validate_disallow(SYSTEM_ACCOUNT_NAME_STR, "unlinkauth");
+   validate_disallow(SYSTEM_ACCOUNT_NAME_STR, "deleteauth");
+   validate_disallow(SYSTEM_ACCOUNT_NAME_STR, "updateauth");
+   validate_disallow(SYSTEM_ACCOUNT_NAME_STR, "canceldelay");
 
    validate_disallow("currency", "linkauth");
    validate_disallow("currency", "unlinkauth");
@@ -753,11 +753,11 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(fix_linkauth_restriction, T, testers) { try {
             ("requirement", "first"));
    };
 
-   validate_disallow("eosio", "linkauth");
-   validate_disallow("eosio", "unlinkauth");
-   validate_disallow("eosio", "deleteauth");
-   validate_disallow("eosio", "updateauth");
-   validate_disallow("eosio", "canceldelay");
+   validate_disallow(SYSTEM_ACCOUNT_NAME_STR, "linkauth");
+   validate_disallow(SYSTEM_ACCOUNT_NAME_STR, "unlinkauth");
+   validate_disallow(SYSTEM_ACCOUNT_NAME_STR, "deleteauth");
+   validate_disallow(SYSTEM_ACCOUNT_NAME_STR, "updateauth");
+   validate_disallow(SYSTEM_ACCOUNT_NAME_STR, "canceldelay");
 
    validate_allowed("currency", "linkauth");
    validate_allowed("currency", "unlinkauth");

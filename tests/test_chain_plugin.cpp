@@ -206,7 +206,7 @@ public:
 
        create_currency( token_name, config::system_account_name, core_from_string("10000000000.0000") );
        issue(config::system_account_name,      core_from_string("1000000000.0000"));
-       BOOST_CHECK_EQUAL( core_from_string("1000000000.0000"), get_balance( name("eosio") ) );
+       BOOST_CHECK_EQUAL( core_from_string("1000000000.0000"), get_balance( config::system_account_name ) );
 
        set_code( config::system_account_name, test_contracts::system_contract_wasm() );
        set_abi( config::system_account_name, test_contracts::system_contract_abi() );
@@ -301,7 +301,7 @@ public:
 
     vector<name> active_and_vote_producers() {
         //stake more than 15% of total EOS supply to activate chain
-        transfer( name("eosio"), name("alice1111111"), core_from_string("650000000.0000"), name("eosio") );
+        transfer( config::system_account_name, name("alice1111111"), core_from_string("650000000.0000"), config::system_account_name );
         BOOST_CHECK_EQUAL( success(), stake( name("alice1111111"), name("alice1111111"), core_from_string("300000000.0000"), core_from_string("300000000.0000") ) );
 
         // create accounts {defproducera, defproducerb, ..., defproducerz} and register as producers

@@ -406,7 +406,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(test_deltas_resources_history, T, table_deltas_tes
    );
 
    chain.push_action(token_name, "issue"_n, token_name, fc::mutable_variant_object()
-      ("to",       "eosio")
+      ("to",       config::system_account_name)
       ("quantity", core_from_string("90.0000"))
       ("memo", "for stuff")
    );

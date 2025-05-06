@@ -69,7 +69,7 @@ void test_configs_common(std::vector<const char*>& specific_args, app_init_statu
 
 // --read-only-thread not allowed on producer node
 BOOST_AUTO_TEST_CASE(read_only_on_producer) {
-   std::vector<const char*> specific_args = {"-p", "eosio", "-e", "--read-only-threads", "2" };
+   std::vector<const char*> specific_args = {"-p", SYSTEM_ACCOUNT_NAME_STR, "-e", "--read-only-threads", "2" };
    test_configs_common(specific_args, app_init_status::failed);
 }
 
@@ -108,7 +108,7 @@ void test_trxs_common(std::vector<const char*>& specific_args, bool test_disable
                fc::logger::get(DEFAULT_LOGGER).set_log_level(fc::log_level::debug);
                std::vector<const char*> argv = {
                   "test",  // dummy executible name
-                  "-p", "eosio", "-e", // actual arguments follow
+                  "-p", SYSTEM_ACCOUNT_NAME_STR, "-e", // actual arguments follow
                   "--data-dir", temp_dir_str.c_str(),
                   "--config-dir", temp_dir_str.c_str(),
                   "--max-transaction-time=100",

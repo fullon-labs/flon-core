@@ -24,7 +24,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE( get_producers, T, testers ) { try {
       BOOST_REQUIRE_EQUAL(results.rows.size(), 1u);
       const auto& row = results.rows[0].get_object();
       BOOST_REQUIRE(row.contains("owner"));
-      BOOST_REQUIRE_EQUAL(row["owner"].as_string(), "eosio");
+      BOOST_REQUIRE_EQUAL(row["owner"].as_string(), SYSTEM_ACCOUNT_NAME_STR);
       // check for producer_authority, since it is only set when the producer schedule is used
       BOOST_REQUIRE(row.contains("producer_authority"));
 

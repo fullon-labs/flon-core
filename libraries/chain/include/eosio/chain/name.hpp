@@ -86,8 +86,8 @@ namespace eosio::chain {
       /**
        *  Returns the prefix.
        *  for exmaple:
-       *    "eosio.any" -> "eosio"
-       *    "eosio" -> "eosio"
+       *    "sys.any" -> "sys"
+       *    "sys" -> "sys"
        */
       constexpr name prefix() const {
          uint64_t result                 = value;
