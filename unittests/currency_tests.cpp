@@ -594,9 +594,10 @@ BOOST_AUTO_TEST_CASE_TEMPLATE( test_input_quantity, T, currency_testers ) try {
 
    // issue to alice using right precision
    {
-      auto trace = chain.issue("alice"_n, "25.0256 CUR");
-
+      auto trace = chain.issue(config::token_account_name, "25.0256 CUR");
       BOOST_CHECK_EQUAL(true, chain.chain_has_transaction(trace->id));
+
+      chain.transfer(config::token_account_name, "alice"_n, "25.0256 CUR");
       BOOST_CHECK_EQUAL(asset::from_string("125.0256 CUR"), chain.get_balance("alice"_n));
    }
 
