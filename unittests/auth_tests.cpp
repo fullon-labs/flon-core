@@ -369,7 +369,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE( create_account, TESTER, validating_testers ) { tr
 
    // Creating account with eosio. prefix with non-privileged account, should fail
    BOOST_CHECK_EXCEPTION(chain.create_account(SYS_NAME("test2"), name("joe")), action_validate_exception,
-                         fc_exception_message_is("only privileged accounts can have names that start with '" + config::system_account_name.to_string() + ".'"));
+                         fc_exception_message_is("only privileged accounts can have names that start with '" + config::system_name_prefix_str + "'"));
 
 } FC_LOG_AND_RETHROW() }
 

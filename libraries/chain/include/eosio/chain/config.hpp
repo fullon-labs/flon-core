@@ -23,6 +23,8 @@ const static auto default_state_guard_size    =    128*1024*1024ll;
 #define PUB_KEY_STR(k)   STR(PUBLIC_KEY_LEGACY_PREFIX) k
 #define SYSTEM_ACCOUNT_NAME_STR STR(SYSTEM_ACCOUNT_NAME)
 
+const static std::string system_name_prefix_str  { STR(SYSTEM_ACCOUNT_PREFIX) "." };
+
 const static name system_account_name     { NAME(SYSTEM_ACCOUNT_NAME) };
 const static name null_account_name       { SYS_NAME(null) }; // "[pre].null"
 const static name producers_account_name  { SYS_NAME(prods) }; // "[pre].prods"
