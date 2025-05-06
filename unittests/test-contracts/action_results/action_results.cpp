@@ -4,7 +4,7 @@
 using namespace eosio;
 using namespace std;
 
-extern "C" { 
+extern "C" {
 __attribute__((eosio_wasm_import))
 void set_parameters_packed( const char* params, uint32_t params_size );
 __attribute__((eosio_wasm_import))
@@ -12,7 +12,11 @@ void set_action_return_value(void*, size_t);
 };
 
 class [[eosio::contract]] action_results : public contract {
-  public:
+   public:
+   enum {
+      max_action_return_value_size_id = 21,
+    };
+   public:
       using contract::contract;
 
       [[eosio::action]]
@@ -38,16 +42,16 @@ class [[eosio::contract]] action_results : public contract {
       }
 
       /**
-       * required to be called as system contract for priviledged host function call  
+       * required to be called as system contract for priviledged host function call
        */
       [[eosio::action]]
       void retmaxlim() {
-         
+
          char buffer[12];
          datastream<char*> ds((char*)&buffer, sizeof(buffer));
          //20mb is MAX_SIZE_OF_BYTE_ARRAYS that is defined in fc.
          //we don't use fc in contracts so using hardcode here.
-         ds << unsigned_int(uint32_t(1)) << unsigned_int(uint32_t(17)) << uint32_t(20*1024*1024);
+         ds << unsigned_int(uint32_t(1)) << unsigned_int(uint32_t(max_action_return_value_size_id)) << uint32_t(20*1024*1024);
          set_parameters_packed(buffer, ds.tellp());
 
          vector<char> ret_vec(20*1024*1024, '1');
@@ -57,14 +61,14 @@ class [[eosio::contract]] action_results : public contract {
 
       [[eosio::action]]
       void setliminv() {
-         
+
          char buffer[12];
          datastream<char*> ds((char*)&buffer, sizeof(buffer));
-         
-         ds << unsigned_int(uint32_t(1)) << unsigned_int(uint32_t(17)) << uint32_t(20*1024*1024 + 1);
+
+         ds << unsigned_int(uint32_t(1)) << unsigned_int(uint32_t(max_action_return_value_size_id)) << uint32_t(20*1024*1024 + 1);
          //trying to set limit too large
          set_parameters_packed(buffer, ds.tellp());
       }
 
-  private:
+   private:
 };
