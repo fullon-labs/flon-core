@@ -86,7 +86,7 @@ void apply_eosio_newaccount(apply_context& context) {
    const auto &creator = db.get<account_metadata_object, by_name>(create.creator);
    if( !creator.is_privileged() ) {
       EOS_ASSERT( create.name.prefix() != config::system_account_name, action_validate_exception,
-                  "only privileged accounts can have names that start with '${p}'", ("p", config::system_account_name) );
+                  "only privileged accounts can have names that start with '${p}.'", ("p", config::system_account_name) );
    }
 
    auto existing_account = db.find<account_object, by_name>(create.name);
