@@ -520,10 +520,10 @@ namespace eosio {
          uint32_t      fork_head_num = 0;
       };
 
-      
+
       std::function<void()> increment_failed_p2p_connections;
       std::function<void()> increment_dropped_trxs;
-      
+
    private:
       alignas(hardware_destructive_interference_sz)
       mutable fc::mutex             chain_info_mtx; // protects chain_info_t
@@ -1050,7 +1050,7 @@ namespace eosio {
        * is placed on the send queue, one during start session, one
        * when a sync block is queued and one each when data is
        * counted as received or sent.
-       * Calls the kernel time of day routine and converts to 
+       * Calls the kernel time of day routine and converts to
        * a (at least) 64 bit integer.
        */
       static std::chrono::nanoseconds get_time() {
@@ -1190,7 +1190,7 @@ namespace eosio {
          c->handle_message( msg );
       }
    };
-   
+
 
    std::tuple<std::string, std::string, std::string> split_host_port_type(const std::string& peer_add) {
       // host:port:[<trx>|<blk>]
@@ -1326,7 +1326,7 @@ namespace eosio {
    }
 
    // called from connection strand
-   void connection::set_connection_type( const std::string& peer_add ) {      
+   void connection::set_connection_type( const std::string& peer_add ) {
       auto [host, port, type] = split_host_port_type(peer_add);
       if( type.empty() ) {
          fc_dlog( logger, "Setting connection - ${c} type for: ${peer} to both transactions and blocks", ("c", connection_id)("peer", peer_add) );
@@ -4243,7 +4243,7 @@ namespace eosio {
            "     eosproducer1,p2p.eos.io:9876\n"
            "     eosproducer2,p2p.trx.eos.io:9876:trx\n"
            "     eosproducer3,p2p.blk.eos.io:9876:blk\n")
-         ( "agent-name", bpo::value<string>()->default_value("EOS Test Agent"), "The name supplied to identify this node amongst the peers.")
+         ( "agent-name", bpo::value<string>()->default_value("Chain Node Agent"), "The name supplied to identify this node amongst the peers.")
          ( "allowed-connection", bpo::value<vector<string>>()->multitoken()->default_value({"any"}, "any"), "Can be 'any' or 'producers' or 'specified' or 'none'. If 'specified', peer-key must be specified at least once. If only 'producers', peer-key is not required. 'producers' and 'specified' may be combined.")
          ( "peer-key", bpo::value<vector<string>>()->composing()->multitoken(), "Optional public key of peer allowed to connect.  May be used multiple times.")
          ( "peer-private-key", bpo::value<vector<string>>()->composing()->multitoken(),
@@ -4328,7 +4328,7 @@ namespace eosio {
                }
                for( const auto& addr : p2p_addresses ) {
                   EOS_ASSERT( addr.length() <= max_p2p_address_length, chain::plugin_config_exception,
-                              "p2p-listen-endpoint ${a} too long, must be less than ${m}", 
+                              "p2p-listen-endpoint ${a} too long, must be less than ${m}",
                               ("a", addr)("m", max_p2p_address_length) );
                }
             }
@@ -4339,7 +4339,7 @@ namespace eosio {
                         "p2p-server-address may not be specified more times than p2p-listen-endpoint" );
             for( const auto& addr: p2p_server_addresses ) {
                EOS_ASSERT( addr.length() <= max_p2p_address_length, chain::plugin_config_exception,
-                           "p2p-server-address ${a} too long, must be less than ${m}", 
+                           "p2p-server-address ${a} too long, must be less than ${m}",
                            ("a", addr)("m", max_p2p_address_length) );
             }
          }
@@ -4445,10 +4445,10 @@ namespace eosio {
       std::vector<string> listen_addresses = p2p_addresses;
 
       EOS_ASSERT( p2p_addresses.size() == p2p_server_addresses.size(), chain::plugin_config_exception, "" );
-      std::transform(p2p_addresses.begin(), p2p_addresses.end(), p2p_server_addresses.begin(), 
+      std::transform(p2p_addresses.begin(), p2p_addresses.end(), p2p_server_addresses.begin(),
                      p2p_addresses.begin(), [](const string& p2p_address, const string& p2p_server_address) {
          auto [host, port] = fc::split_host_port(p2p_address);
-         
+
          if( !p2p_server_address.empty() ) {
             return p2p_server_address;
          } else if( host.empty() || host == "0.0.0.0" || host == "[::]") {
@@ -4543,7 +4543,7 @@ namespace eosio {
          throw;
       }
    }
-      
+
 
    void net_plugin::handle_sighup() {
       fc::logger::update( logger_name, logger );
@@ -4650,7 +4650,7 @@ namespace eosio {
       boost::system::error_code ec;
       auto endpoint = c->socket->remote_endpoint(ec);
       connections.insert( connection_detail{
-         .host = c->peer_address(), 
+         .host = c->peer_address(),
          .c = std::move(c),
          .active_ip = endpoint} );
    }
@@ -4678,7 +4678,7 @@ namespace eosio {
 
       auto resolver = std::make_shared<tcp::resolver>( my_impl->thread_pool.get_executor() );
 
-      resolver->async_resolve(host, port, 
+      resolver->async_resolve(host, port,
          [resolver, host = host, port = port, peer_address = peer_address, listen_address = listen_address, this]( const boost::system::error_code& err, const tcp::resolver::results_type& results ) {
             connection_ptr c = std::make_shared<connection>( peer_address, listen_address );
             c->set_heartbeat_timeout( heartbeat_timeout );
@@ -4785,7 +4785,7 @@ namespace eosio {
    }
 
    // called from any thread
-   void connections_manager::start_conn_timer(boost::asio::steady_timer::duration du, 
+   void connections_manager::start_conn_timer(boost::asio::steady_timer::duration du,
                                               std::weak_ptr<connection> from_connection,
                                               timer_type which) {
       auto& mtx = which == timer_type::check ? connector_check_timer_mtx : connection_stats_timer_mtx;
@@ -4821,7 +4821,7 @@ namespace eosio {
    // called from any thread
    void connections_manager::connection_monitor(const std::weak_ptr<connection>& from_connection) {
       size_t num_rm = 0, num_clients = 0, num_peers = 0, num_bp_peers = 0;
-      auto cleanup = [&num_peers, &num_rm, this](vector<connection_ptr>&& reconnecting, 
+      auto cleanup = [&num_peers, &num_rm, this](vector<connection_ptr>&& reconnecting,
                                                  vector<connection_ptr>&& removing) {
          for( auto& c : reconnecting ) {
             if (!c->reconnect()) {
