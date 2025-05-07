@@ -16,6 +16,7 @@ void restrict_action_test::sendinline( name authorizer ) {
    ).send();
 }
 
+#ifdef ENABLE_DEFERRED_TRANSACTION
 void restrict_action_test::senddefer( name authorizer, uint32_t senderid ) {
    transaction trx;
    trx.actions.emplace_back(
@@ -26,19 +27,24 @@ void restrict_action_test::senddefer( name authorizer, uint32_t senderid ) {
    );
    trx.send(senderid, get_self());
 }
+#endif//ENABLE_DEFERRED_TRANSACTION
 
 void restrict_action_test::notifyinline( name acctonotify, name authorizer ) {
    require_recipient(acctonotify);
 }
 
+#ifdef ENABLE_DEFERRED_TRANSACTION
 void restrict_action_test::notifydefer( name acctonotify, name authorizer, uint32_t senderid ) {
    require_recipient(acctonotify);
 }
+#endif//ENABLE_DEFERRED_TRANSACTION
 
 void restrict_action_test::on_notify_inline( name acctonotify, name authorizer ) {
    sendinline(authorizer);
 }
 
+#ifdef ENABLE_DEFERRED_TRANSACTION
 void restrict_action_test::on_notify_defer( name acctonotify, name authorizer, uint32_t senderid ) {
    senddefer(authorizer, senderid);
 }
+#endif//ENABLE_DEFERRED_TRANSACTION

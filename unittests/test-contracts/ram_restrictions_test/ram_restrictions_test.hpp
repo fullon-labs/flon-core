@@ -29,6 +29,7 @@ public:
    [[eosio::on_notify("tester2::notifysetdat")]]
    void on_notify_setdata( eosio::name acctonotify, uint32_t len1, uint32_t len2, eosio::name payer );
 
+   #ifdef ENABLE_DEFERRED_TRANSACTION
    [[eosio::action]]
    void senddefer( uint64_t senderid, eosio::name payer );
 
@@ -37,5 +38,6 @@ public:
 
    [[eosio::on_notify("tester2::notifydefer")]]
    void on_notifydefer( eosio::name acctonotify, uint64_t senderid, eosio::name payer );
+   #endif//ENABLE_DEFERRED_TRANSACTION
 
 };

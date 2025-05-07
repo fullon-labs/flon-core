@@ -827,20 +827,23 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(restrict_action_to_self_test, T, testers) { try {
    // - Sending inline action to self from notification = throw subjective exception
    // - Sending deferred trx to self from notification = throw subjective exception
    BOOST_CHECK_NO_THROW( c.push_action( "testacc"_n, "sendinline"_n, "alice"_n, mutable_variant_object()("authorizer", "alice")) );
+   #ifdef ENABLE_DEFERRED_TRANSACTION
    BOOST_REQUIRE_EXCEPTION( c.push_action( "testacc"_n, "senddefer"_n, "alice"_n,
                                            mutable_variant_object()("authorizer", "alice")("senderid", 0)),
                             subjective_block_production_exception,
                             fc_exception_message_starts_with( "Authorization failure with sent deferred transaction" ) );
-
+   #endif//ENABLE_DEFERRED_TRANSACTION
    BOOST_REQUIRE_EXCEPTION( c.push_action( "testacc"_n, "notifyinline"_n, "alice"_n,
                                         mutable_variant_object()("acctonotify", "acctonotify")("authorizer", "alice")),
                             subjective_block_production_exception,
                             fc_exception_message_starts_with( "Authorization failure with inline action sent to self" ) );
 
+   #ifdef ENABLE_DEFERRED_TRANSACTION
    BOOST_REQUIRE_EXCEPTION( c.push_action( "testacc"_n, "notifydefer"_n, "alice"_n,
                                            mutable_variant_object()("acctonotify", "acctonotify")("authorizer", "alice")("senderid", 1)),
                             subjective_block_production_exception,
                             fc_exception_message_starts_with( "Authorization failure with sent deferred transaction" ) );
+   #endif//ENABLE_DEFERRED_TRANSACTION
 
    c.preactivate_protocol_features( {*d} );
    c.produce_block();
@@ -849,22 +852,24 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(restrict_action_to_self_test, T, testers) { try {
    BOOST_REQUIRE_EXCEPTION( c.push_action( "testacc"_n, "sendinline"_n, "alice"_n, mutable_variant_object()("authorizer", "alice") ),
                             unsatisfied_authorization,
                             fc_exception_message_starts_with( "transaction declares authority" ) );
-
+   #ifdef ENABLE_DEFERRED_TRANSACTION
    BOOST_REQUIRE_EXCEPTION( c.push_action( "testacc"_n, "senddefer"_n, "alice"_n,
                                            mutable_variant_object()("authorizer", "alice")("senderid", 3)),
                             unsatisfied_authorization,
                             fc_exception_message_starts_with( "transaction declares authority" ) );
+   #endif//ENABLE_DEFERRED_TRANSACTION
 
    BOOST_REQUIRE_EXCEPTION( c.push_action( "testacc"_n, "notifyinline"_n, "alice"_n,
                                            mutable_variant_object()("acctonotify", "acctonotify")("authorizer", "alice") ),
                             unsatisfied_authorization,
                             fc_exception_message_starts_with( "transaction declares authority" ) );
 
+   #ifdef ENABLE_DEFERRED_TRANSACTION
    BOOST_REQUIRE_EXCEPTION( c.push_action( "testacc"_n, "notifydefer"_n, "alice"_n,
                                            mutable_variant_object()("acctonotify", "acctonotify")("authorizer", "alice")("senderid", 4)),
                             unsatisfied_authorization,
                             fc_exception_message_starts_with( "transaction declares authority" ) );
-
+   #endif//ENABLE_DEFERRED_TRANSACTION
 } FC_LOG_AND_RETHROW() }
 
 // TODO: remove me?
@@ -1163,6 +1168,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(ram_restrictions_test, T, testers) { try {
       fc_exception_message_is( "Cannot charge RAM to other accounts during notify." )
    );
 
+   #ifdef ENABLE_DEFERRED_TRANSACTION
    // Cannot send deferred transaction paid by another account that has not authorized the action.
    BOOST_REQUIRE_EXCEPTION(
       c.push_action( tester1_account, "senddefer"_n, bob_account, mutable_variant_object()
@@ -1192,6 +1198,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(ram_restrictions_test, T, testers) { try {
       ("payer", alice_account)
    );
    c.produce_block();
+   #endif//ENABLE_DEFERRED_TRANSACTION
 
    // Can migrate data from table1 to table2 paid by another account
    // in a RAM usage neutral way with the authority of that account.
@@ -1258,6 +1265,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(ram_restrictions_test, T, testers) { try {
    c.preactivate_protocol_features( {*d} );
    c.produce_block();
 
+   #ifdef ENABLE_DEFERRED_TRANSACTION
    // Cannot send deferred transaction paid by another account that has not authorized the action.
    // This still fails objectively, but now with another error message.
    BOOST_REQUIRE_EXCEPTION(
@@ -1281,6 +1289,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(ram_restrictions_test, T, testers) { try {
       action_validate_exception,
       fc_exception_message_is( "cannot bill RAM usage of deferred transactions to another account within notify context" )
    );
+   #endif//ENABLE_DEFERRED_TRANSACTION
 
    // Cannot bill more RAM to another account within a notification
    // even if the account authorized the original action.
@@ -1308,12 +1317,14 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(ram_restrictions_test, T, testers) { try {
       fc_exception_message_starts_with( "unprivileged contract cannot increase RAM usage of another account that has not authorized the action" )
    );
 
+   #ifdef ENABLE_DEFERRED_TRANSACTION
    // Still can send deferred transaction paid by another account if it has authorized the action.
    c.push_action( tester1_account, "senddefer"_n, alice_account, mutable_variant_object()
       ("senderid", 123)
       ("payer", alice_account)
    );
    c.produce_block();
+   #endif//ENABLE_DEFERRED_TRANSACTION
 
    // Now can migrate data from table1 to table2 paid by another account
    // in a RAM usage neutral way without the authority of that account.

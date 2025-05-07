@@ -38,6 +38,7 @@ void ram_restrictions_test::on_notify_setdata( name acctonotify, uint32_t len1, 
    setdata(len1, len2, payer);
 }
 
+#ifdef ENABLE_DEFERRED_TRANSACTION
 void ram_restrictions_test::senddefer( uint64_t senderid, name payer ) {
    transaction trx;
    trx.actions.emplace_back(
@@ -56,3 +57,4 @@ void ram_restrictions_test::notifydefer( name acctonotify, uint64_t senderid, na
 void ram_restrictions_test::on_notifydefer( name acctonotify, uint64_t senderid, name payer ) {
    senddefer(senderid, payer);
 }
+#endif//ENABLE_DEFERRED_TRANSACTION
