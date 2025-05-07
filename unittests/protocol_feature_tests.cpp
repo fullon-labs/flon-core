@@ -13,6 +13,9 @@
 
 #include "fork_test_utilities.hpp"
 
+#include <Inline/Serialization.h>
+#include <WASM/WASM.h>
+
 using namespace eosio::chain;
 using namespace eosio::testing;
 using namespace std::literals;
@@ -25,14 +28,22 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(activate_preactivate_feature, T, testers) try {
 
    c.produce_block();
 
-   // Cannot set latest bios contract since it requires intrinsics that have not yet been whitelisted.
-   BOOST_CHECK_EXCEPTION( c.set_code( config::system_account_name, contracts::sys_bios_wasm() ),
-                          wasm_exception, fc_exception_message_contains("unresolveable")
+   // Cannot set latest bios contract since it exceeds the default limits of WASM.
+   BOOST_CHECK_EXCEPTION(  c.set_code( config::system_account_name, contracts::sys_bios_wasm() ),
+                           wasm_exception, fc_exception_message_contains("Too many function defs")
    );
 
-   // But the boot contract can still be set.
-   c.set_code( config::system_account_name, contracts::sys_boot_wasm() );
-   c.set_abi( config::system_account_name, contracts::sys_boot_abi() );
+   {
+      WASM::scoped_skip_checks no_check;
+      // Cannot set latest bios contract since it requires intrinsics that have not yet been whitelisted.
+      BOOST_CHECK_EXCEPTION( c.set_code( config::system_account_name, contracts::sys_bios_wasm() ),
+                             wasm_exception, fc_exception_message_contains("unresolveable")
+      );
+
+      // But the payloadless contract can still be set.
+      c.set_code( config::system_account_name, test_contracts::payloadless_wasm() );
+   }
+
 
    auto t = c.control->pending_block_time();
    c.control->abort_block();
