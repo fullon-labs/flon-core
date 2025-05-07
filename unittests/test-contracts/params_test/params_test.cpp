@@ -117,19 +117,19 @@ public:
       blockchain_parameters old_way_params;
       params_object(1_ui)(0_ui)(1024*1024*2_64).set();
       get_blockchain_parameters(old_way_params);
-      ASSERT_EQ(params_object({1_ui,0_ui}).get(), 
+      ASSERT_EQ(params_object({1_ui,0_ui}).get(),
                 params_object(1_ui)(0_ui)(1024*1024*2_64));
       ASSERT_EQ(old_way_params.max_block_net_usage, 1024*1024*2);
 
       params_object(1_ui)(1_ui)(20*100_32).set();
       get_blockchain_parameters(old_way_params);
-      ASSERT_EQ(params_object({1_ui,1_ui}).get(), 
+      ASSERT_EQ(params_object({1_ui,1_ui}).get(),
                 params_object(1_ui)(1_ui)(20*100_32));
       ASSERT_EQ(old_way_params.target_block_net_usage_pct, 20*100);
-      
+
       params_object(1_ui)(16_ui)(8_16).set();
       get_blockchain_parameters(old_way_params);
-      ASSERT_EQ(params_object({1_ui,16_ui}).get(), 
+      ASSERT_EQ(params_object({1_ui,16_ui}).get(),
                 params_object(1_ui)(16_ui)(8_16));
       ASSERT_EQ(old_way_params.max_authority_depth, 8);
 
@@ -137,7 +137,7 @@ public:
                          (1_ui)(30*100_32)
                          (16_ui)(10_16).set();
       get_blockchain_parameters(old_way_params);
-      ASSERT_EQ(params_object({3_ui, 0_ui, 1_ui, 16_ui}).get(), 
+      ASSERT_EQ(params_object({3_ui, 0_ui, 1_ui, 16_ui}).get(),
                 params_object(3_ui)(0_ui)(1024*1024*3_64)
                                    (1_ui)(30*100_32)
                                    (16_ui)(10_16));
@@ -145,7 +145,16 @@ public:
       ASSERT_EQ(old_way_params.target_block_net_usage_pct, 30*100);
       ASSERT_EQ(old_way_params.max_authority_depth, 10);
 
-      params_object(17_ui) (0_ui)(1024*1024*4_64)
+      ASSERT_EQ(params_object({1_ui,17_ui}).get(),
+                params_object(1_ui)(17_ui)(64*1024*1024*1024_64));
+      ASSERT_EQ(params_object({1_ui,18_ui}).get(),
+                params_object(1_ui)(18_ui)(10'000_32));
+      ASSERT_EQ(params_object({1_ui,19_ui}).get(),
+                params_object(1_ui)(19_ui)(50'000_32));
+      ASSERT_EQ(params_object({1_ui,20_ui}).get(),
+                params_object(1_ui)(20_ui)(50'000_32));
+
+      params_object(21_ui) (0_ui)(1024*1024*4_64)
                            (1_ui)(35*100_32)
                            (2_ui)(1024*1024*2_32)
                            (3_ui)(1024_32)
@@ -161,13 +170,19 @@ public:
                            (13_ui)(30*24*3600_32)
                            (14_ui)(1024*1024_32)
                            (15_ui)(6_16)
-                           (16_ui)(9_16).set();
+                           (16_ui)(9_16)
+                           (17_ui)(4*1024*1024*1024_64)
+                           (18_ui)(20'000_32)
+                           (19_ui)(70'000_32)
+                           (20_ui)(90'000_32).set();
+
       get_blockchain_parameters(old_way_params);
-      ASSERT_EQ(params_object({17_ui,0_ui,1_ui,2_ui,3_ui,4_ui,
+      ASSERT_EQ(params_object({21_ui,0_ui,1_ui,2_ui,3_ui,4_ui,
                                      5_ui,6_ui,7_ui,8_ui,9_ui,
                                      10_ui,11_ui,12_ui,13_ui,
-                                     14_ui,15_ui,16_ui}).get(), 
-                params_object(17_ui)(0_ui)(1024*1024*4_64)
+                                     14_ui,15_ui,16_ui,17_ui,
+                                     18_ui,19_ui,20_ui}).get(),
+                params_object(21_ui)(0_ui)(1024*1024*4_64)
                                     (1_ui)(35*100_32)
                                     (2_ui)(1024*1024*2_32)
                                     (3_ui)(1024_32)
@@ -183,7 +198,11 @@ public:
                                     (13_ui)(30*24*3600_32)
                                     (14_ui)(1024*1024_32)
                                     (15_ui)(6_16)
-                                    (16_ui)(9_16));
+                                    (16_ui)(9_16)
+                                    (17_ui)(4*1024*1024*1024_64)
+                                    (18_ui)(20'000_32)
+                                    (19_ui)(70'000_32)
+                                    (20_ui)(90'000_32));
       ASSERT_EQ(old_way_params.max_block_net_usage, 1024*1024*4);
       ASSERT_EQ(old_way_params.target_block_net_usage_pct, 35*100);
       ASSERT_EQ(old_way_params.max_transaction_net_usage, 1024*1024*2);
@@ -201,24 +220,27 @@ public:
       ASSERT_EQ(old_way_params.max_inline_action_size, 1024*1024);
       ASSERT_EQ(old_way_params.max_inline_action_depth, 6);
       ASSERT_EQ(old_way_params.max_authority_depth, 9);
+      ASSERT_EQ(old_way_params.max_total_ram_usage, 4*1024*1024*1024_64);
+      ASSERT_EQ(old_way_params.gas_per_cpu_ms, 20'000_32);
+      ASSERT_EQ(old_way_params.gas_per_net_kb, 70'000_32);
+      ASSERT_EQ(old_way_params.gas_per_ram_kb, 90'000_32);
 
-      //v1 config, max_action_return_value_size
-      ASSERT_EQ(params_object(1_ui)(17_ui).get(), 
-                params_object(1_ui)(17_ui)(256_32));
-      
-      params_object(1_ui)(17_ui)(512_32).set();
-      ASSERT_EQ(params_object(1_ui)(17_ui).get(), 
-                params_object(1_ui)(17_ui)(512_32));
+      ASSERT_EQ(params_object(1_ui)(21_ui).get(),
+                params_object(1_ui)(21_ui)(256_32));
+
+      params_object(1_ui)(21_ui)(512_32).set();
+      ASSERT_EQ(params_object(1_ui)(21_ui).get(),
+                params_object(1_ui)(21_ui)(512_32));
    }
 
    [[eosio::action]] void setthrow1(){
       //unknown configuration index
-      params_object(1_ui)(100_ui).set();    
+      params_object(1_ui)(100_ui).set();
    }
 
    [[eosio::action]] void setthrow2(){
       //length=2, only 1 argument provided
-      params_object(2_ui)(1_ui).set();    
+      params_object(2_ui)(1_ui).set();
    }
 
    [[eosio::action]] void setthrow3(){
@@ -228,12 +250,12 @@ public:
 
    [[eosio::action]] void getthrow1(){
       //unknown configuration index
-      params_object(1_ui)(100_ui).get();    
+      params_object(1_ui)(100_ui).get();
    }
 
    [[eosio::action]] void getthrow2(){
       //length=2, only 1 argument provided
-      params_object(2_ui)(1_ui).get();    
+      params_object(2_ui)(1_ui).get();
    }
 
    [[eosio::action]] void getthrow3(){
@@ -247,18 +269,18 @@ public:
    [[eosio::action]] void throwrvia1(){
       //throws when setting parameter that is not allowed because of protocol feature for
       //this parameter is not active
-      
+
       //v1 config, max_action_return_value_size
-      params_object(1_ui)(17_ui)(1024_32).set();
-      ASSERT_EQ(params_object(1_ui)(17_ui).get(), 
-                params_object(1_ui)(17_ui)(1024_32));
+      params_object(1_ui)(21_ui)(1024_32).set();
+      ASSERT_EQ(params_object(1_ui)(21_ui).get(),
+                params_object(1_ui)(21_ui)(1024_32));
    }
 
    [[eosio::action]] void throwrvia2(){
       //this test tries to get parameter with corresponding inactive protocol feature
-      
+
       //v1 config, max_action_return_value_size
-      ASSERT_EQ(params_object(1_ui)(17_ui).get(), 
-                params_object(1_ui)(17_ui)(1024_32));
+      ASSERT_EQ(params_object(1_ui)(21_ui).get(),
+                params_object(1_ui)(21_ui)(1024_32));
    }
 };
