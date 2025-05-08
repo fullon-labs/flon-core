@@ -259,6 +259,15 @@ namespace sysboot {
          [[eosio::action]]
          void setprods( const std::vector<eosio::producer_key>& schedule );
 
+
+         /**
+          * Set privilege action allows to set privilege status for an account (turn it on/off).
+          * @param account - the account to set the privileged status for.
+          * @param is_priv - 0 for false, > 0 for true.
+          */
+         [[eosio::action]]
+         void setpriv( name account, uint8_t is_priv );
+
          using newaccount_action = action_wrapper<"newaccount"_n, &boot::newaccount>;
          using updateauth_action = action_wrapper<"updateauth"_n, &boot::updateauth>;
          using deleteauth_action = action_wrapper<"deleteauth"_n, &boot::deleteauth>;

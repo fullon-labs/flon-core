@@ -21,4 +21,9 @@ void boot::setprods( const std::vector<eosio::producer_key>& schedule ) {
    set_proposed_producers( schedule );
 }
 
+void boot::setpriv( name account, uint8_t is_priv ) {
+   require_auth( get_self() );
+   set_privileged( account, is_priv );
+}
+
 }
