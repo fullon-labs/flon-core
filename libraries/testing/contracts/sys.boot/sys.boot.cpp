@@ -16,4 +16,9 @@ void boot::reqactivated( const eosio::checksum256& feature_digest ) {
    check( eosio::is_feature_activated( feature_digest ), "protocol feature is not activated" );
 }
 
+void boot::setprods( const std::vector<eosio::producer_key>& schedule ) {
+   require_auth( get_self() );
+   set_proposed_producers( schedule );
+}
+
 }

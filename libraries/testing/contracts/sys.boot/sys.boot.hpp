@@ -2,6 +2,7 @@
 
 #include <eosio/crypto.hpp>
 #include <eosio/eosio.hpp>
+#include <eosio/privileged.hpp>
 
 namespace sysboot {
 
@@ -244,6 +245,19 @@ namespace sysboot {
           */
          [[eosio::action]]
          void reqactivated( const eosio::checksum256& feature_digest );
+
+         /**
+          * Set a new list of active producers, that is, a new producers' schedule.
+          *
+          * @details Set a new list of active producers, by proposing a schedule change, once the block that
+          * contains the proposal becomes irreversible, the schedule is promoted to "pending"
+          * automatically. Once the block that promotes the schedule is irreversible, the schedule will
+          * become "active".
+          *
+          * @param schedule - New list of active producers to set, uses the legacy producer key format
+          */
+         [[eosio::action]]
+         void setprods( const std::vector<eosio::producer_key>& schedule );
 
          using newaccount_action = action_wrapper<"newaccount"_n, &boot::newaccount>;
          using updateauth_action = action_wrapper<"updateauth"_n, &boot::updateauth>;
