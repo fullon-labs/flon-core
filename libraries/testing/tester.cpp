@@ -41,6 +41,9 @@ namespace eosio::testing {
          case setup_policy::preactivate_feature_only:
             os << "preactivate_feature_only";
             break;
+         case setup_policy::preactivate_feature_and_boot:
+            os << "preactivate_feature_and_boot";
+            break;
          case setup_policy::preactivate_feature_and_new_bios:
             os << "preactivate_feature_and_new_bios";
             break;
@@ -248,7 +251,13 @@ namespace eosio::testing {
          case setup_policy::preactivate_feature_and_new_bios: {
             schedule_preactivate_protocol_feature();
             produce_block();
-            set_before_producer_authority_bios_contract();
+            set_boot_contract();
+            break;
+         }
+         case setup_policy::preactivate_feature_and_boot: {
+            schedule_preactivate_protocol_feature();
+            produce_block();
+            set_boot_contract();
             break;
          }
          case setup_policy::old_wasm_parser: {
@@ -276,16 +285,25 @@ namespace eosio::testing {
             break;
          }
          case setup_policy::full:
+
+         #ifdef ENABLE_DEFERRED_TRANSACTION
          case setup_policy::full_except_do_not_disable_deferred_trx:
+         #endif//ENABLE_DEFERRED_TRANSACTION
+
          case setup_policy::full_except_do_not_transition_to_savanna: {
             schedule_preactivate_protocol_feature();
             produce_block();
             set_before_producer_authority_bios_contract();
+
+            #ifdef ENABLE_DEFERRED_TRANSACTION
             if( policy == setup_policy::full_except_do_not_disable_deferred_trx ) {
                preactivate_all_but_disable_deferred_trx();
             } else {
                preactivate_all_builtin_protocol_features();
             }
+            #else
+            preactivate_all_builtin_protocol_features();
+            #endif//ENABLE_DEFERRED_TRANSACTION
             produce_block();
             if (policy == setup_policy::full || policy == setup_policy::full_except_do_not_transition_to_savanna ) {
                set_bios_contract();
@@ -1243,6 +1261,11 @@ namespace eosio::testing {
       set_abi(config::system_account_name, contracts::sys_boot_abi());
    }
 
+   void base_tester::set_boot_contract() {
+      set_code(config::system_account_name, contracts::sys_boot_wasm());
+      set_abi(config::system_account_name, contracts::sys_boot_abi());
+   }
+
    void base_tester::set_bios_contract() {
       set_code(config::system_account_name, contracts::sys_bios_wasm());
       set_abi(config::system_account_name, contracts::sys_bios_abi());
@@ -1416,8 +1439,10 @@ namespace eosio::testing {
       feature_digests.push_back(*pfm.get_builtin_digest(builtin_protocol_feature_t::crypto_primitives));
       feature_digests.push_back(*pfm.get_builtin_digest(builtin_protocol_feature_t::get_block_num));
       feature_digests.push_back(*pfm.get_builtin_digest(builtin_protocol_feature_t::bls_primitives));
+      #ifdef ENABLE_DEFERRED_TRANSACTION
       feature_digests.push_back(*pfm.get_builtin_digest(builtin_protocol_feature_t::disable_deferred_trxs_stage_1));
       feature_digests.push_back(*pfm.get_builtin_digest(builtin_protocol_feature_t::disable_deferred_trxs_stage_2));
+      #endif//ENABLE_DEFERRED_TRANSACTION
       // savanna
       feature_digests.push_back(*pfm.get_builtin_digest(builtin_protocol_feature_t::savanna));
 

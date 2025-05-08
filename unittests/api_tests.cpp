@@ -791,6 +791,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(cfa_stateful_api, T, validating_testers)  try {
    BOOST_REQUIRE_EQUAL( chain.validate(), true );
 } FC_LOG_AND_RETHROW()
 
+#ifdef ENABLE_DEFERRED_TRANSACTION
 BOOST_FIXTURE_TEST_CASE(deferred_cfa_failed, validating_tester_no_disable_deferred_trx)  try {
 
    create_account( "testapi"_n );
@@ -827,7 +828,6 @@ BOOST_FIXTURE_TEST_CASE(deferred_cfa_failed, validating_tester_no_disable_deferr
    BOOST_REQUIRE_EQUAL( validate(), true );
 } FC_LOG_AND_RETHROW()
 
-#ifdef ENABLE_DEFERRED_TRANSACTION
 BOOST_FIXTURE_TEST_CASE(deferred_cfa_success, validating_tester_no_disable_deferred_trx)  try {
 
    create_account( "testapi"_n );
@@ -1612,6 +1612,7 @@ void transaction_tests(T& chain) {
    }
 }
 
+#ifdef ENABLE_DEFERRED_TRANSACTION
 /*************************************************************************************
  * transaction tests for before disable_trxs_protocol_features are activated
  *************************************************************************************/
@@ -1619,6 +1620,7 @@ BOOST_AUTO_TEST_CASE(transaction_tests_before_disable_trxs_protocol_features) { 
    validating_tester_no_disable_deferred_trx chain;
    transaction_tests<validating_tester>(chain);
 } FC_LOG_AND_RETHROW() }
+#endif//ENABLE_DEFERRED_TRANSACTION
 
 /*************************************************************************************
  * transaction tests after before disable_trxs_protocol_features are activated

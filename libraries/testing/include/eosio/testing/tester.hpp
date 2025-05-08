@@ -65,9 +65,14 @@ namespace eosio::testing {
       none,
       old_bios_only,
       preactivate_feature_only,
+      preactivate_feature_and_boot,
       preactivate_feature_and_new_bios,
       old_wasm_parser,
+
+      #ifdef ENABLE_DEFERRED_TRANSACTION
       full_except_do_not_disable_deferred_trx,
+      #endif//ENABLE_DEFERRED_TRANSACTION
+
       full_except_do_not_transition_to_savanna,
       full
    };
@@ -280,6 +285,7 @@ namespace eosio::testing {
 
          void                  set_before_preactivate_bios_contract();
          void                  set_before_producer_authority_bios_contract();
+         void                  set_boot_contract();
          void                  set_bios_contract();
 
          vector<producer_authority>  get_producer_authorities( const vector<account_name>& producer_names )const;
@@ -733,11 +739,13 @@ namespace eosio::testing {
    using savanna_tester = tester;
    using testers = boost::mpl::list<legacy_tester, savanna_tester>;
 
+   #ifdef ENABLE_DEFERRED_TRANSACTION
    class tester_no_disable_deferred_trx : public tester {
    public:
       tester_no_disable_deferred_trx(): tester(setup_policy::full_except_do_not_disable_deferred_trx) {
       }
    };
+   #endif//ENABLE_DEFERRED_TRANSACTION
 
    class validating_tester : public base_tester {
    public:
@@ -864,11 +872,13 @@ namespace eosio::testing {
       bool                        skip_validate = false;
    };
 
+   #ifdef ENABLE_DEFERRED_TRANSACTION
    class validating_tester_no_disable_deferred_trx : public validating_tester {
    public:
       validating_tester_no_disable_deferred_trx(): validating_tester({}, nullptr, setup_policy::full_except_do_not_disable_deferred_trx) {
       }
    };
+   #endif//ENABLE_DEFERRED_TRANSACTION
 
    // The behavior of legacy_validating_tester is activating all the protocol features
    // but not transition to Savanna consensus.

@@ -94,10 +94,13 @@ class currency_tester : public T {
 using currency_testers = boost::mpl::list<currency_tester<legacy_validating_tester>,
                                           currency_tester<savanna_validating_tester>>;
 
+
+#ifdef ENABLE_DEFERRED_TRANSACTION
 class pre_disable_deferred_trx_currency_tester : public currency_tester<legacy_validating_tester> {
    public:
       pre_disable_deferred_trx_currency_tester() : currency_tester(setup_policy::full_except_do_not_disable_deferred_trx) {}
 };
+#endif//ENABLE_DEFERRED_TRANSACTION
 
 BOOST_AUTO_TEST_SUITE(currency_tests)
 
