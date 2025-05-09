@@ -16,10 +16,15 @@
 
 namespace bio = boost::iostreams;
 
-#define CORE_FROM_STRING(s, sym) eosio::chain::asset::from_string(s + " " #sym)
+static const eosio::chain::symbol core_symbol = eosio::chain::symbol(CORE_SYMBOL);
 
 eosio::chain::asset core_from_string(const std::string& s) {
-   return CORE_FROM_STRING(s, CORE_SYMBOL_NAME);
+   auto a = eosio::chain::asset::from_string(s + " " CORE_SYMBOL_NAME_STR );
+   if (a.get_symbol().decimals() == core_symbol.decimals() ) {
+      return a;
+   } else {
+      return eosio::chain::asset((int128_t)a.get_amount() * core_symbol.precision() / a.precision(), core_symbol );
+   }
 }
 
 using bls_private_key = fc::crypto::blslib::bls_private_key;

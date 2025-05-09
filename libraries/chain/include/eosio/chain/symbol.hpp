@@ -53,11 +53,14 @@ namespace eosio::chain {
          return len > 0;
       }
 
-   #define SY(P,X) ::eosio::chain::string_to_symbol_c(P,#X)
-   #define CORE_SYMBOL  ::eosio::chain::string_to_symbol_c(CORE_SYMBOL_PRECISION, STR(CORE_SYMBOL_NAME))
 
-   static_assert(is_symbol_valid(CORE_SYMBOL_PRECISION, STR(CORE_SYMBOL_NAME)),
-               "Invalid symbol: " STR(CORE_SYMBOL_PRECISION) "," STR(CORE_SYMBOL_NAME));
+   #define CORE_SYMBOL_NAME_STR STR(CORE_SYMBOL_NAME)
+   static_assert(is_symbol_valid(CORE_SYMBOL_PRECISION, CORE_SYMBOL_NAME_STR),
+               "Invalid symbol: " STR(CORE_SYMBOL_PRECISION) "," CORE_SYMBOL_NAME_STR);
+
+   #define SY(P,X) ::eosio::chain::string_to_symbol_c(P,#X)
+   #define CORE_SYMBOL  ::eosio::chain::string_to_symbol_c(CORE_SYMBOL_PRECISION, CORE_SYMBOL_NAME_STR)
+
 
       static uint64_t string_to_symbol(uint8_t precision, const char* str) {
          try {
@@ -66,7 +69,7 @@ namespace eosio::chain {
             uint64_t result = 0;
             for (uint32_t i = 0; i < len; ++i) {
                // All characters must be upper case alphabets
-               EOS_ASSERT (str[i] >= 'A' && str[i] <= 'Z', symbol_type_exception, "invalid character in symbol name");
+               EOS_ASSERT (str[i] >= 'A' && str[i] <= 'Z', symbol_type_exception, "invalid character in symbol name ${str}", ("str", str));
                result |= (uint64_t(str[i]) << (8*(i+1)));
             }
             result |= uint64_t(precision);

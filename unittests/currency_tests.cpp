@@ -332,7 +332,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE( test_symbol, T, validating_testers ) try {
    // invalid - contains lower case characters, exception thrown
    {
       BOOST_CHECK_EXCEPTION(symbol(5,"EoS"),
-                            symbol_type_exception, fc_exception_message_is("invalid character in symbol name"));
+                            symbol_type_exception, fc_exception_message_starts_with("invalid character in symbol name"));
    }
 
    // Missing decimal point, should create asset with 0 decimals

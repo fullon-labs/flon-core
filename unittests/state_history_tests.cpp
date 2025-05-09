@@ -391,7 +391,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(test_deltas_resources_history, T, table_deltas_tes
    T chain;
    chain.produce_block();
 
-   chain.create_accounts({ token_name, "eosio.ram"_n, "eosio.ramfee"_n, "eosio.stake"_n, "eosio.rex"_n});
+   chain.create_accounts({ token_name});
 
    chain.produce_block();
 
@@ -402,12 +402,19 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(test_deltas_resources_history, T, table_deltas_tes
 
    chain.push_action(token_name, "create"_n, token_name, mutable_variant_object()
       ("issuer", token_name )
-      ("maximum_supply", core_from_string("1000000000.0000") )
+      ("maximum_supply", core_from_string("10000000000.0000") )
    );
 
    chain.push_action(token_name, "issue"_n, token_name, fc::mutable_variant_object()
-      ("to",       config::system_account_name)
-      ("quantity", core_from_string("90.0000"))
+      ("to",       token_name)
+      ("quantity", core_from_string("100.0000"))
+      ("memo", "for stuff")
+   );
+
+   chain.push_action(token_name, "transfer"_n, token_name, fc::mutable_variant_object()
+      ("from",       token_name)
+      ("to",         config::system_account_name)
+      ("quantity",   core_from_string("90.0000"))
       ("memo", "for stuff")
    );
 
@@ -434,19 +441,11 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(test_deltas_resources_history, T, table_deltas_tes
                                     .owner    = owner_auth,
                                     .active   = authority( chain.get_public_key( "alice"_n, "active" ) )});
 
-   trx.actions.emplace_back( chain.get_action( config::system_account_name, "buyram"_n, vector<permission_level>{{config::system_account_name,config::active_name}},
+   trx.actions.emplace_back( chain.get_action( config::system_account_name, "buygas"_n, vector<permission_level>{{config::system_account_name,config::active_name}},
                                                   mutable_variant_object()
-                                                      ("payer", config::system_account_name)
+                                                      ("payer",      config::system_account_name)
                                                       ("receiver",  "alice"_n)
-                                                      ("quant", core_from_string("1.0000"))));
-
-   trx.actions.emplace_back( chain.get_action( config::system_account_name, "delegatebw"_n, vector<permission_level>{{config::system_account_name,config::active_name}},
-                                                  mutable_variant_object()
-                                                      ("from", config::system_account_name)
-                                                      ("receiver",  "alice"_n)
-                                                      ("stake_net_quantity", core_from_string("10.0000") )
-                                                      ("stake_cpu_quantity", core_from_string("10.0000") )
-                                                      ("transfer", 0 )));
+                                                      ("quant",      core_from_string("1.0000"))));
 
    chain.set_transaction_headers(trx);
    trx.sign( chain.get_private_key( config::system_account_name, "active" ), chain.get_chain_id()  );
