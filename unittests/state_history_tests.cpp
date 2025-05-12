@@ -532,7 +532,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(test_deltas_resources_history, T, table_deltas_tes
 
       std::multiset<std::string> expected_contract_row_table_names {"abihash", "abihash", "hashobjs", "hashobjs", "hashobjs", "numobjs", "numobjs", "numobjs"};
 
-      std::multiset<uint64_t> expected_contract_row_table_primary_keys {6138663577826885632U,14605619288908759040U, 0, 1 ,2, 0, 1, 2};
+      std::multiset<uint64_t> expected_contract_row_table_primary_keys {config::system_account_name.to_uint64_t(),14605619288908759040U, 0, 1 ,2, 0, 1, 2};
       std::multiset<std::string> result_contract_row_table_names;
       std::multiset<uint64_t> result_contract_row_table_primary_keys;
       for(auto &contract_row : contract_rows) {
@@ -583,6 +583,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(test_deltas_resources_history, T, table_deltas_tes
       return partial_txns;
    }
 
+   #ifdef ENABLE_DEFERRED_TRANSACTION
    BOOST_AUTO_TEST_CASE(test_trace_log_with_transaction_extensions) {
       tester c;
 
@@ -611,6 +612,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(test_deltas_resources_history, T, table_deltas_tes
 
       BOOST_CHECK(std::any_of(partial_txns.begin(), partial_txns.end(), contains_transaction_extensions));
    }
+   #endif//ENABLE_DEFERRED_TRANSACTION
 
 struct state_history_tester_logs  {
    state_history_tester_logs(const std::filesystem::path& dir, const eosio::state_history::state_history_log_config& config)
