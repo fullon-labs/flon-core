@@ -116,6 +116,8 @@ namespace res_utils {
    #define MULTIPLY_DECIMAL_CEIL_U64   multiply_decimal_ceil<uint64_t, uint128_t>
    #define DIVIDE_DECIMAL_U64          divide_decimal<uint64_t, uint128_t>
 
+   static_assert(config::gas_rate_precision != 0);
+
    uint64_t convert_cpu_to_gas(const resource_limits_config_object& config,  uint64_t value) {
       return MULTIPLY_DECIMAL_CEIL_U64(value, (uint64_t)config.gas_per_cpu_ms, (uint64_t)config::gas_rate_precision,
                                        "converting cpu us to gas");
@@ -130,19 +132,23 @@ namespace res_utils {
                                        "converting ram bytes to gas");
    }
 
+   uint64_t convert_gas_to_res(uint64_t gas, uint64_t gas_per_res, const char* description = nullptr) {
+      if (gas_per_res) {
+         return std::numeric_limits<uint64_t>::max();
+      }
+      return DIVIDE_DECIMAL_U64(gas, gas_per_res, config::gas_rate_precision, description);
+   }
+
    uint64_t convert_gas_to_cpu(const resource_limits_config_object& config, uint64_t gas) {
-      return DIVIDE_DECIMAL_U64(gas, config.gas_per_cpu_ms, config::gas_rate_precision,
-         "converting gas to cpu us");
+      return convert_gas_to_res(gas, config.gas_per_cpu_ms, "converting gas to cpu us");
    }
 
    uint64_t convert_gas_to_net(const resource_limits_config_object& config, uint64_t gas) {
-      return DIVIDE_DECIMAL_U64(gas, config.gas_per_net_kb, config::gas_rate_precision,
-         "converting gas to net bytes");
+      return convert_gas_to_res(gas, config.gas_per_net_kb, "converting gas to net bytes");
    }
 
    uint64_t convert_gas_to_ram(const resource_limits_config_object& config, uint64_t gas) {
-      return DIVIDE_DECIMAL_U64(gas, config.gas_per_ram_kb, config::gas_rate_precision,
-         "converting gas to ram bytes");
+      return convert_gas_to_res(gas, config.gas_per_ram_kb, "converting gas to ram bytes");
    }
 
    asset convert_gas_to_core_asset(uint64_t gas) {
@@ -685,7 +691,7 @@ uint64_t resource_limits_manager::get_account_net_limit( const account_name& acc
    const auto& rlo = res_utils::get_account_limits(_db, account);
    if (!rlo.is_unlimited) {
       auto gas = get_account_gas_max(account, rlo.gas);
-      return convert_gas_to_cpu(gas);
+      return convert_gas_to_net(gas);
    } else {
       return std::numeric_limits<int64_t>::max();
    }

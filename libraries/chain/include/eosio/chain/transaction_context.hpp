@@ -152,8 +152,9 @@ namespace eosio::chain {
 
          uint32_t update_billed_cpu_time( fc::time_point now );
 
-         std::tuple<int64_t, int64_t, bool, bool> max_bandwidth_billed_accounts_can_pay( bool force_elastic_limits = false )const;
+         #ifdef ENABLE_DEFERRED_TRANSACTION
          int64_t max_cpu_gas_billed_account_can_pay(bool is_cpu_only);
+         #endif//ENABLE_DEFERRED_TRANSACTION
 
          void validate_referenced_accounts( const transaction& trx, bool enforce_actor_whitelist_blacklist )const;
 

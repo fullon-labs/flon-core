@@ -633,10 +633,12 @@ namespace eosio::chain {
       return static_cast<uint32_t>(billed_cpu_time_us);
    }
 
+   #ifdef ENABLE_DEFERRED_TRANSACTION
    int64_t transaction_context::max_cpu_gas_billed_account_can_pay(bool is_cpu_only) {
       auto& rl = control.get_resource_limits_manager();
       return rl.get_account_cpu_limit(bill_to_account);
    }
+   #endif//ENABLE_DEFERRED_TRANSACTION
 
    action_trace& transaction_context::get_action_trace( uint32_t action_ordinal ) {
       EOS_ASSERT( 0 < action_ordinal && action_ordinal <= trace->action_traces.size() ,

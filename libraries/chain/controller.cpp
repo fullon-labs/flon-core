@@ -2944,7 +2944,6 @@ struct controller_impl {
       if ( !subjective ) {
          // TODO: remove schedule transaction feature?
          EOS_ASSERT( false, transaction_exception, "schedule transaction not supported");
-         #if 0
          // hard failure logic
          if( !validating ) {
             // make sure that the current scheduled transaction is executed
@@ -2970,7 +2969,6 @@ struct controller_impl {
          emit( applied_transaction, std::tie(trace, trx->packed_trx()), __FILE__, __LINE__ );
 
          undo_session.squash();
-         #endif
       } else {
          dmlog_applied_transaction(trace);
          emit( applied_transaction, std::tie(trace, trx->packed_trx()), __FILE__, __LINE__ );
