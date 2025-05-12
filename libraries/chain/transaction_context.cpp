@@ -58,7 +58,6 @@ namespace eosio::chain {
    ,executed_action_receipts(store_which)
    ,transaction_timer(std::move(tmr))
    ,trx_type(type)
-   ,net_usage(trace->res_usage.net_usage)
    ,pseudo_start(s)
    {
       if (!c.skip_db_sessions() && !is_read_only()) {
@@ -172,15 +171,16 @@ namespace eosio::chain {
 
       // add net usage
       if (initial_net_usage > 0) {
-         // net_usage is reference of trace->res_usage.net_usage
-         calc_utils::verify_add(net_usage, initial_net_usage, "initial net usage to pending net usage of transaction payer");
-         net_usage += initial_net_usage;
+         calc_utils::verify_add(billed_net_usage, initial_net_usage, "initial net usage to pending net usage of transaction payer");
+         billed_net_usage += initial_net_usage;
       }
 
       auto now = fc::time_point::now();
       if ( !is_read_only() && !control.skip_trx_checks() ) {
 
          trace->res_usage.cpu_usage = update_billed_cpu_time(now);
+         trace->res_usage.net_usage = billed_net_usage;
+
 
          check_net_limit();
          check_cpu_limit(now, false);
@@ -397,11 +397,15 @@ namespace eosio::chain {
    void transaction_context::finalize() {
       EOS_ASSERT( is_initialized, transaction_exception, "must first initialize" );
 
+      calc_utils::verify_add(billed_net_usage, 7, "billed_net_usage and 7");
+      billed_net_usage = ((billed_net_usage + 7)/8)*8; // Round up to nearest multiple of word size (8 bytes)
+
       // read-only transactions only need net_usage and elapsed in the trace
       if ( is_read_only() ) {
-         calc_utils::verify_add(net_usage, 7, "net_usage and 7");
-         net_usage = ((net_usage + 7)/8)*8; // Round up to nearest multiple of word size (8 bytes)
-         trace->elapsed = fc::time_point::now() - start;
+         auto now = fc::time_point::now();
+         trace->res_usage.cpu_usage = update_billed_cpu_time(now);
+         trace->res_usage.net_usage = billed_net_usage;
+         trace->elapsed = now - start;
          return;
       }
 
@@ -426,19 +430,16 @@ namespace eosio::chain {
          }
       }
 
-      calc_utils::verify_add(net_usage, 7, "net_usage and 7");
-      net_usage = ((net_usage + 7)/8)*8; // Round up to nearest multiple of word size (8 bytes)
       check_net_limit();
 
       auto now = fc::time_point::now();
-      trace->elapsed = now - start;
-      update_billed_cpu_time( now );
+      auto cpu_usage = update_billed_cpu_time( fc::time_point::now() );
       check_cpu_limit(now, true);
 
-      // validate_cpu_usage_to_bill( billed_cpu_time_us, account_cpu_limit, true, subjective_cpu_bill_us );
+      trace->res_usage.cpu_usage = update_billed_cpu_time( now );
+      trace->res_usage.net_usage = billed_net_usage;
+      trace->elapsed = fc::time_point::now() - start;
 
-      trace->res_usage.cpu_usage = static_cast<uint64_t>(billed_cpu_time_us);
-      trace->res_usage.net_usage = net_usage;
       std::optional<account_gas_trace> trx_gas_trace;
       rl.add_transaction_usage( trace->res_usage, trx_gas_trace, is_transient() ); // Should never fail
       if (trx_gas_trace) {
@@ -469,8 +470,8 @@ namespace eosio::chain {
    }
 
    void transaction_context::add_net_usage( uint64_t u ) {
-      calc_utils::verify_add(net_usage, u, "new net net usage to pending net usage of transaction payer");
-      net_usage += u;
+      calc_utils::verify_add(billed_net_usage, u, "new net net usage to pending net usage of transaction payer");
+      billed_net_usage += u;
       check_net_limit();
       validate_transaction_usage();
    }
@@ -511,15 +512,15 @@ namespace eosio::chain {
 
    void transaction_context::check_net_limit()const {
       if (!control.skip_trx_checks()) {
-         if( BOOST_UNLIKELY(net_usage > net_limit) ) {
+         if( BOOST_UNLIKELY(billed_net_usage > net_limit) ) {
             if ( net_limit_due_to_block ) {
                EOS_THROW( block_net_usage_exceeded,
                           "not enough space left in block: ${net_usage} > ${net_limit}",
-                          ("net_usage", net_usage)("net_limit", net_limit) );
+                          ("net_usage", billed_net_usage)("net_limit", net_limit) );
             } else {
                EOS_THROW( tx_net_usage_exceeded,
                           "transaction net usage is too high: ${net_usage} > ${net_limit}",
-                          ("net_usage", net_usage)("net_limit", net_limit) );
+                          ("net_usage", billed_net_usage)("net_limit", net_limit) );
             }
          }
 
