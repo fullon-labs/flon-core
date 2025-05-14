@@ -98,8 +98,11 @@ void producer_api_plugin::plugin_startup() {
             INVOKE_R_V(producer, paused), 201),
        CALL_WITH_400(producer, producer_ro, producer, get_runtime_options,
             INVOKE_R_V(producer, get_runtime_options), 201),
+
+       #ifdef ENABLE_GREYLIST_LIMIT
        CALL_WITH_400(producer, producer_ro, producer, get_greylist,
             INVOKE_R_V(producer, get_greylist), 201),
+       #endif//ENABLE_GREYLIST_LIMIT
        CALL_WITH_400(producer, producer_ro, producer, get_whitelist_blacklist,
             INVOKE_R_V(producer, get_whitelist_blacklist), 201),
        CALL_WITH_400(producer, producer_ro, producer, get_scheduled_protocol_feature_activations,
@@ -123,10 +126,13 @@ void producer_api_plugin::plugin_startup() {
             INVOKE_V_V(producer, resume), 201),
        CALL_WITH_400(producer, producer_rw, producer, update_runtime_options,
             INVOKE_V_R(producer, update_runtime_options, producer_plugin::runtime_options), 201),
+
+       #ifdef ENABLE_GREYLIST_LIMIT
        CALL_WITH_400(producer, producer_rw, producer, add_greylist_accounts,
             INVOKE_V_R(producer, add_greylist_accounts, producer_plugin::greylist_params), 201),
        CALL_WITH_400(producer, producer_rw, producer, remove_greylist_accounts,
             INVOKE_V_R(producer, remove_greylist_accounts, producer_plugin::greylist_params), 201),
+     #endif//ENABLE_GREYLIST_LIMIT
        CALL_WITH_400(producer, producer_rw, producer, set_whitelist_blacklist,
             INVOKE_V_R(producer, set_whitelist_blacklist, producer_plugin::whitelist_blacklist), 201),
        CALL_ASYNC(producer, snapshot, producer, create_snapshot, chain::snapshot_scheduler::snapshot_information,

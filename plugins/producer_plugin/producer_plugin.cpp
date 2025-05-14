@@ -604,6 +604,7 @@ public:
                                uint32_t                      billed_cpu_us,
                                bool                          is_transient);
 
+   #ifdef ENABLE_GREYLIST_LIMIT
    void        add_greylist_accounts(const producer_plugin::greylist_params& params) {
       EOS_ASSERT(params.accounts.size() > 0, chain::invalid_http_request, "At least one account is required");
 
@@ -632,6 +633,7 @@ public:
       }
       return result;
    }
+   #endif//ENABLE_GREYLIST_LIMIT
 
    producer_plugin::integrity_hash_information get_integrity_hash() {
       chain::controller& chain = chain_plug->chain();
@@ -672,8 +674,11 @@ public:
               _max_irreversible_block_age_us.count() < 0 ? -1 : _max_irreversible_block_age_us.count() / 1'000'000,
               get_produce_block_offset().count() / 1'000,
               chain_plug->chain().get_subjective_cpu_leeway() ? chain_plug->chain().get_subjective_cpu_leeway()->count()
-                                                              : std::optional<int32_t>(),
-              chain_plug->chain().get_greylist_limit()};
+                                                              : std::optional<int32_t>()
+               #ifdef ENABLE_GREYLIST_LIMIT
+              ,chain_plug->chain().get_greylist_limit()
+              #endif//ENABLE_GREYLIST_LIMIT
+      };
    }
 
    void schedule_protocol_feature_activations(const producer_plugin::scheduled_protocol_feature_activations& schedule);
@@ -1275,10 +1280,12 @@ void producer_plugin::set_program_options(
                {default_priv_key.get_public_key().to_string({}) + "=KEY:" + default_priv_key.to_string({})},
                 default_priv_key.get_public_key().to_string({}) + "=KEY:" + default_priv_key.to_string({})),
                app().get_plugin<signature_provider_plugin>().signature_provider_help_text())
+         #ifdef ENABLE_GREYLIST_LIMIT
          ("greylist-account", boost::program_options::value<vector<string>>()->composing()->multitoken(),
           "account that can not access to extended CPU/NET virtual resources")
          ("greylist-limit", boost::program_options::value<uint32_t>()->default_value(1000),
           "Limit (between 1 and 1000) on the multiple that CPU/NET virtual resources can extend during low usage (only enforced subjectively; use 1000 to not enforce any limit)")
+          #endif//ENABLE_GREYLIST_LIMIT
          ("produce-block-offset-ms", bpo::value<uint32_t>()->default_value(config::default_produce_block_offset_ms),
           "The minimum time to reserve at the end of a production round for blocks to propagate to the next block producer.")
          ("max-block-cpu-usage-threshold-us", bpo::value<uint32_t>()->default_value( 5000 ),
@@ -1519,6 +1526,8 @@ void producer_plugin_impl::plugin_initialize(const boost::program_options::varia
          return on_incoming_transaction_async(trx, api_trx, trx_type, return_failure_traces, next);
       });
 
+
+   #ifdef ENABLE_GREYLIST_LIMIT
    if (options.count("greylist-account")) {
       std::vector<std::string>         greylist = options["greylist-account"].as<std::vector<std::string>>();
       producer_plugin::greylist_params param;
@@ -1527,11 +1536,15 @@ void producer_plugin_impl::plugin_initialize(const boost::program_options::varia
       }
       add_greylist_accounts(param);
    }
+   #endif//ENABLE_GREYLIST_LIMIT
 
+
+   #ifdef ENABLE_GREYLIST_LIMIT
    {
       uint32_t greylist_limit = options.at("greylist-limit").as<uint32_t>();
       chain.set_greylist_limit(greylist_limit);
    }
+   #endif//ENABLE_GREYLIST_LIMIT
 
    if (options.count("disable-subjective-account-billing")) {
       std::vector<std::string> accounts = options["disable-subjective-account-billing"].as<std::vector<std::string>>();
@@ -1725,9 +1738,11 @@ void producer_plugin_impl::update_runtime_options(const producer_plugin::runtime
       chain.set_subjective_cpu_leeway(fc::microseconds(*options.subjective_cpu_leeway_us));
    }
 
+   #ifdef ENABLE_GREYLIST_LIMIT
    if (options.greylist_limit) {
       chain.set_greylist_limit(*options.greylist_limit);
    }
+   #endif//ENABLE_GREYLIST_LIMIT
 }
 
 void producer_plugin::update_runtime_options(const runtime_options& options) {
@@ -1738,6 +1753,7 @@ producer_plugin::runtime_options producer_plugin::get_runtime_options() const {
    return my->get_runtime_options();
 }
 
+#ifdef ENABLE_GREYLIST_LIMIT
 void producer_plugin::add_greylist_accounts(const greylist_params& params) {
    my->add_greylist_accounts(params);
 }
@@ -1749,6 +1765,7 @@ void producer_plugin::remove_greylist_accounts(const greylist_params& params) {
 producer_plugin::greylist_params producer_plugin::get_greylist() const {
    return my->get_greylist();
 }
+#endif//ENABLE_GREYLIST_LIMIT
 
 producer_plugin::whitelist_blacklist producer_plugin::get_whitelist_blacklist() const {
    chain::controller& chain = my->chain_plug->chain();

@@ -76,10 +76,10 @@ BOOST_AUTO_TEST_SUITE(resource_limits_test)
       uint64_t gas = 0;
       bool is_unlimited = false;
       get_account_limits(account, gas, is_unlimited);
-      BOOST_REQUIRE_EQUAL(gas, 0);
+      BOOST_REQUIRE_EQUAL(gas, 0ULL);
       BOOST_REQUIRE_EQUAL(is_unlimited, true);
 
-      BOOST_REQUIRE_EQUAL(gas, 0);
+      BOOST_REQUIRE_EQUAL(gas, 0ULL);
 
       transaction_res_usage res_usage(account);
       std::optional<account_gas_trace> gas_trace;
@@ -89,10 +89,10 @@ BOOST_AUTO_TEST_SUITE(resource_limits_test)
       add_transaction_usage(res_usage, gas_trace, false);
 
       BOOST_REQUIRE_EQUAL(res_usage.payer, account);
-      BOOST_REQUIRE_EQUAL(res_usage.net_usage, 100);
-      BOOST_REQUIRE_EQUAL(res_usage.cpu_usage, 300);
-      BOOST_REQUIRE_EQUAL(res_usage.net_gas, 0);
-      BOOST_REQUIRE_EQUAL(res_usage.cpu_gas, 0);
+      BOOST_REQUIRE_EQUAL(res_usage.net_usage, 100ULL);
+      BOOST_REQUIRE_EQUAL(res_usage.cpu_usage, 300ULL);
+      BOOST_REQUIRE_EQUAL(res_usage.net_gas, 0ULL);
+      BOOST_REQUIRE_EQUAL(res_usage.cpu_gas, 0ULL);
 
       const auto& usage_obj = db.get<resource_usage_object, by_owner>( account );
       BOOST_REQUIRE_EQUAL(usage_obj.cpu_usage, res_usage.cpu_usage);

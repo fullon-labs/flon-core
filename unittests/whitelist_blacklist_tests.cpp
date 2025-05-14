@@ -335,6 +335,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE( blacklist_eosio, T, whitelist_blacklist_testers )
    }
 } FC_LOG_AND_RETHROW() }
 
+#ifdef ENABLE_DEFERRED_TRANSACTION
 BOOST_AUTO_TEST_CASE( deferred_blacklist_failure ) { try {
    whitelist_blacklist_tester<tester> tester1;
    tester1.init();
@@ -387,7 +388,6 @@ BOOST_AUTO_TEST_CASE( deferred_blacklist_failure ) { try {
    }
 } FC_LOG_AND_RETHROW() }
 
-
 BOOST_AUTO_TEST_CASE_TEMPLATE( blacklist_onerror, T, whitelist_blacklist_validating_testers ) { try {
    T tester1;
    tester1.init();
@@ -426,7 +426,6 @@ BOOST_AUTO_TEST_CASE_TEMPLATE( blacklist_onerror, T, whitelist_blacklist_validat
 
 } FC_LOG_AND_RETHROW() }
 
-#ifdef ENABLE_DEFERRED_TRANSACTION
 BOOST_AUTO_TEST_CASE( actor_blacklist_inline_deferred ) { try {
    whitelist_blacklist_tester<tester> tester1;
    tester1.init();
@@ -729,6 +728,8 @@ BOOST_AUTO_TEST_CASE( blacklist_sender_bypass ) { try {
 
 #endif//ENABLE_DEFERRED_TRANSACTION
 
+
+#ifdef ENABLE_GREYLIST_LIMIT
 BOOST_AUTO_TEST_CASE_TEMPLATE( greylist_limit_tests, T, testers ) { try {
    fc::temp_directory tempdir;
    auto conf_genesis = tester::default_config( tempdir );
@@ -918,5 +919,6 @@ BOOST_AUTO_TEST_CASE_TEMPLATE( greylist_limit_tests, T, testers ) { try {
    //    fc_exception_message_starts_with("greylisted transaction net usage is too high")
    // );
 } FC_LOG_AND_RETHROW() }
+#endif//ENABLE_GREYLIST_LIMIT
 
 BOOST_AUTO_TEST_SUITE_END()

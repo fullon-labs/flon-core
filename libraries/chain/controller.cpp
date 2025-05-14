@@ -5942,6 +5942,7 @@ std::optional<fc::microseconds> controller::get_subjective_cpu_leeway() const {
     return my->subjective_cpu_leeway;
 }
 
+#ifdef ENABLE_GREYLIST_LIMIT
 void controller::set_greylist_limit( uint32_t limit ) {
    EOS_ASSERT( 0 < limit && limit <= chain::config::maximum_elastic_resource_multiplier,
                misc_exception,
@@ -5971,6 +5972,8 @@ bool controller::is_resource_greylisted(const account_name &name) const {
 const flat_set<account_name> &controller::get_resource_greylist() const {
    return  my->conf.resource_greylist;
 }
+
+#endif//ENABLE_GREYLIST_LIMIT
 
 #ifdef ENABLE_SCHEDULED_TRANSACTION
 void controller::add_to_ram_correction( account_name account, uint64_t ram_bytes ) {

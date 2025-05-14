@@ -20,7 +20,10 @@ public:
       // minimum time to reserve at the end of a production round for blocks to propagate to the next block producer.
       std::optional<int32_t>   produce_block_offset_ms;
       std::optional<int32_t>   subjective_cpu_leeway_us;
+
+      #ifdef ENABLE_GREYLIST_LIMIT
       std::optional<uint32_t>  greylist_limit;
+      #endif//ENABLE_GREYLIST_LIMIT
    };
 
    struct whitelist_blacklist {
@@ -87,9 +90,11 @@ public:
    void update_runtime_options(const runtime_options& options);
    runtime_options get_runtime_options() const;
 
+   #ifdef ENABLE_GREYLIST_LIMIT
    void add_greylist_accounts(const greylist_params& params);
    void remove_greylist_accounts(const greylist_params& params);
    greylist_params get_greylist() const;
+   #endif//ENABLE_GREYLIST_LIMIT
 
    whitelist_blacklist get_whitelist_blacklist() const;
    void set_whitelist_blacklist(const whitelist_blacklist& params);
@@ -197,7 +202,11 @@ public:
 
 } //eosio
 
-FC_REFLECT(eosio::producer_plugin::runtime_options, (max_transaction_time)(max_irreversible_block_age)(produce_block_offset_ms)(subjective_cpu_leeway_us)(greylist_limit));
+FC_REFLECT(eosio::producer_plugin::runtime_options, (max_transaction_time)(max_irreversible_block_age)(produce_block_offset_ms)(subjective_cpu_leeway_us)
+                                                    #ifdef ENABLE_GREYLIST_LIMIT
+                                                    (greylist_limit)
+                                                    #endif//ENABLE_GREYLIST_LIMIT
+);
 FC_REFLECT(eosio::producer_plugin::greylist_params, (accounts));
 FC_REFLECT(eosio::producer_plugin::whitelist_blacklist, (actor_whitelist)(actor_blacklist)(contract_whitelist)(contract_blacklist)(action_blacklist)(key_blacklist) )
 FC_REFLECT(eosio::producer_plugin::integrity_hash_information, (head_block_id)(integrity_hash))

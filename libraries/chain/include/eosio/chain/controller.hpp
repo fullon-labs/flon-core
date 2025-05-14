@@ -125,7 +125,10 @@ namespace eosio::chain {
 
             flat_set<account_name>   resource_greylist;
             flat_set<account_name>   trusted_producers;
+
+            #ifdef ENABLE_GREYLIST_LIMIT
             uint32_t                 greylist_limit         = chain::config::maximum_elastic_resource_multiplier;
+            #endif//ENABLE_GREYLIST_LIMIT
 
             flat_set<account_name>   profile_accounts;
          };
@@ -358,10 +361,13 @@ namespace eosio::chain {
          // producing a block
          uint32_t configured_subjective_signature_length_limit()const;
 
+
+         #ifdef ENABLE_GREYLIST_LIMIT
          void add_resource_greylist(const account_name &name);
          void remove_resource_greylist(const account_name &name);
          bool is_resource_greylisted(const account_name &name) const;
          const flat_set<account_name> &get_resource_greylist() const;
+         #endif//ENABLE_GREYLIST_LIMIT
 
          void validate_expiration( const transaction& t )const;
          void validate_tapos( const transaction& t )const;
@@ -408,8 +414,11 @@ namespace eosio::chain {
 
          void set_subjective_cpu_leeway(fc::microseconds leeway);
          std::optional<fc::microseconds> get_subjective_cpu_leeway() const;
+
+         #ifdef ENABLE_GREYLIST_LIMIT
          void set_greylist_limit( uint32_t limit );
          uint32_t get_greylist_limit()const;
+         #endif//ENABLE_GREYLIST_LIMIT
 
          #ifdef ENABLE_SCHEDULED_TRANSACTION
          void add_to_ram_correction( account_name account, uint64_t ram_bytes );
