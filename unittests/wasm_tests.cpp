@@ -8,6 +8,7 @@
 #include <eosio/chain/wasm_eosio_constraints.hpp>
 #include <eosio/chain/wast_to_wasm.hpp>
 #include <eosio/testing/tester.hpp>
+#include <eosio/chain/account_object.hpp>
 
 #include <Inline/Serialization.h>
 #include <IR/Module.h>
@@ -59,6 +60,41 @@ struct provereset {
       return "provereset"_n;
    }
 };
+
+uint64_t get_trx_net_usage( const packed_transaction_ptr& packed_trx, const controller& control ) {
+   auto packed_trx_unprunable_size = packed_trx->get_unprunable_size();
+   auto packed_trx_prunable_size = packed_trx->get_prunable_size();
+   const transaction& trx = packed_trx->get_transaction();
+
+   #ifndef ENABLE_DEFERRED_TRANSACTION
+   EOS_ASSERT( trx.delay_sec.value == 0, transaction_exception, "transaction cannot be delayed" );
+   #else //ENABLE_DEFERRED_TRANSACTION
+   #error "transaction cannot be delayed"
+   #endif//ENABLE_DEFERRED_TRANSACTION
+
+   EOS_ASSERT( trx.transaction_extensions.size() == 0, transaction_exception, "transaction extensions not supported" );
+
+   const auto& cfg = control.get_global_properties().configuration;
+
+   uint64_t discounted_size_for_pruned_data = packed_trx_prunable_size;
+   if( cfg.context_free_discount_net_usage_den > 0
+   && cfg.context_free_discount_net_usage_num < cfg.context_free_discount_net_usage_den )
+   {
+      discounted_size_for_pruned_data *= cfg.context_free_discount_net_usage_num;
+      discounted_size_for_pruned_data =  ( discounted_size_for_pruned_data + cfg.context_free_discount_net_usage_den - 1)
+                                          / cfg.context_free_discount_net_usage_den; // rounds up
+   }
+
+   uint64_t net_usage = static_cast<uint64_t>(cfg.base_per_transaction_net_usage);
+   net_usage += packed_trx_unprunable_size;
+   net_usage += discounted_size_for_pruned_data;
+   return net_usage;
+}
+
+uint64_t get_trx_net_gas( const packed_transaction_ptr& packed_trx, const controller& control ) {
+   const resource_limits_manager& mgr = control.get_resource_limits_manager();
+   return mgr.convert_net_to_gas(get_trx_net_usage(packed_trx, control));
+}
 
 FC_REFLECT_EMPTY(provereset);
 
@@ -2004,6 +2040,20 @@ BOOST_AUTO_TEST_CASE_TEMPLATE( billed_cpu_test, T, testers ) try {
       return r;
    };
 
+   uint64_t gas_limit = 100'000'000;
+   auto reset_res_limits = [&]() {
+      chain.push_action( config::system_account_name, "setalimits"_n, config::system_account_name, fc::mutable_variant_object()
+         ("account", acc)
+         ("gas", gas_limit)
+         ("is_unlimited", false)
+      );
+      chain.produce_block();
+   };
+
+   const chainbase::database& db = chain.control->db();
+   const auto& amo = db.get<account_metadata_object, by_name>( config::system_account_name );
+   idump((config::system_account_name)(amo.code_hash));
+
    auto ptrx = create_trx(0);
    // no limits, just verifying trx works
    push_trx( ptrx, fc::time_point::maximum(), 0, false, 0 ); // non-explicit billing
@@ -2014,127 +2064,175 @@ BOOST_AUTO_TEST_CASE_TEMPLATE( billed_cpu_test, T, testers ) try {
          ("gas", 19'999'999)
          ("is_unlimited", false)
    );
-   chain.push_action( config::system_account_name, "setalimits"_n, config::system_account_name, fc::mutable_variant_object()
-         ("account", acc)
-         ("gas", 19'999'999)
-         ("is_unlimited", false)
-   );
 
-   chain.produce_block();
+   reset_res_limits();
 
    auto max_cpu_time_us = chain.control->get_global_properties().configuration.max_transaction_cpu_usage;
    auto min_cpu_time_us = chain.control->get_global_properties().configuration.min_transaction_cpu_usage;
 
-   auto cpu_limit = mgr.get_account_cpu_limit(acc); // huge limit ~17s
+   transaction_trace_ptr trx_trace;
+   uint64_t reserved_gas = 0;
+   bool is_unlimited = false;
+   mgr.get_account_limits( acc, reserved_gas, is_unlimited );
+   BOOST_REQUIRE_EQUAL(reserved_gas, gas_limit);
+   BOOST_REQUIRE_EQUAL(is_unlimited, false);
 
    ptrx = create_trx(0);
+   auto net_usage = get_trx_net_usage(ptrx->packed_trx(), *chain.control);
+   auto net_gas = mgr.convert_net_to_gas(net_usage);
+   idump((reserved_gas)(net_usage)(net_gas));
+
+   BOOST_CHECK_GT(reserved_gas, net_gas);
+   auto remaining_gas = reserved_gas - net_gas;
+   auto cpu_limit = mgr.convert_gas_to_cpu(remaining_gas);
+   auto cpu_gas = mgr.convert_cpu_to_gas(max_cpu_time_us);
+   idump((remaining_gas)(cpu_limit));
    BOOST_CHECK_LT( max_cpu_time_us, cpu_limit ); // max_cpu_time_us has to be less than cpu_limit to actually test max and not account
+   BOOST_CHECK_LT( cpu_gas, remaining_gas );
    // indicate explicit billing at transaction max, max_cpu_time_us has to be greater than account cpu time
-   push_trx( ptrx, fc::time_point::maximum(), max_cpu_time_us, true, 0 );
+   trx_trace = push_trx( ptrx, fc::time_point::maximum(), max_cpu_time_us, true, 0 );
+   idump((trx_trace->res_usage)(trx_trace->gas_traces));
+   BOOST_REQUIRE_EQUAL(trx_trace->res_usage.payer.to_string(), acc.to_string());
+   BOOST_REQUIRE_EQUAL(trx_trace->res_usage.net_usage, net_usage);
+   BOOST_REQUIRE_EQUAL(trx_trace->res_usage.net_gas, net_gas);
+   BOOST_REQUIRE_EQUAL(trx_trace->res_usage.cpu_usage, max_cpu_time_us);
+   BOOST_REQUIRE_EQUAL(trx_trace->res_usage.cpu_gas, cpu_gas);
+
+   BOOST_REQUIRE_EQUAL(trx_trace->gas_traces.size(), 1u);
+   BOOST_REQUIRE_EQUAL(trx_trace->gas_traces.begin()->reserved_gas_before, gas_limit);
+   BOOST_REQUIRE_EQUAL(trx_trace->gas_traces.begin()->reserved_gas_after, gas_limit - cpu_gas - net_gas );
+
    chain.produce_block();
 
-   cpu_limit = mgr.get_account_cpu_limit(acc);
+   reset_res_limits();
+   uint64_t reserved_gas2 = 0;
+   bool is_unlimited2 = false;
+   mgr.get_account_limits( acc, reserved_gas2, is_unlimited2 );
+   BOOST_REQUIRE_EQUAL(reserved_gas2, reserved_gas);
+   BOOST_REQUIRE_EQUAL(is_unlimited2, is_unlimited);
+   // the others are same as above...
 
    // do not allow to bill greater than chain configured max, objective failure even with explicit billing for over max
    ptrx = create_trx(0);
+
    BOOST_CHECK_LT( max_cpu_time_us + 1, cpu_limit ); // max_cpu_time_us+1 has to be less than cpu_limit to actually test max and not account
    // indicate explicit billing at max + 1
    BOOST_CHECK_EXCEPTION( push_trx( ptrx, fc::time_point::maximum(), max_cpu_time_us + 1, true, 0 ), tx_cpu_usage_exceeded,
-                          [](const tx_cpu_usage_exceeded& e){ fc_exception_message_starts_with starts("billed");
+                          [](const tx_cpu_usage_exceeded& e){ fc_exception_message_starts_with starts("transaction");
                                                               fc_exception_message_contains contains("reached on chain max_transaction_cpu_usage");
                                                               return starts(e) && contains(e); } );
 
-   // allow to bill at trx configured max
-   ptrx = create_trx(5); // set trx max at 5ms
-   BOOST_CHECK_LT( 5 * 1000, cpu_limit ); // 5ms has to be less than cpu_limit to actually test trx max and not account
-   // indicate explicit billing at max
-   push_trx( ptrx, fc::time_point::maximum(), 5 * 1000, true, 0 );
    chain.produce_block();
 
-   cpu_limit = mgr.get_account_cpu_limit(acc); // update after last trx
 
+   reset_res_limits();
+
+   // allow to bill at trx configured max
+   ptrx = create_trx(5); // set trx max at 5ms
+   BOOST_CHECK_LT( 5 * 1000ULL, cpu_limit ); // 5ms has to be less than cpu_limit to actually test trx max and not account
+   // indicate explicit billing at max
+   push_trx( ptrx, fc::time_point::maximum(), 5 * 1000, true, 0 );
+
+   reset_res_limits();
    // do not allow to bill greater than trx configured max, objective failure even with explicit billing for over max
    ptrx = create_trx(5); // set trx max at 5ms
-   BOOST_CHECK_LT( 5 * 1000 + 1, cpu_limit ); // 5ms has to be less than cpu_limit to actually test trx max and not account
+   BOOST_CHECK_LT( 5 * 1000 + 1ULL, cpu_limit ); // 5ms has to be less than cpu_limit to actually test trx max and not account
    // indicate explicit billing at max + 1
    BOOST_CHECK_EXCEPTION( push_trx( ptrx, fc::time_point::maximum(), 5 * 1000 + 1, true, 0 ), tx_cpu_usage_exceeded,
-                          [](const tx_cpu_usage_exceeded& e){ fc_exception_message_starts_with starts("billed");
+                          [](const tx_cpu_usage_exceeded& e){ fc_exception_message_starts_with starts("transaction");
                                                               fc_exception_message_contains contains("reached trx specified max_cpu_usage_ms");
                                                               return starts(e) && contains(e); } );
 
+
+   reset_res_limits();
    // bill at minimum
    ptrx = create_trx(0);
    // indicate explicit billing at transaction minimum
    push_trx( ptrx, fc::time_point::maximum(), min_cpu_time_us, true, 0 );
    chain.produce_block();
 
+   reset_res_limits();
    // do not allow to bill less than minimum
    ptrx = create_trx(0);
    // indicate explicit billing at minimum-1, objective failure even with explicit billing for under min
    BOOST_CHECK_EXCEPTION( push_trx( ptrx, fc::time_point::maximum(), min_cpu_time_us - 1, true, 0 ), transaction_exception,
                           fc_exception_message_starts_with("cannot bill CPU time less than the minimum") );
 
-   chain.push_action( config::system_account_name, "setalimits"_n, config::system_account_name, fc::mutable_variant_object()
-         ("account", acc)
-         ("gas", 19'999'999)
-         ("is_unlimited", false)
-   );
 
-   chain.produce_block();
-   chain.produce_block( fc::days(1) ); // produce for one day to reset account cpu
+   cpu_limit = max_cpu_time_us - 2;
+   cpu_gas = mgr.convert_cpu_to_gas(cpu_limit);
+   idump((cpu_limit)(cpu_gas));
 
-   cpu_limit = mgr.get_account_cpu_limit(acc);
-   // cpu_limit -= EOS_PERCENT( cpu_limit, 10 * config::percent_1 ); // transaction_context verifies within 10%, so subtract 10% out
+   gas_limit = cpu_gas + net_gas;
+   idump((cpu_limit)(gas_limit)(cpu_gas)(net_gas));
+
+   reset_res_limits();
 
    ptrx = create_trx(0);
    BOOST_CHECK_LT( cpu_limit, max_cpu_time_us );
    // indicate non-explicit billing at one less than our account cpu limit, will allow this trx to run, but only bills for actual use
-   auto r = push_trx( ptrx, fc::time_point::maximum(), cpu_limit-1, false, 0 );
-   BOOST_CHECK_LT( r->receipt->cpu_usage_us, cpu_limit-1 ); // verify not billed at provided bill amount when explicit_billed_cpu_time=false
+   auto r = push_trx( ptrx, fc::time_point::maximum(), cpu_limit, false, 0 );
+   idump((r));
+   BOOST_CHECK_LT( r->receipt->cpu_usage_us, cpu_limit ); // verify not billed at provided bill amount when explicit_billed_cpu_time=false
 
-   chain.produce_block();
-   chain.produce_block( fc::days(1) ); // produce for one day to reset account cpu
+
+   reset_res_limits();
 
    ptrx = create_trx(0);
-   BOOST_CHECK_LT( cpu_limit+1, max_cpu_time_us ); // needs to be less or this just tests the same thing as max_cpu_time_us test above
+   BOOST_CHECK_LT( cpu_limit + 1, max_cpu_time_us ); // needs to be less or this just tests the same thing as max_cpu_time_us test above
    // indicate explicit billing at over our account cpu limit, not allowed
-   cpu_limit = mgr.get_account_cpu_limit(acc);
-   BOOST_CHECK_EXCEPTION( push_trx( ptrx, fc::time_point::maximum(), cpu_limit+1, true, 0 ), tx_cpu_usage_exceeded,
-                          [](const tx_cpu_usage_exceeded& e){ fc_exception_message_starts_with starts("billed");
-                                                              fc_exception_message_contains contains("reached account cpu limit");
+   BOOST_CHECK_EXCEPTION( push_trx( ptrx, fc::time_point::maximum(), cpu_limit + 1, true, 0 ), tx_gas_usage_exceeded,
+                          [&](const tx_gas_usage_exceeded& e){ wdump((e.get_log().at( 0 ).get_message())); fc_exception_message_starts_with starts("payer");
+                                                              fc_exception_message_contains contains("payer account '" + acc.to_string() + "' has insufficient gas");
                                                               return starts(e) && contains(e); } );
 
+   reset_res_limits();
+   ptrx = create_trx(0);
+
+   uint32_t subjective_cpu_bill_us = cpu_limit + 1;
+   BOOST_CHECK_EXCEPTION(push_trx( ptrx, fc::time_point::maximum(), cpu_limit, false, subjective_cpu_bill_us ), tx_gas_usage_exceeded,
+                         [](const tx_gas_usage_exceeded& e){ fc_exception_message_starts_with starts("payer");
+                                                             fc_exception_message_contains contains_reached("has insufficient gas for cpu to execute this transaction");
+                                                             fc_exception_message_contains contains_subjective("with a subjective cpu of");
+                                                             return starts(e) && contains_reached(e) && contains_subjective(e); } );
+
+   #ifdef ENABLE_CPU_LEEWAY
+   reset_res_limits();
    // leeway and subjective billing interaction tests
    auto leeway = fc::microseconds(config::default_subjective_cpu_leeway_us);
    chain.control->set_subjective_cpu_leeway(leeway);
 
    // Allow transaction with billed cpu less than 90% of (account cpu limit + leeway - subjective bill)
-   chain.produce_block();
-   chain.produce_block( fc::days(1) ); // produce for one day to reset account cpu
+   // chain.produce_block();
+   // chain.produce_block( fc::days(1) ); // produce for one day to reset account cpu
+
+   reset_res_limits();
    ptrx = create_trx(0);
-   uint32_t combined_cpu_limit = mgr.get_account_cpu_limit(acc) + leeway.count();
+   uint32_t combined_cpu_limit = cpu_limit + leeway.count();
    uint32_t subjective_cpu_bill_us = leeway.count();
    uint32_t billed_cpu_time_us = EOS_PERCENT( (combined_cpu_limit - subjective_cpu_bill_us), 89 *config::percent_1 );
    push_trx( ptrx, fc::time_point::maximum(), billed_cpu_time_us, false, subjective_cpu_bill_us );
 
    // Allow transaction with billed cpu less than 90% of (account cpu limit + leeway) if subject bill is 0
    chain.control->set_subjective_cpu_leeway(leeway);
-   chain.produce_block();
-   chain.produce_block( fc::days(1) ); // produce for one day to reset account cpu
+
+   reset_res_limits();
+   // chain.produce_block();
+   // chain.produce_block( fc::days(1) ); // produce for one day to reset account cpu
    ptrx = create_trx(0);
    combined_cpu_limit = mgr.get_account_cpu_limit(acc) + leeway.count();
    subjective_cpu_bill_us = 0;
    billed_cpu_time_us = EOS_PERCENT( combined_cpu_limit - subjective_cpu_bill_us, 89 *config::percent_1 );
    push_trx( ptrx, fc::time_point::maximum(), billed_cpu_time_us, false, subjective_cpu_bill_us );
 
-   // Disallow transaction with billed cpu equal to 90% of (account cpu limit + leeway - subjective bill)
-   chain.produce_block();
-   chain.produce_block( fc::days(1) ); // produce for one day to reset account cpu
+
+   reset_res_limits();
    ptrx = create_trx(0);
    cpu_limit = mgr.get_account_cpu_limit(acc);
    combined_cpu_limit = cpu_limit + leeway.count();
    subjective_cpu_bill_us = cpu_limit;
-   billed_cpu_time_us = EOS_PERCENT( combined_cpu_limit - subjective_cpu_bill_us, 90 * config::percent_1 );
+   // billed_cpu_time_us = EOS_PERCENT( combined_cpu_limit - subjective_cpu_bill_us, 90 * config::percent_1 );
+   billed_cpu_time_us = combined_cpu_limit - subjective_cpu_bill_us;
    BOOST_CHECK_EXCEPTION(push_trx( ptrx, fc::time_point::maximum(), billed_cpu_time_us, false, subjective_cpu_bill_us ), tx_cpu_usage_exceeded,
                          [](const tx_cpu_usage_exceeded& e){ fc_exception_message_starts_with starts("estimated");
                                                              fc_exception_message_contains contains_reached("reached account cpu limit");
@@ -2151,24 +2249,27 @@ BOOST_AUTO_TEST_CASE_TEMPLATE( billed_cpu_test, T, testers ) try {
                                                              return starts(e) && contains_reached(e) && !contains_subjective(e); } );
 
    // Test when cpu limit is 0
-   chain.push_action( config::system_account_name, "setalimits"_n, config::system_account_name, fc::mutable_variant_object()
-           ("account", acc)
-           ("gas", 19'999'999)
-           ("is_unlimited", false)
-   );
+   // chain.push_action( config::system_account_name, "setalimits"_n, config::system_account_name, fc::mutable_variant_object()
+   //         ("account", acc)
+   //         ("gas", 19'999'999)
+   //         ("is_unlimited", false)
+   // );
 
-   chain.produce_block();
-   chain.produce_block( fc::days(1) ); // produce for one day to reset account cpu
+   // chain.produce_block();
+   // chain.produce_block( fc::days(1) ); // produce for one day to reset account cpu
+
+   reset_res_limits();
 
    // Allow transaction with billed cpu less than 90% of leeway subjective bill being 0 to run but fail it if no cpu is staked afterwards
    ptrx = create_trx(0);
    subjective_cpu_bill_us = 0;
    billed_cpu_time_us = EOS_PERCENT( leeway.count(), 89 *config::percent_1 );
-   BOOST_CHECK_EXCEPTION(push_trx( ptrx, fc::time_point::maximum(), billed_cpu_time_us, false, subjective_cpu_bill_us ), tx_cpu_usage_exceeded,
-                         [](const tx_cpu_usage_exceeded& e){ fc_exception_message_starts_with starts("billed");
+   BOOST_CHECK_EXCEPTION(push_trx( ptrx, fc::time_point::maximum(), billed_cpu_time_us, false, subjective_cpu_bill_us ), tx_gas_usage_exceeded,
+                         [](const tx_gas_usage_exceeded& e){ fc_exception_message_starts_with starts("payer");
                                                              fc_exception_message_contains contains("reached account cpu limit");
                                                              return starts(e) && contains(e); } );
 
+   #endif//ENABLE_CPU_LEEWAY
 } FC_LOG_AND_RETHROW()
 
 /**

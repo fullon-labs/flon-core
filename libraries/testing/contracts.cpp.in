@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <vector>
+#include <fc/log/logger.hpp>
 
 #define INCBIN_STYLE INCBIN_STYLE_SNAKE
 #include <fc/io/incbin.h>
@@ -12,6 +13,7 @@ INCTXT(eosio_testing_contract_ ## CN ## _abi,  "${CMAKE_BINARY_DIR}/libraries/te
                                                                                                                                                                               \
 namespace eosio::testing {                                                                                                                                                    \
    std::vector<std::uint8_t> contracts:: CN ## _wasm() {                                                                                                                      \
+      dlog("Loading wasm file: ${f}", ("f","${CMAKE_BINARY_DIR}/libraries/testing/" #D "/" #C "/" #C ".wasm"));                                                               \
       return std::vector<std::uint8_t>(geosio_testing_contract_ ## CN ## _wasm_data, geosio_testing_contract_ ## CN ## _wasm_data + geosio_testing_contract_ ## CN ## _wasm_size); \
    }                                                                                                                                                                          \
    std::string contracts:: CN ## _abi() {                                                                                                                                     \

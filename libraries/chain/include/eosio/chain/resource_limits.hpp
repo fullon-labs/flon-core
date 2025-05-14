@@ -126,8 +126,8 @@ namespace eosio { namespace chain {
 
          int64_t get_account_ram_usage( const account_name& account ) const;
 
-         uint64_t convert_cpu_to_gas(uint64_t gas) const ;
-         uint64_t convert_net_to_gas(uint64_t gas) const ;
+         uint64_t convert_cpu_to_gas(uint64_t cpu) const ;
+         uint64_t convert_net_to_gas(uint64_t net) const ;
          uint64_t convert_gas_to_cpu(uint64_t gas) const ;
          uint64_t convert_gas_to_net(uint64_t gas) const ;
          uint64_t convert_gas_to_ram(uint64_t gas) const ;

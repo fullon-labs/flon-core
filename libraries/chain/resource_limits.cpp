@@ -133,7 +133,7 @@ namespace res_utils {
    }
 
    uint64_t convert_gas_to_res(uint64_t gas, uint64_t gas_per_res, const char* description = nullptr) {
-      if (gas_per_res) {
+      if (gas_per_res == 0) {
          return std::numeric_limits<uint64_t>::max();
       }
       return DIVIDE_DECIMAL_U64(gas, gas_per_res, config::gas_rate_precision, description);
@@ -355,7 +355,7 @@ void resource_limits_manager::add_transaction_usage(transaction_res_usage& res_u
       // verify transaction gas
       EOS_ASSERT( used_gas <= gas_limit,
          tx_gas_usage_exceeded,
-         "authorizing account '${n}' has insufficient gas for cpu and net usage of this transaction ,"
+         "payer account '${n}' has insufficient gas for cpu and net usage of this transaction ,"
          "needs gas ${used_gas} , but has available gas ${gas}",
          ("n", res_usage.payer)
          ("cpu_usage", res_usage.cpu_usage)
@@ -442,7 +442,7 @@ void resource_limits_manager::verify_transaction_gas_usage( transaction_res_usag
 
    EOS_ASSERT( used_gas <= reserved_gas + convertible_gas,
                tx_gas_usage_exceeded,
-               "authorizing account '${n}' has insufficient gas for cpu usage ${cpu_usage} and net usage ${net_usage} of this transaction,"
+               "payer account '${n}' has insufficient gas for cpu usage ${cpu_usage} and net usage ${net_usage} of this transaction,"
                "needs gas ${used_gas} , but has available gas ${gas}",
                ("n", res_usage.payer)
                ("cpu_usage", res_usage.cpu_usage)

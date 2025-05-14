@@ -97,6 +97,7 @@ namespace eosio::chain {
       // set maximum to a semi-valid deadline to allow for pause math and conversion to dates for logging
       if( block_deadline == fc::time_point::maximum() ) block_deadline = start + fc::hours(24*7*52);
 
+      const auto& db = control.db();
       const auto& cfg = control.get_global_properties().configuration;
       auto& rl = control.get_mutable_resource_limits_manager();
 
@@ -151,9 +152,10 @@ namespace eosio::chain {
 
       if ( !is_read_only() ) {
          bill_to_account = trx.first_authorizer();
-         // TODO: check first_authorizer is valid?
+         auto* ao = db.find<account_object, by_name>( bill_to_account );
+         EOS_ASSERT( ao != nullptr, transaction_exception,
+                     "Transaction payer account '${account}' does not exist", ("account", bill_to_account) );
          trace->res_usage.payer = bill_to_account;
-         // TODO: need to do?  validate_ram_usage.reserve( 1 );
       }
 
       // Possibly limit deadline to caller provided wall clock block deadline
@@ -181,7 +183,6 @@ namespace eosio::chain {
          trace->res_usage.cpu_usage = update_billed_cpu_time(now);
          trace->res_usage.net_usage = billed_net_usage;
 
-
          check_net_limit();
          check_cpu_limit(now, false);
 
@@ -200,27 +201,28 @@ namespace eosio::chain {
                uint64_t gas_limit = reserved_gas + convertible_gas;
                assert(std::numeric_limits<int64_t>::max() - trace->res_usage.cpu_gas >= trace->res_usage.net_gas); // has been verified in calc_transaction_gas_usage()
                uint64_t used_gas = trace->res_usage.cpu_gas + trace->res_usage.net_gas;
-               EOS_ASSERT( gas_limit > used_gas,
+               EOS_ASSERT( gas_limit >= used_gas,
                   tx_gas_usage_exceeded,
-                  "authorizing account '${n}' has insufficient gas for cpu to execute this transaction",
+                  "payer account '${n}' has insufficient gas for cpu to execute this transaction",
                   ("n", trace->res_usage.payer));
                uint64_t available_gas = gas_limit - used_gas;
                uint64_t account_cpu_limit = rl.convert_gas_to_cpu(available_gas);
 
-               // Possibly limit deadline if the duration accounts can be billed for (+ a subjective leeway) does not exceed current delta
-               if( account_cpu_limit < (uint64_t)objective_duration_limit.count() ) {
+               // Possibly limit deadline if the duration account can be billed for does not exceed current delta
+               if( account_cpu_limit <= (uint64_t)objective_duration_limit.count() ) {
                   objective_duration_limit = fc::microseconds(account_cpu_limit);
-                  deadline_exception_code = leeway_deadline_exception::code_value;
+                  deadline_exception_code = tx_cpu_usage_exceeded::code_value;
                   tx_cpu_usage_reason = tx_cpu_usage_exceeded_reason::account_cpu_limit;
                   _deadline = start + objective_duration_limit;
                   RES_TRACE("Using account_cpu_limit ${acl} in transaction_context.init()",
                      ("acl", account_cpu_limit)("deadline", _deadline));
                }
+               wdump((bill_to_account)(convertible_gas)(reserved_gas)(billed_cpu_time_us)(gas_limit)(available_gas)(used_gas)(account_cpu_limit)(subjective_cpu_bill_us));
 
                if( subjective_cpu_bill_us > 0) {
-                  EOS_ASSERT( account_cpu_limit > (uint64_t)subjective_cpu_bill_us,
+                  EOS_ASSERT( account_cpu_limit >= (uint64_t)subjective_cpu_bill_us,
                      tx_gas_usage_exceeded,
-                     "authorizing account '${n}' has insufficient gas for cpu to execute this transaction"
+                     "payer account '${n}' has insufficient gas for cpu to execute this transaction"
                      " with a subjective cpu of (${subjective} us",
                      ("n", trace->res_usage.payer)
                      ("subjective", subjective_cpu_bill_us)
@@ -436,7 +438,7 @@ namespace eosio::chain {
       auto cpu_usage = update_billed_cpu_time( fc::time_point::now() );
       check_cpu_limit(now, true);
 
-      trace->res_usage.cpu_usage = update_billed_cpu_time( now );
+      trace->res_usage.cpu_usage = cpu_usage;
       trace->res_usage.net_usage = billed_net_usage;
       trace->elapsed = fc::time_point::now() - start;
 
@@ -585,6 +587,7 @@ namespace eosio::chain {
                      "but it is possible it could have succeeded if it were allowed to run to completion ${billing_timer}",
                      ("now", now)("deadline", _deadline)("start", start)("billing_timer", now - pseudo_start) );
       }
+
       EOS_ASSERT( false,  transaction_exception, "unexpected deadline exception code ${code}", ("code", deadline_exception_code) );
    }
 

@@ -234,7 +234,7 @@ void apply_context::exec()
 } /// exec()
 
 bool apply_context::is_account( const account_name& account )const {
-   return nullptr != db.find<account_object,by_name>( account );
+   return nullptr != db.find<account_object, by_name>( account );
 }
 
 void apply_context::get_code_hash(

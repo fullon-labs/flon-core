@@ -93,7 +93,7 @@ void bios::setpriv( name account, uint8_t is_priv ) {
 
 void bios::setalimits( name account, uint64_t gas, bool is_unlimited ) {
    require_auth( get_self() );
-   set_resource_limits( account, is_unlimited, gas );
+   set_resource_limits( account, gas, is_unlimited );
 }
 
 void bios::setprods( const std::vector<eosio::producer_authority>& schedule ) {
