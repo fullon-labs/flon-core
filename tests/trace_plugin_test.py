@@ -20,7 +20,7 @@ class TraceApiPluginTest(unittest.TestCase):
     # start wallet and node
     def startEnv(self) :
         account_names = ["alice", "bob", "charlie"]
-        abs_path = os.path.abspath(os.getcwd() + '/unittests/contracts/%s/%s.abi' % (Utils.TokenAccount, Utils.TokenAccount))
+        abs_path = str( Utils.SysContractsDir / Utils.TokenAccount / f'{Utils.TokenAccount}.abi')
         traceNodeArgs = " --verbose-http-errors --trace-rpc-abi %s=%s" % (Utils.TokenAccount, abs_path)
         self.cluster.launch(totalNodes=2, activateIF=True, extraNodeArgs=traceNodeArgs)
         self.walletMgr.launch()

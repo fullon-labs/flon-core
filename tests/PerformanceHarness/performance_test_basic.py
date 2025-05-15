@@ -86,7 +86,7 @@ class PerformanceTestBasic:
 
         @dataclass
         class SpecifiedContract:
-            contractDir: str = "unittests/contracts/" + Utils.makeSysName("system")
+            contractDir: str = str( Utils.SysContractsDir / + Utils.makeSysName("system") )
             wasmFile: str = Utils.makeSysName("system") + ".wasm"
             abiFile: str = Utils.makeSysName("system") + ".abi"
             account: Account = Account(Utils.SysAccount)
@@ -733,7 +733,7 @@ class PtbArgumentsHandler(object):
         ptbBaseParserGroup.add_argument("--prods-enable-trace-api", help=argparse.SUPPRESS if suppressHelp else "Determines whether producer nodes should have eosio::trace_api_plugin enabled", action='store_true')
         ptbBaseParserGroup.add_argument("--print-missing-transactions", type=bool, help=argparse.SUPPRESS if suppressHelp else "Print missing transactions upon test completion.", default=True)
         ptbBaseParserGroup.add_argument("--account-name", type=str, help=argparse.SUPPRESS if suppressHelp else "Name of the account to create and assign a contract to", default=Utils.SysAccount)
-        ptbBaseParserGroup.add_argument("--contract-dir", type=str, help=argparse.SUPPRESS if suppressHelp else "Path to contract dir", default="unittests/contracts/" + Utils.makeSysName("system"))
+        ptbBaseParserGroup.add_argument("--contract-dir", type=str, help=argparse.SUPPRESS if suppressHelp else "Path to contract dir", default=str( Utils.SysContractsDir / Utils.makeSysName("system") ))
         ptbBaseParserGroup.add_argument("--wasm-file", type=str, help=argparse.SUPPRESS if suppressHelp else "WASM file name for contract", default=Utils.makeSysName("system") + ".wasm")
         ptbBaseParserGroup.add_argument("--abi-file", type=str, help=argparse.SUPPRESS if suppressHelp else "ABI file name for contract", default=Utils.makeSysName("system") + ".abi")
         ptbBaseParserGroup.add_argument("--user-trx-data-file", type=str, help=argparse.SUPPRESS if suppressHelp else "Path to transaction data JSON file")

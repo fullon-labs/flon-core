@@ -59,7 +59,7 @@ try:
     if localTest and not dontLaunch:
         Print("Stand up cluster")
 
-        abs_path = os.path.abspath(os.getcwd() + f'/unittests/contracts/{Utils.TokenAccount}/{Utils.TokenAccount}.abi')
+        abs_path = str(Utils.SysContractsDir / Utils.TokenAccount / f'{Utils.TokenAccount}.abi')
         traceNodeArgs=f" --http-max-response-time-ms 990000 --trace-rpc-abi {Utils.TokenAccount}=" + abs_path
         extraNodeArgs=traceNodeArgs + " --plugin eosio::prometheus_plugin --database-map-mode mapped_private "
         specificNodeInstances={0: Utils.EosServerName}
@@ -303,7 +303,7 @@ try:
     if hashNum != 0:
         errorExit("FAILURE - get code currency1111 failed", raw=True)
 
-    contractDir=f"unittests/contracts/{Utils.TokenAccount}"
+    contractDir=str(Utils.SysContractsDir / Utils.TokenAccount)
     wasmFile=f"{Utils.TokenAccount}.wasm"
     abiFile=f"{Utils.TokenAccount}.abi"
     Print("Publish contract")
@@ -749,7 +749,7 @@ try:
 
     # run a get_table_rows API call for a table which has an incorrect abi (missing type), to make sure that
     # the resulting exception in http-plugin is caught and doesn't cause node to crash (leap issue #1372).
-    contractDir=f"unittests/contracts/{Utils.TokenAccount}"
+    contractDir=str(Utils.SysContractsDir /Utils.TokenAccount)
     wasmFile=f"{Utils.TokenAccount}.wasm"
     abiFile=f"{Utils.TokenAccount}.bad.abi"
     Print("Publish contract")

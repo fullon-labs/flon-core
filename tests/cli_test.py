@@ -155,8 +155,8 @@ def processClientCommand(cmd):
 
 def client_abi_file_test():
     """Test option --abi-file """
-    token_abi_path = os.path.abspath(os.getcwd() + '/unittests/contracts/%s/%s.abi' % (Utils.TokenAccount, Utils.TokenAccount))
-    system_abi_path = os.path.abspath(os.getcwd() + '/unittests/contracts/%s/%s.abi' % (Utils.SysAccount, Utils.SysAccount))
+    token_abi_path = str(Utils.SysContractsDir / {Utils.TokenAccount} / f'{Utils.TokenAccount}.abi')
+    system_abi_path = str(Utils.SysContractsDir / Utils.SysAccount / f'{Utils.SysAccount}.abi')
     token_abi_file_arg = Utils.TokenAccount + ':' + token_abi_path
     system_abi_file_arg = Utils.SysAccount + ':' + system_abi_path
 
@@ -328,11 +328,11 @@ def abi_file_with_node_test():
     # push action token transfer with option `--abi-file`
     global testSuccessful
     try:
-        contractDir = os.path.abspath(os.getcwd() + "/unittests/contracts/%s" % (Utils.TokenAccount))
+        contractDir = str(Utils.SysContractsDir / Utils.TokenAccount)
         # make a malicious abi file by switching 'from' and 'to' in abi
-        token_abi_path = os.path.abspath(os.getcwd() + '/unittests/contracts/%s/%s.abi' % (Utils.TokenAccount, Utils.TokenAccount))
+        token_abi_path = str(Utils.SysContractsDir / Utils.TokenAccount / f'{Utils.TokenAccount}.abi')
         token_abi_file_arg = Utils.TokenAccount + ':' + token_abi_path
-        malicious_token_abi_path = os.path.abspath(os.getcwd() + '/unittests/contracts/%s/malicious.%s.abi' % (Utils.TokenAccount, Utils.TokenAccount))
+        malicious_token_abi_path = str(Utils.SysContractsDir / Utils.TokenAccount / f'malicious.{Utils.TokenAccount}.abi')
         shutil.copyfile(token_abi_path, malicious_token_abi_path)
         replaces = [["from", "malicious"], ["to", "from"], ["malicious", "to"]]
         for replace in replaces:

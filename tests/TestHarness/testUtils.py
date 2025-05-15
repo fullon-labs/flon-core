@@ -58,7 +58,9 @@ class Utils:
     Debug=False
     FNull = open(os.devnull, 'w')
 
-    testBinPath = Path(__file__).resolve().parents[2] / 'bin'
+    WorkDir=Path(__file__).resolve().parents[2]
+    testBinPath = WorkDir / 'bin'
+    SysContractsDir = WorkDir / 'unittests' / 'system_contracts'
 
     ClientName=str("fucli")
     ClientPath=str(testBinPath / chain_config.CLIENT_EXECUTABLE_NAME)

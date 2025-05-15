@@ -105,7 +105,7 @@ try:
     nonProdNode.createAccount(jumboAcc, cluster.sysAccount)
 
     contract = "jumborow"
-    contractDir = "unittests/contracts/%s" % (contract)
+    contractDir = str( Utils.SysContractsDir / contract )
     wasmFile = "%s.wasm" % (contract)
     abiFile = "%s.abi" % (contract)
 

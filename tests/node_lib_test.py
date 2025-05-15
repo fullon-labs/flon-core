@@ -62,7 +62,7 @@ try:
     if localTest and not dontLaunch:
         Print("Stand up cluster")
 
-        abs_path = os.path.abspath(os.getcwd() + f'/unittests/contracts/{Utils.TokenAccount}/{Utils.TokenAccount}.abi')
+        abs_path = str(Utils.SysContractsDir / Utils.TokenAccount / f'{Utils.TokenAccount}.abi')
         tracenodeArgs=f" --http-max-response-time-ms 990000 --trace-rpc-abi {Utils.TokenAccount}=" + abs_path
         extraNodeArgs=tracenodeArgs + " --plugin eosio::prometheus_plugin --database-map-mode mapped_private "
         specificnodeInstances={0: Utils.NodeServerPath}
@@ -305,7 +305,7 @@ try:
     if hashNum != 0:
         errorExit("FAILURE - get code currency1111 failed", raw=True)
 
-    contractDir=f"unittests/contracts/{Utils.TokenAccount}"
+    contractDir=str(Utils.SysContractsDir /{Utils.TokenAccount})
     wasmFile=f"{Utils.TokenAccount}.wasm"
     abiFile=f"{Utils.TokenAccount}.abi"
     Print("Publish contract")
