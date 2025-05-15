@@ -3,8 +3,8 @@
     "nodes": {
         "bios": {
             "_dot_label": "localhost:9776\nbios\nprod=flon",
-            "config_dir_name": "/home/seanchen/work/fullon/flon-core/TestLogs/node_contrl_c_test3672724/node_bios",
-            "data_dir_name": "/home/seanchen/work/fullon/flon-core/TestLogs/node_contrl_c_test3672724/node_bios",
+            "config_dir_name": "/home/seanchen/work/fullon/flon-core/TestLogs/node_contrl_c_test3946144/node_bios",
+            "data_dir_name": "/home/seanchen/work/fullon/flon-core/TestLogs/node_contrl_c_test3946144/node_bios",
             "dont_start": false,
             "host_name": "localhost",
             "http_port": 8788,
@@ -15,7 +15,7 @@
                     "blsprivkey": "PVT_BLS_edLoUiiP2FfMem4la3Ek8zxIDjDjOFylRw9ymdeOVCC0CuXN",
                     "blspubkey": "PUB_BLS_qVbh4IjYZpRGo8U_0spBUM-u-r_G0fMo4MzLZRsKWmm5uyeQTp74YFaMN9IDWPoVVT5rj_Tw1gvps6K9_OZ6sabkJJzug3uGfjA6qiaLbLh5Fnafwv-nVgzzzBlU2kwRrcHc8Q",
                     "privkey": "5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3",
-                    "pubkey": "EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV"
+                    "pubkey": "FU6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV"
                 }
             ],
             "listen_addr": "0.0.0.0",
@@ -31,19 +31,19 @@
         },
         "testnet_00": {
             "_dot_label": "localhost:9876\ntestnet_00\nprod=defproducera",
-            "config_dir_name": "/home/seanchen/work/fullon/flon-core/TestLogs/node_contrl_c_test3672724/node_00",
-            "data_dir_name": "/home/seanchen/work/fullon/flon-core/TestLogs/node_contrl_c_test3672724/node_00",
+            "config_dir_name": "/home/seanchen/work/fullon/flon-core/TestLogs/node_contrl_c_test3946144/node_00",
+            "data_dir_name": "/home/seanchen/work/fullon/flon-core/TestLogs/node_contrl_c_test3946144/node_00",
             "dont_start": false,
             "host_name": "localhost",
             "http_port": 8888,
             "index": 0,
             "keys": [
                 {
-                    "blspop": "SIG_BLS_kLDXM2WO23n5RpKJdqBTXFf0CABA5eV21gqYtkhHWs8MU7p0gKvPQehFAGTTnXUFGGR5AhwQfFTxC6Tn5BKJ_8VKLB5_8Xf0Af7Y43G4aubiNuyRhJKwXY0561d0YeAO42Xj2NhaFVRdRzP1I12Lrrs9l3xHDROComB9SDpie3S6ZEZJSL2B5EGVVMqRXWUGYTpYNo8BT0bFf3BgS8x4AmHTOCP1gSEyuCaifc_YNwWfDFgkQ_9KfMJ10R2OLRkCww7WYw",
-                    "blsprivkey": "PVT_BLS_LFtbIWyy7PvNTcCjfGKMQ5pltr-aecJ39IIcjv7BzFDWtJ-a",
-                    "blspubkey": "PUB_BLS_ncAlFDBrrcmbxpHED0msQDyubiFoDAS-C727zLHt8lqrmQJFmd5RyolQpTEBfNEPFVJmC0sBZtyEb6S54teYbqY2JjHsrX7kOTTm3XIt9zUYM_9E6qXbJgHn8iGOAVcBNDwTbA",
-                    "privkey": "5KGzmJXMps7CrbxdQ7f6DvHyT2Xb7RcBRRmHvrwNZs7hXTXi59g",
-                    "pubkey": "FU7u6zdpg4Gsgnoetui9FQ6Nvu2iWjuLcd1wQzD1c5uJy2ufzHx5"
+                    "blspop": "SIG_BLS_Mia8YrVz7Z8lqUurTk3uWMTYbaCrZxySqQOqjn9A-aL5pAoQhC7xq3x0_fl1dBETg8aK2lQZdWC3cdYh8Q7qikabcmJXxZ1PYX_LRlDGCiwbntVnwdvuzUeQwPcXmP0NIiAScwXV2muOYWuGuucLywVFy_4Ii2_o2q6RAFm9FnYBMdlCgOFgLnnOtROOldwME277vnw94eFQ5WrI3Cxlubf3_H6BTcHDF7Tp8zBGhsNBD63hbc_P4IZ1mb6aYCAZlOhNuA",
+                    "blsprivkey": "PVT_BLS_xrLXis8963WT4CdXTDyGBYLX1uZgcOvEpeiPj13tgAyo6TWd",
+                    "blspubkey": "PUB_BLS_GJ7AbiE8zotIORI9mj9_ezbm2ccuhQZ5Aqi-Sy1gnLSGZBklECR6qB1V-o7gxHwGPwnNA0z3EwiWCd2aLVrgyJ0eXNgPKOmTZhp5eaiVcU8fpyce4CNmUIu51tdYpY4Pv2oTKA",
+                    "privkey": "5KQT78HgJ2B7kcQr9t6xXk2MUGZgpYWc5xLewHUEDav7X1fUw3C",
+                    "pubkey": "FU6Dpb7A6fuyZ13DTkeN6fLZR2QXht2xNpthbCdwd3J51vPJGrqe"
                 }
             ],
             "listen_addr": "0.0.0.0",
@@ -59,19 +59,19 @@
         },
         "testnet_01": {
             "_dot_label": "localhost:9877\ntestnet_01\nprod=defproducerb",
-            "config_dir_name": "/home/seanchen/work/fullon/flon-core/TestLogs/node_contrl_c_test3672724/node_01",
-            "data_dir_name": "/home/seanchen/work/fullon/flon-core/TestLogs/node_contrl_c_test3672724/node_01",
+            "config_dir_name": "/home/seanchen/work/fullon/flon-core/TestLogs/node_contrl_c_test3946144/node_01",
+            "data_dir_name": "/home/seanchen/work/fullon/flon-core/TestLogs/node_contrl_c_test3946144/node_01",
             "dont_start": false,
             "host_name": "localhost",
             "http_port": 8889,
             "index": 1,
             "keys": [
                 {
-                    "blspop": "SIG_BLS_TQwNdxsVfhu4NAHh6ftT_rwzvzqKNTmJ4j5fTz2-pBndcGEpPOGH2Jyq1md6qdYW3rcAjXiqST2msomsEbSvNmNRTfVPt21ivtPlMNC6fDv8kBDIvlntSSIJSZMTzRER2lkJM8hE9GGixZtIyQFV1atM3Ap619lihQUMJvVduoE7TnJoDT-hoIi-NQdecqILQultitwMFVuA60-RPuVtkWd82270v27Iyfx0A7P0XB-MEo5Ys723POgqy5Wy814WpyUdsw",
-                    "blsprivkey": "PVT_BLS_gRho9eIZKMkv0wAWNpopr79xJhCdqP4WfV0KQ-_SLBRRBSrR",
-                    "blspubkey": "PUB_BLS_-foNf-lvZU9RqFS2w8azewTmlI2trQqyomj6VF1hUwDpsVzBMXpTKKBPqnZ85vwYWcdakZ7QdrtxabIak61JOBHyQSbajkBDVqnNQJkVPTvBGqiGLnizjxxq1UB9L44I8QdEZg",
-                    "privkey": "5J7BymzDLWUMw2D8XsUjxXA5rGxZBdt9F9WbUYF4iYMduwFkqe7",
-                    "pubkey": "FU7j5jF11Kti9MVi33efwVCSMQhc4YCtAfyi9ZyiSghe83pxVj8q"
+                    "blspop": "SIG_BLS_6LWG0TzcLZ9GK60bdKJaOnaBN8-OvYoPhzHZvI4He60VyfWWAxy8QF-AJ4mjcWwDOsAmqEN2OGAsYoSCSkijF4gDLQnd7ptjjYtIdbthD2w5DsljV0TEBanhvo3HZiMPBgfKSGqUoJW-xSOSOxSS0fPNAlEuUIsQQvQErOU2b0surqNWgG7FVZDEW4faQEsZDSJ3SALTn3rHNApdlvruu188l1ncePVE51COlvOhBL3JHVICvBwcXpAsW38bWGkPR0-e-g",
+                    "blsprivkey": "PVT_BLS_vvUJ5aBrhAu_Nz2WoHWAHzge519EIhpo00OaK7WRiyRERkry",
+                    "blspubkey": "PUB_BLS_z5iytI1QYcYjgtOcl3TLO1qmqK17fTD7ZeMuugoxoIe1wTCiA4lNpsXcuZxKITMBURAhfnRZ1aZtIsghVhj34aIMYsa9vvLEHKMDBFTxurRucyNqCY2RyQi2BA3Nix8KbQySvA",
+                    "privkey": "5JN9Fw36h3khCGtQbRSX5cFkxQGCq7ixXUowL4wXH1UkmhwrdaC",
+                    "pubkey": "FU5P9b9P1H7Y7pqnU92ftbUWr8aALiWURwcKFs4zc9SD333pc3Hz"
                 }
             ],
             "listen_addr": "0.0.0.0",
@@ -87,19 +87,19 @@
         },
         "testnet_02": {
             "_dot_label": "localhost:9878\ntestnet_02\nprod=<none>",
-            "config_dir_name": "/home/seanchen/work/fullon/flon-core/TestLogs/node_contrl_c_test3672724/node_02",
-            "data_dir_name": "/home/seanchen/work/fullon/flon-core/TestLogs/node_contrl_c_test3672724/node_02",
+            "config_dir_name": "/home/seanchen/work/fullon/flon-core/TestLogs/node_contrl_c_test3946144/node_02",
+            "data_dir_name": "/home/seanchen/work/fullon/flon-core/TestLogs/node_contrl_c_test3946144/node_02",
             "dont_start": false,
             "host_name": "localhost",
             "http_port": 8890,
             "index": 2,
             "keys": [
                 {
-                    "blspop": "SIG_BLS_dFqCRzqAUQ47m0cv_knb8u_bMphef9rNzRt832T6qrQF5QayfUH9UeWKINVTLyEC1aDiT9ZHj5H9bIRrpAUPsr40f2tXPyuwqKZcWZLP1rZfA6SIyGzTnEbZ4bKC3Z0Fzov4PhrCWrVuakxMa3ge4_eL_Ot00ngnvoJwQioqyGuG0Uxrn_CzVTHNUC4xNRoMx3Xt6w4NJzFAM8Nf-NKY9UuiSP2GioWqqs2QpTlqFS_ilmd681e-BoBpp8Qx2aMTvfNxKA",
-                    "blsprivkey": "PVT_BLS_aYdg0v8vU8mvo9vjSSPpcj6Sa7ZRBoXiSNlsQOwVHWJ_iBC2",
-                    "blspubkey": "PUB_BLS_ypIfAcWklJIZsimWGcNtGErtF-Z-us5Y9Cqgi0QzFcy8PJKkecJaQDeyWiRuE1oIc2_f1voXafZm6u1eNJW21E8SHaMvhXHz8OHDnXOxT-xr0AQ4P-91LHlUrHNqcIAMcnqU5A",
-                    "privkey": "5KA8Vi4ZUdFBUdYY1gKeHHExA6UmcjsdgH1K2vkthxrc7FGvyuu",
-                    "pubkey": "FU7WAhzyBwqJfEVGeaZXtbXQYM5rea72rFR56mxPjoajd4WAiBPA"
+                    "blspop": "SIG_BLS_-twmsut7onsCy5xf_6oVBZ7oRo-xbV5m_l6lQsI349GiNv7iMszbC7GTV9ZMVJMV0GELmDbzf6bpgvRb8tGa9qiDqmJ_RxgZ8b_D1Rt6hGJ55_lUPo3LMLo9l9lPLnsXHqzkfVXEvLO0I_KNkOdtlBIjHGzfjDZmQugA0jgdlKXw_QCqBW6JthUf7MNAocEPUUNdb4c5onWWpGzp_CpV2uNKyY-hZIymsFDeOKEB2dlUwEZ41hLVPRTd50_muCEMJEMefA",
+                    "blsprivkey": "PVT_BLS_Y6Xjz_RyS99q5r7tyUWsFzoyhpVtVAuco5GIjkIoIwPtC_IA",
+                    "blspubkey": "PUB_BLS_3EXYjI2RTxHmTugpUFGnLFqEVgUmrpr_6ta13dmEz9Uhcmiaxaqr30ZldgjCLdQVKWkY3VSWFm_yZOBLpG1ogvilio-TgTwneO_TrnQK_Z3m0NX2GNIwd4In13chylANCGDi4Q",
+                    "privkey": "5JMb1LAUyCdD3yjw5gUcEXnd3ePcszKybT9XxeJVbfvtQECUKBA",
+                    "pubkey": "FU8gpN6MEsRdwWKVxnev2iBNHzPoA619dyVhGZJmkpUgABn8a6Ys"
                 }
             ],
             "listen_addr": "0.0.0.0",

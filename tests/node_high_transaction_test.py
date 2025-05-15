@@ -139,11 +139,6 @@ try:
     Print("Transfer funds took %s sec" % (nextTime - startTime))
     startTime = nextTime
 
-    Print("Delegate Bandwidth to new accounts")
-    for account in accounts:
-        trans=node.delegatebw(account, 200.0000, 200.0000, waitForTransBlock=(account == accounts[-1]), exitOnError=True, reportStatus=False)
-        checkTransIds.append(Node.getTransId(trans))
-
     nextTime = time.perf_counter()
     Print("Delegate Bandwidth took %s sec" % (nextTime - startTime))
     startTime = nextTime

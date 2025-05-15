@@ -212,10 +212,6 @@ try:
         nonProdNode.transferFunds(cluster.sysAccount, account, transferAmount, "test transfer",
                                   waitForTransBlock=True if account == accounts[-1] else False)
 
-    # for account in accounts:
-    #     trans=nonProdNode.delegatebw(account, 20000000.0000, 20000000.0000,
-    #                                  waitForTransBlock=True if account == accounts[-1] else False, exitOnError=True)
-
     # containers for tracking producers
     prodsActive={}
     for i in range(0, 4):
@@ -229,8 +225,6 @@ try:
     for account in accounts:
         trans=nonProdNode.vote(account, node.producers, waitForTransBlock=True if account == accounts[-1] else False)
         node=node1
-
-    nonProdNode.undelegatebw(account, 1.0000, 1.0000, waitForTransBlock=True, silentErrors=False, exitOnError=True)
 
     setActiveProducers(prodsActive, node1.producers)
 

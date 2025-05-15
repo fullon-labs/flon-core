@@ -232,7 +232,6 @@ try:
         transferAmount=Utils.coreAssetFrom("100000000.0000")
         Print("Transfer funds %s from account %s to %s" % (transferAmount, cluster.sysAccount.name, account.name))
         node.transferFunds(cluster.sysAccount, account, transferAmount, "test transfer", waitForTransBlock=True)
-        trans=node.delegatebw(account, 20000000.0000, 20000000.0000, waitForTransBlock=False, exitOnError=True)
 
 
     # ***   vote using accounts   ***
