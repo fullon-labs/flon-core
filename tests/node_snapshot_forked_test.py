@@ -122,7 +122,7 @@ try:
     account1 = Account('account1')
     account1.ownerPublicKey = EOSIO_ACCT_PUBLIC_DEFAULT_KEY
     account1.activePublicKey = EOSIO_ACCT_PUBLIC_DEFAULT_KEY
-    cluster.createAccountAndVerify(account1, cluster.eosioAccount, stakedDeposit=1000)
+    cluster.createAccountAndVerify(account1, cluster.sysAccount, stakedDeposit=1000)
 
     Print("Validating accounts after bootstrap")
     cluster.validateAccounts([account1])

@@ -95,7 +95,7 @@ class Cluster(object):
         self.defProducerAccounts={}
         self.defproduceraAccount=self.defProducerAccounts["defproducera"]= Account("defproducera")
         self.defproducerbAccount=self.defProducerAccounts["defproducerb"]= Account("defproducerb")
-        self.eosioAccount=self.defProducerAccounts[Utils.SysAccount]= Account(Utils.SysAccount)
+        self.sysAccount=self.defProducerAccounts[Utils.SysAccount]= Account(Utils.SysAccount)
 
         self.defproduceraAccount.ownerPrivateKey=defproduceraPrvtKey
         self.defproduceraAccount.activePrivateKey=defproduceraPrvtKey
@@ -114,6 +114,7 @@ class Cluster(object):
 
         self.libTestingContractsPath = Path(__file__).resolve().parents[2] / "libraries" / "testing" / "contracts"
         self.unittestsContractsPath = Path(__file__).resolve().parents[2] / "unittests" / "contracts"
+        self.sysContractsPath = Path(__file__).resolve().parents[2] / "unittests" / "system_contracts"
 
         if unshared:
             unshare(CLONE_NEWNET)
@@ -555,7 +556,7 @@ class Cluster(object):
             initAccountKeys(account, producerKeys[name])
             self.defProducerAccounts[name] = account
 
-        self.eosioAccount=self.defProducerAccounts[Utils.SysAccount]
+        self.sysAccount=self.defProducerAccounts[Utils.SysAccount]
         self.defproduceraAccount=self.defProducerAccounts["defproducera"]
         self.defproducerbAccount=self.defProducerAccounts["defproducerb"]
 
@@ -886,7 +887,7 @@ class Cluster(object):
 
         myAccounts = []
         if testSysAccounts:
-            myAccounts += [self.eosioAccount, self.defproduceraAccount, self.defproducerbAccount]
+            myAccounts += [self.sysAccount, self.defproduceraAccount, self.defproducerbAccount]
         if accounts:
             assert(isinstance(accounts, list))
             myAccounts += accounts
@@ -991,7 +992,7 @@ class Cluster(object):
         nodeName=Utils.nodeExtensionToName("bios")
         producerKeys=Cluster.parseProducerKeys(startFile, nodeName)
         if producerKeys is None:
-            Utils.Print("ERROR: Failed to parse eosio private keys from cluster start files.")
+            Utils.Print("ERROR: Failed to parse system account private keys from cluster start files.")
             return None
 
         for i in range(0, totalNodes):
@@ -1056,7 +1057,7 @@ class Cluster(object):
         setFinStr +=  f'}}}}'
         if Utils.Debug: Utils.Print("setfinalizers: %s" % (setFinStr))
         Utils.Print("Setting finalizers")
-        opts = "--permission eosio@active"
+        opts = "--permission %s@active" % (Utils.SysAccount)
         trans = node.pushMessage(Utils.SysAccount, "setfinalizer", setFinStr, opts)
         if trans is None or not trans[0]:
             Utils.Print("ERROR: Failed to set finalizers")
@@ -1089,27 +1090,27 @@ class Cluster(object):
 
         ignWallet=self.walletMgr.create("ignition")
 
-        eosioName=Utils.SysAccount
-        eosioKeys=producerKeys[eosioName]
-        eosioAccount=Account(eosioName)
-        eosioAccount.ownerPrivateKey=eosioKeys["private"]
-        eosioAccount.ownerPublicKey=eosioKeys["public"]
-        eosioAccount.activePrivateKey=eosioKeys["private"]
-        eosioAccount.activePublicKey=eosioKeys["public"]
+        sysName=Utils.SysAccount
+        sysKeys=producerKeys[sysName]
+        sysAccount=Account(sysName)
+        sysAccount.ownerPrivateKey=sysKeys["private"]
+        sysAccount.ownerPublicKey=sysKeys["public"]
+        sysAccount.activePrivateKey=sysKeys["private"]
+        sysAccount.activePublicKey=sysKeys["public"]
 
-        if not self.walletMgr.importKey(eosioAccount, ignWallet):
-            Utils.Print("ERROR: Failed to import %s account keys into ignition wallet." % (eosioName))
+        if not self.walletMgr.importKey(sysAccount, ignWallet):
+            Utils.Print("ERROR: Failed to import %s account keys into ignition wallet." % (sysName))
             return None
 
         if not PFSetupPolicy.hasPreactivateFeature(pfSetupPolicy):
             return True
 
         contract=Utils.makeSysName('boot')
-        contractDir= str(self.unittestsContractsPath / contract)
+        contractDir= str(self.sysContractsPath / contract)
         wasmFile="%s.wasm" % (contract)
         abiFile="%s.abi" % (contract)
         Utils.Print("Publish %s contract" % (contract))
-        trans=biosNode.publishContract(eosioAccount, contractDir, wasmFile, abiFile, waitForTransBlock=True)
+        trans=biosNode.publishContract(sysAccount, contractDir, wasmFile, abiFile, waitForTransBlock=True)
         if trans is None:
             Utils.Print("ERROR: Failed to publish contract %s." % (contract))
             return None
@@ -1123,7 +1124,7 @@ class Cluster(object):
         wasmFile="%s.wasm" % (contract)
         abiFile="%s.abi" % (contract)
         Utils.Print("Publish %s contract" % (contract))
-        trans=biosNode.publishContract(eosioAccount, contractDir, wasmFile, abiFile, waitForTransBlock=True)
+        trans=biosNode.publishContract(sysAccount, contractDir, wasmFile, abiFile, waitForTransBlock=True)
         if trans is None:
             Utils.Print("ERROR: Failed to publish contract %s." % (contract))
             return None
@@ -1135,7 +1136,7 @@ class Cluster(object):
                 return None
 
         Utils.Print("Creating accounts: %s " % ", ".join(producerKeys.keys()))
-        producerKeys.pop(eosioName)
+        producerKeys.pop(sysName)
         accounts=[]
         for name, keys in producerKeys.items():
             initx = Account(name)
@@ -1143,7 +1144,7 @@ class Cluster(object):
             initx.ownerPublicKey=keys["public"]
             initx.activePrivateKey=keys["private"]
             initx.activePublicKey=keys["public"]
-            trans=biosNode.createAccount(initx, eosioAccount, 0)
+            trans=biosNode.createAccount(initx, sysAccount, 0)
             if trans is None:
                 Utils.Print("ERROR: Failed to create account %s" % (name))
                 return None
@@ -1166,7 +1167,7 @@ class Cluster(object):
                     setProdsStr=f.read()
 
                     Utils.Print("Setting producers.")
-                    opts="--permission eosio@active"
+                    opts="--permission %s@active" % (Utils.SysAccount)
                     myTrans=biosNode.pushMessage(Utils.SysAccount, "setprods", setProdsStr, opts)
                     if myTrans is None or not myTrans[0]:
                         Utils.Print("ERROR: Failed to set producers.")
@@ -1187,7 +1188,7 @@ class Cluster(object):
                 setProdsStr += ' }'
                 if Utils.Debug: Utils.Print("setprods: %s" % (setProdsStr))
                 Utils.Print("Setting producers: %s." % (", ".join(prodNames)))
-                opts="--permission eosio@active"
+                opts="--permission %s@active" (Utils.SysAccount)
                 # pylint: disable=redefined-variable-type
                 trans=biosNode.pushMessage(Utils.SysAccount, "setprods", setProdsStr, opts)
                 if trans is None or not trans[0]:
@@ -1200,7 +1201,7 @@ class Cluster(object):
                 Utils.Print("ERROR: Failed to validate transaction %s got rolled into a block on server port %d." % (transId, biosNode.port))
                 return None
 
-            # wait for block production handover (essentially a block produced by anyone but eosio).
+            # wait for block production handover (essentially a block produced by anyone but system account).
             lam = lambda: biosNode.getInfo(exitOnError=True)["head_block_producer"] != Utils.SysAccount
             ret=Utils.waitForBool(lam)
             if not ret:
@@ -1210,9 +1211,9 @@ class Cluster(object):
         if onlySetProds: return biosNode
 
         def createSystemAccount(accountName):
-            newAccount = copy.deepcopy(eosioAccount)
+            newAccount = copy.deepcopy(sysAccount)
             newAccount.name = accountName
-            trans=biosNode.createAccount(newAccount, eosioAccount, 0)
+            trans=biosNode.createAccount(newAccount, sysAccount, 0)
             if trans is None:
                 Utils.Print(f'ERROR: Failed to create account {newAccount.name}')
                 return None
@@ -1244,27 +1245,27 @@ class Cluster(object):
         #         if activateIF:
         #             self.activateInstantFinality()
 
-        eosioTokenAccount = copy.deepcopy(eosioAccount)
-        eosioTokenAccount.name = Utils.TokenAccount
+        sysTokenAccount = copy.deepcopy(sysAccount)
+        sysTokenAccount.name = Utils.TokenAccount
         contract=Utils.TokenAccount
-        contractDir=str(self.unittestsContractsPath / contract)
+        contractDir=str(self.sysContractsPath / contract)
         wasmFile="%s.wasm" % (contract)
         abiFile="%s.abi" % (contract)
         Utils.Print("Publish %s contract" % (contract))
-        trans=biosNode.publishContract(eosioTokenAccount, contractDir, wasmFile, abiFile, waitForTransBlock=True)
+        trans=biosNode.publishContract(sysTokenAccount, contractDir, wasmFile, abiFile, waitForTransBlock=True)
         if trans is None:
             Utils.Print("ERROR: Failed to publish contract %s." % (contract))
             return None
 
         # Create currency0000, followed by issue currency0000
-        contract=eosioTokenAccount.name
+        contract=sysTokenAccount.name
         Utils.Print("push create action to %s contract" % (contract))
         action="create"
-        data="{\"issuer\":\"%s\",\"maximum_supply\":\"1000000000.0000 %s\"}" % (eosioAccount.name, CORE_SYMBOL)
+        data="{\"issuer\":\"%s\",\"maximum_supply\":\"1000000000.0000 %s\"}" % (sysAccount.name, CORE_SYMBOL)
         opts="--permission %s@active" % (contract)
         trans=biosNode.pushMessage(contract, action, data, opts)
         if trans is None or not trans[0]:
-            Utils.Print("ERROR: Failed to push create action to eosio contract.")
+            Utils.Print("ERROR: Failed to push create action to system contract.")
             return None
 
         Node.validateTransaction(trans[1])
@@ -1273,14 +1274,14 @@ class Cluster(object):
             Utils.Print("ERROR: Failed to validate transaction %s got rolled into a block on server port %d." % (transId, biosNode.port))
             return None
 
-        contract=eosioTokenAccount.name
+        contract=sysTokenAccount.name
         Utils.Print("push issue action to %s contract" % (contract))
         action="issue"
-        data="{\"to\":\"%s\",\"quantity\":\"1000000000.0000 %s\",\"memo\":\"initial issue\"}" % (eosioAccount.name, CORE_SYMBOL)
-        opts="--permission %s@active" % (eosioAccount.name)
+        data="{\"to\":\"%s\",\"quantity\":\"1000000000.0000 %s\",\"memo\":\"initial issue\"}" % (sysAccount.name, CORE_SYMBOL)
+        opts="--permission %s@active" % (sysAccount.name)
         trans=biosNode.pushMessage(contract, action, data, opts)
         if trans is None or not trans[0]:
-            Utils.Print("ERROR: Failed to push issue action to eosio contract.")
+            Utils.Print("ERROR: Failed to push issue action to system contract.")
             return None
 
         Node.validateTransaction(trans[1])
@@ -1289,8 +1290,8 @@ class Cluster(object):
         biosNode.waitForTransactionInBlock(transId)
 
         expectedAmount="1000000000.0000 {0}".format(CORE_SYMBOL)
-        Utils.Print("Verify eosio issue, Expected: %s" % (expectedAmount))
-        actualAmount=biosNode.getAccountEosBalanceStr(eosioAccount.name)
+        Utils.Print("Verify token issue, Expected: %s" % (expectedAmount))
+        actualAmount=biosNode.getAccountEosBalanceStr(sysAccount.name)
         if expectedAmount != actualAmount:
             Utils.Print("ERROR: Issue verification failed. Excepted %s, actual: %s" %
                         (expectedAmount, actualAmount))
@@ -1298,11 +1299,11 @@ class Cluster(object):
 
         if loadSystemContract:
             contract=Utils.SysAccount
-            contractDir=str(self.unittestsContractsPath / contract)
+            contractDir=str(self.sysContractsPath / contract)
             wasmFile="%s.wasm" % (contract)
             abiFile="%s.abi" % (contract)
             Utils.Print("Publish %s contract" % (contract))
-            trans=biosNode.publishContract(eosioAccount, contractDir, wasmFile, abiFile, waitForTransBlock=True)
+            trans=biosNode.publishContract(sysAccount, contractDir, wasmFile, abiFile, waitForTransBlock=True)
             if trans is None:
                 Utils.Print("ERROR: Failed to publish contract %s." % (contract))
                 return None
@@ -1312,14 +1313,14 @@ class Cluster(object):
         initialFunds="1000000.0000 {0}".format(CORE_SYMBOL)
         Utils.Print("Transfer initial fund %s to individual accounts." % (initialFunds))
         trans=None
-        contract=eosioTokenAccount.name
+        contract=sysTokenAccount.name
         action="transfer"
         for name, keys in producerKeys.items():
-            data="{\"from\":\"%s\",\"to\":\"%s\",\"quantity\":\"%s\",\"memo\":\"%s\"}" % (eosioAccount.name, name, initialFunds, "init transfer")
-            opts="--permission %s@active" % (eosioAccount.name)
+            data="{\"from\":\"%s\",\"to\":\"%s\",\"quantity\":\"%s\",\"memo\":\"%s\"}" % (sysAccount.name, name, initialFunds, "init transfer")
+            opts="--permission %s@active" % (sysAccount.name)
             trans=biosNode.pushMessage(contract, action, data, opts)
             if trans is None or not trans[0]:
-                Utils.Print("ERROR: Failed to transfer funds from %s to %s." % (eosioTokenAccount.name, name))
+                Utils.Print("ERROR: Failed to transfer funds from %s to %s." % (sysTokenAccount.name, name))
                 return None
 
             Node.validateTransaction(trans[1])
@@ -1334,8 +1335,8 @@ class Cluster(object):
         if loadSystemContract:
             action="init"
             data="{\"version\":0,\"core\":\"4,%s\"}" % (CORE_SYMBOL)
-            opts="--permission %s@active" % (eosioAccount.name)
-            trans=biosNode.pushMessage(eosioAccount.name, action, data, opts)
+            opts="--permission %s@active" % (sysAccount.name)
+            trans=biosNode.pushMessage(sysAccount.name, action, data, opts)
             transId=Node.getTransId(trans[1])
             Utils.Print("Wait for system init transaction to be in a block.")
             if not biosNode.waitForTransactionInBlock(transId):
@@ -1507,7 +1508,7 @@ class Cluster(object):
 
         setProdsStr += ' ] }'
         Utils.Print("setprods: %s" % (setProdsStr))
-        opts = "--permission eosio@active"
+        opts = "--permission %s@active" % (Utils.SysAccount)
         # pylint: disable=redefined-variable-type
         trans = self.biosNode.pushMessage(Utils.SysAccount, "setprods", setProdsStr, opts)
         if trans is None or not trans[0]:

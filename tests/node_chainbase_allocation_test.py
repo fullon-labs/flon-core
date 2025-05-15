@@ -38,7 +38,7 @@ try:
     # - permission_object (bootstrap)
     # The bootstrap process has created account_object and code_object (by uploading the bios contract),
     # key_value_object (token creation), protocol_state_object (preactivation feature), and permission_object
-    # (automatically taken care by the automatically generated eosio account)
+    # (automatically taken care by the automatically generated system account)
     assert cluster.launch(
         pnodes=1,
         prodCount=1,
@@ -58,14 +58,14 @@ try:
 
     # Schedule a new producer to trigger new producer schedule for "global_property_object"
     newProducerAcc = Account("newprod")
-    newProducerAcc.ownerPublicKey = "EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV"
-    newProducerAcc.activePublicKey = "EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV"
-    nonProdNode.createAccount(newProducerAcc, cluster.eosioAccount, waitForTransBlock=True)
+    newProducerAcc.ownerPublicKey = Utils.makePubKey("6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV")
+    newProducerAcc.activePublicKey = Utils.makePubKey("6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV")
+    nonProdNode.createAccount(newProducerAcc, cluster.sysAccount, waitForTransBlock=True)
 
     setProdsStr = '{"schedule": ['
     setProdsStr += '{"producer_name":' + newProducerAcc.name + ',"authority": ["block_signing_authority_v0", {"threshold":1, "keys":[{"key":' + newProducerAcc.activePublicKey + ', "weight":1}]}]}'
     setProdsStr += ']}'
-    cmd="push action -j eosio setprods '{}' -p eosio".format(setProdsStr)
+    cmd="push action -j {} setprods '{}' -p {}".format(Utils.SysAccount, setProdsStr, Utils.SysAccount)
     trans = producerNode.processClientCmd(cmd, cmd, silentErrors=False)
     assert trans
     setProdsBlockNum = int(trans["processed"]["block_num"])

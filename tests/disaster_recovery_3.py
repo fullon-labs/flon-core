@@ -59,7 +59,7 @@ try:
                       extraNodeArgs=extraNodeArgs, activateIF=True, biosFinalizer=False) is False:
         errorExit("Failed to stand up eos cluster.")
 
-    assert cluster.biosNode.getInfo(exitOnError=True)["head_block_producer"] != "eosio", "launch should have waited for production to change"
+    assert cluster.biosNode.getInfo(exitOnError=True)["head_block_producer"] != Utils.SysAccount, "launch should have waited for production to change"
     cluster.biosNode.kill(signal.SIGTERM)
     cluster.waitOnClusterSync(blockAdvancing=5)
 

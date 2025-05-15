@@ -138,7 +138,7 @@ try:
 
     transferAmount = 10
     # Does not use transaction retry (not needed)
-    transfer = prodD.transferFunds(cluster.eosioAccount, cluster.defproduceraAccount, f"{transferAmount}.0000 {CORE_SYMBOL}", "fund account")
+    transfer = prodD.transferFunds(cluster.sysAccount, cluster.defproduceraAccount, f"{transferAmount}.0000 {CORE_SYMBOL}", "fund account")
     transBlockNum = transfer['processed']['block_num']
     transId = prodD.getLastTrackedTransactionId()
     retStatus = prodD.getTransactionStatus(transId)

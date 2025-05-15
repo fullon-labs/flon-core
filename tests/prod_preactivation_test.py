@@ -11,7 +11,7 @@ from TestHarness.accounts import Account
 
 ###############################################################
 # prod_preactivation_test
-# --dump-error-details <Upon error print etc/eosio/node_*/config.ini and prod_preactivation_test<pid>/node_*/stderr.log to stdout>
+# --dump-error-details <Upon error print etc/{ProgramRootName}/node_*/config.ini and prod_preactivation_test<pid>/node_*/stderr.log to stdout>
 # --keep-logs <Don't delete TestLogs/prod_preactivation_test<pid>/node_* folders upon test completion>
 ###############################################################
 
@@ -59,22 +59,22 @@ try:
     contractDir="libraries/testing/contracts/%s" % (contract)
     wasmFile="%s.wasm" % (contract)
     abiFile="%s.abi" % (contract)
-    retMap = cluster.biosNode.publishContract(cluster.eosioAccount, contractDir, wasmFile, abiFile, waitForTransBlock=True)
+    retMap = cluster.biosNode.publishContract(cluster.sysAccount, contractDir, wasmFile, abiFile, waitForTransBlock=True)
     if retMap is None:
         errorExit("publish of contract failed")
 
     producerKeys=cluster.parseClusterKeys(prodCount)
 
-    eosioName="eosio"
-    eosioKeys=producerKeys[eosioName]
-    eosioAccount=Account(eosioName)
-    eosioAccount.ownerPrivateKey=eosioKeys["private"]
-    eosioAccount.ownerPublicKey=eosioKeys["public"]
-    eosioAccount.activePrivateKey=eosioKeys["private"]
-    eosioAccount.activePublicKey=eosioKeys["public"]
+    sysName=Utils.SysAccount
+    sysKeys=producerKeys[sysName]
+    sysAccount=Account(sysName)
+    sysAccount.ownerPrivateKey=sysKeys["private"]
+    sysAccount.ownerPublicKey=sysKeys["public"]
+    sysAccount.activePrivateKey=sysKeys["private"]
+    sysAccount.activePublicKey=sysKeys["public"]
 
     Utils.Print("Creating accounts: %s " % ", ".join(producerKeys.keys()))
-    producerKeys.pop(eosioName)
+    producerKeys.pop(sysName)
     accounts=[]
     for name, keys in producerKeys.items():
         initx = Account(name)
@@ -82,7 +82,7 @@ try:
         initx.ownerPublicKey=keys["public"]
         initx.activePrivateKey=keys["private"]
         initx.activePublicKey=keys["public"]
-        trans=cluster.biosNode.createAccount(initx, eosioAccount, 0)
+        trans=cluster.biosNode.createAccount(initx, sysAccount, 0)
         if trans is None:
             errorExit("ERROR: Failed to create account %s" % (name))
         Node.validateTransaction(trans)
@@ -103,9 +103,9 @@ try:
     setProdsStr += ' }'
     if Utils.Debug: Utils.Print("setprods: %s" % (setProdsStr))
     Utils.Print("Setting producers: %s." % (", ".join(prodNames)))
-    opts = "--permission eosio@active"
+    opts = f"--permission {Utils.SysAccount}@active"
     # pylint: disable=redefined-variable-type
-    trans = cluster.biosNode.pushMessage("eosio", "setprods", setProdsStr, opts)
+    trans = cluster.biosNode.pushMessage(Utils.SysAccount, "setprods", setProdsStr, opts)
     if trans is None or not trans[0]:
         errorExit("ERROR: Failed to set producer %s." % (keys["name"]))
 
@@ -147,7 +147,7 @@ try:
     abiFile="%s.abi" % (contract)
 
     Print("publish a new bios contract %s should fails because env.is_feature_activated unresolveable" % (contractDir))
-    retMap = node0.publishContract(cluster.eosioAccount, contractDir, wasmFile, abiFile, waitForTransBlock=True, shouldFail=True)
+    retMap = node0.publishContract(cluster.sysAccount, contractDir, wasmFile, abiFile, waitForTransBlock=True, shouldFail=True)
 
     outPut = retMap["output"].decode("utf-8")
     if outPut.find("unresolveable") < 0:
@@ -190,7 +190,7 @@ try:
 
     time.sleep(0.6)
     Print("publish a new bios contract %s should fails because node1 is not producing block yet" % (contractDir))
-    retMap = node0.publishContract(cluster.eosioAccount, contractDir, wasmFile, abiFile, waitForTransBlock=True, shouldFail=True)
+    retMap = node0.publishContract(cluster.sysAccount, contractDir, wasmFile, abiFile, waitForTransBlock=True, shouldFail=True)
     if retMap["output"].decode("utf-8").find("unresolveable") < 0:
         errorExit("bios contract not result in expected unresolveable error")
 
@@ -207,7 +207,7 @@ try:
        errorExit("No blocks produced by node 1")
 
     time.sleep(0.6)
-    retMap = node0.publishContract(cluster.eosioAccount, contractDir, wasmFile, abiFile, waitForTransBlock=True, shouldFail=False)
+    retMap = node0.publishContract(cluster.sysAccount, contractDir, wasmFile, abiFile, waitForTransBlock=True, shouldFail=False)
     if retMap is None:
         errorExit("publish of new contract failed")
     Print("sucessfully set new contract with new intrinsic!!!")

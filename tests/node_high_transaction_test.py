@@ -81,7 +81,7 @@ try:
     namedAccounts=NamedAccounts(cluster,args.total_accounts)
     accounts=namedAccounts.accounts
 
-    accountsToCreate = [cluster.eosioAccount]
+    accountsToCreate = [cluster.sysAccount]
     for account in accounts:
         accountsToCreate.append(account)
 
@@ -119,20 +119,20 @@ try:
     node=nonProdNodes[0]
     checkTransIds = []
     startTime = time.perf_counter()
-    Print("Create new accounts via %s" % (cluster.eosioAccount.name))
+    Print("Create new accounts via %s" % (cluster.sysAccount.name))
     for account in accounts:
-        trans = node.createInitializeAccount(account, cluster.eosioAccount, stakedDeposit=0, waitForTransBlock=(account == accounts[-1]), stakeNet=1000, stakeCPU=1000, buyRAM=1000, exitOnError=True)
+        trans = node.createInitializeAccount(account, cluster.sysAccount, stakedDeposit=0, waitForTransBlock=(account == accounts[-1]), stakeNet=1000, stakeCPU=1000, buyRAM=1000, exitOnError=True)
         checkTransIds.append(Node.getTransId(trans))
 
     nextTime = time.perf_counter()
     Print("Create new accounts took %s sec" % (nextTime - startTime))
     startTime = nextTime
 
-    Print("Transfer funds to new accounts via %s" % (cluster.eosioAccount.name))
+    Print("Transfer funds to new accounts via %s" % (cluster.sysAccount.name))
     for account in accounts:
         transferAmount="1000.0000 {0}".format(CORE_SYMBOL)
-        Print("Transfer funds %s from account %s to %s" % (transferAmount, cluster.eosioAccount.name, account.name))
-        trans = node.transferFunds(cluster.eosioAccount, account, transferAmount, "test transfer", waitForTransBlock=(account == accounts[-1]), reportStatus=False)
+        Print("Transfer funds %s from account %s to %s" % (transferAmount, cluster.sysAccount.name, account.name))
+        trans = node.transferFunds(cluster.sysAccount, account, transferAmount, "test transfer", waitForTransBlock=(account == accounts[-1]), reportStatus=False)
         checkTransIds.append(Node.getTransId(trans))
 
     nextTime = time.perf_counter()

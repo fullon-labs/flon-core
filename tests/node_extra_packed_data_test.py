@@ -102,7 +102,7 @@ try:
     Print("Creating wallet \"%s\"" % (testWalletName))
     walletAccounts=copy.deepcopy(cluster.defProducerAccounts)
     if dontLaunch:
-        del walletAccounts["eosio"]
+        del walletAccounts[Utils.SysAccount]
     testWallet = walletMgr.create(testWalletName, walletAccounts.values())
 
     Print("Wallet \"%s\" password=%s." % (testWalletName, testWallet.password.encode("utf-8")))

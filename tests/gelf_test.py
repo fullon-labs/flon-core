@@ -87,7 +87,7 @@ def gelfServer(stop):
 data_dir = Path(Utils.getNodeDataDir(node_id))
 config_dir = Path(Utils.getNodeConfigDir(node_id))
 # It is good to have at least one integration test that does not use eosio::chain_api_plugin or eosio::http_plugin
-start_node_cmd = shlex.split(f"{Utils.NodeServerPath} -e -p eosio --data-dir={data_dir} --config-dir={config_dir}")
+start_node_cmd = shlex.split(f"{Utils.NodeServerPath} -e -p {Utils.SysAccount} --data-dir={data_dir} --config-dir={config_dir}")
 if os.path.exists(data_dir):
     shutil.rmtree(data_dir)
 os.makedirs(data_dir)

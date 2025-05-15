@@ -59,8 +59,8 @@ try:
     if localTest and not dontLaunch:
         Print("Stand up cluster")
 
-        abs_path = os.path.abspath(os.getcwd() + '/unittests/contracts/eosio.token/eosio.token.abi')
-        traceNodeArgs=" --http-max-response-time-ms 990000 --trace-rpc-abi eosio.token=" + abs_path
+        abs_path = os.path.abspath(os.getcwd() + f'/unittests/contracts/{Utils.TokenAccount}/{Utils.TokenAccount}.abi')
+        traceNodeArgs=f" --http-max-response-time-ms 990000 --trace-rpc-abi {Utils.TokenAccount}=" + abs_path
         extraNodeArgs=traceNodeArgs + " --plugin eosio::prometheus_plugin --database-map-mode mapped_private "
         specificNodeInstances={0: Utils.EosServerName}
         if cluster.launch(totalNodes=2, prodCount=prodCount, activateIF=activateIF, onlyBios=onlyBios, dontBootstrap=dontBootstrap, extraNodeArgs=extraNodeArgs, specificNodeInstances=specificNodeInstances) is False:
@@ -113,7 +113,7 @@ try:
     Print("Creating wallet \"%s\"." % (testWalletName))
     walletAccounts=[cluster.defproduceraAccount,cluster.defproducerbAccount]
     if not dontLaunch:
-        walletAccounts.append(cluster.eosioAccount)
+        walletAccounts.append(cluster.sysAccount)
     testWallet=walletMgr.create(testWalletName, walletAccounts)
 
     Print("Wallet \"%s\" password=%s." % (testWalletName, testWallet.password.encode("utf-8")))
@@ -303,9 +303,9 @@ try:
     if hashNum != 0:
         errorExit("FAILURE - get code currency1111 failed", raw=True)
 
-    contractDir="unittests/contracts/eosio.token"
-    wasmFile="eosio.token.wasm"
-    abiFile="eosio.token.abi"
+    contractDir=f"unittests/contracts/{Utils.TokenAccount}"
+    wasmFile=f"{Utils.TokenAccount}.wasm"
+    abiFile=f"{Utils.TokenAccount}.abi"
     Print("Publish contract")
     trans=node.publishContract(currencyAccount, contractDir, wasmFile, abiFile, waitForTransBlock=True)
     if trans is None:
@@ -749,9 +749,9 @@ try:
 
     # run a get_table_rows API call for a table which has an incorrect abi (missing type), to make sure that
     # the resulting exception in http-plugin is caught and doesn't cause node to crash (leap issue #1372).
-    contractDir="unittests/contracts/eosio.token"
-    wasmFile="eosio.token.wasm"
-    abiFile="eosio.token.bad.abi"
+    contractDir=f"unittests/contracts/{Utils.TokenAccount}"
+    wasmFile=f"{Utils.TokenAccount}.wasm"
+    abiFile=f"{Utils.TokenAccount}.bad.abi"
     Print("Publish contract")
     trans=node.publishContract(currencyAccount, contractDir, wasmFile, abiFile, waitForTransBlock=True)
     if trans is None:
@@ -762,7 +762,7 @@ try:
     table="accounts"
     row0=node.getTableRow(contract, currencyAccount.name, table, 0)
 
-    # because we set a bad abi (missing type, see "eosio.token.bad.abi") on the contract, the
+    # because we set a bad abi (missing type, see bad token contract abi) on the contract, the
     # getTableRow() is expected to fail and return None
     try:
         assert(not row0)
@@ -779,9 +779,9 @@ try:
     # Verify "set code" and "set abi" work
     Print("Verify set code and set abi work")
     setCodeAbiAccount = Account("setcodeabi")
-    setCodeAbiAccount.ownerPublicKey = cluster.eosioAccount.ownerPublicKey
-    setCodeAbiAccount.activePublicKey = cluster.eosioAccount.ownerPublicKey
-    cluster.createAccountAndVerify(setCodeAbiAccount, cluster.eosioAccount, buyRAM=100000)
+    setCodeAbiAccount.ownerPublicKey = cluster.sysAccount.ownerPublicKey
+    setCodeAbiAccount.activePublicKey = cluster.sysAccount.ownerPublicKey
+    cluster.createAccountAndVerify(setCodeAbiAccount, cluster.sysAccount, buyRAM=100000)
     wasmFile="unittests/test-contracts/payloadless/payloadless.wasm"
     abiFile="unittests/test-contracts/payloadless/payloadless.abi"
     assert(node.setCodeOrAbi(setCodeAbiAccount, "code", wasmFile))

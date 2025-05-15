@@ -38,7 +38,7 @@ testSuccessful=False
 def runNodeAndGetOutput(myTimeout=3, nodeLogPath=f"{Utils.TestLogRoot}"):
     """Startup node, wait for timeout (before forced shutdown) and collect output. Stdout, stderr and return code are returned in a dictionary."""
     Print("Launching node process.")
-    cmd=f"{Utils.NodeServerPath} --config-dir etc/eosio/node_bios --data-dir {nodeLogPath}/node_bios --verbose-http-errors --http-validate-host=false --resource-monitor-not-shutdown-on-threshold-exceeded"
+    cmd=f"{Utils.NodeServerPath} --config-dir etc/{Utils.ProgramRootName}/node_bios --data-dir {nodeLogPath}/node_bios --verbose-http-errors --http-validate-host=false --resource-monitor-not-shutdown-on-threshold-exceeded"
     Print("cmd: %s" % (cmd))
     proc=subprocess.Popen(cmd.split(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     if debug: Print("node process launched.")

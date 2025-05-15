@@ -32,7 +32,7 @@ try:
         Utils.NodeServerPath,
         '-e',
         '-p',
-        'eosio',
+        Utils.SysAccount,
         '--p2p-listen-endpoint',
         '',
         '--plugin',

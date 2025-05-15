@@ -81,13 +81,13 @@ try:
     account1 = Account('account1')
     account1.ownerPublicKey = EOSIO_ACCT_PUBLIC_DEFAULT_KEY
     account1.activePublicKey = EOSIO_ACCT_PUBLIC_DEFAULT_KEY
-    cluster.createAccountAndVerify(account1, cluster.eosioAccount, stakedDeposit=1000)
+    cluster.createAccountAndVerify(account1, cluster.sysAccount, stakedDeposit=1000)
 
     Print("Creating account2")
     account2 = Account('account2')
     account2.ownerPublicKey = EOSIO_ACCT_PUBLIC_DEFAULT_KEY
     account2.activePublicKey = EOSIO_ACCT_PUBLIC_DEFAULT_KEY
-    cluster.createAccountAndVerify(account2, cluster.eosioAccount, stakedDeposit=1000)
+    cluster.createAccountAndVerify(account2, cluster.sysAccount, stakedDeposit=1000)
 
     Print("Validating accounts after bootstrap")
     cluster.validateAccounts([account1, account2])
@@ -127,7 +127,7 @@ try:
     # through the chain of nodes to node0 to be added to a block. It is still possible to hit the end of a block and state be IN_BLOCK here.
     # defproducera -> defproducerb -> defproducerc -> NPN
     prod0.waitForProducer("defproducera", exitOnError=True)
-    testNode.transferFunds(cluster.eosioAccount, account1, f"{transferAmount}.0000 {CORE_SYMBOL}", "fund account")
+    testNode.transferFunds(cluster.sysAccount, account1, f"{transferAmount}.0000 {CORE_SYMBOL}", "fund account")
     transId=testNode.getLastTrackedTransactionId()
     retStatus=testNode.getTransactionStatus(transId)
     state = getState(retStatus)

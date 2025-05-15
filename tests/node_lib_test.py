@@ -62,8 +62,8 @@ try:
     if localTest and not dontLaunch:
         Print("Stand up cluster")
 
-        abs_path = os.path.abspath(os.getcwd() + '/unittests/contracts/eosio.token/eosio.token.abi')
-        tracenodeArgs=" --http-max-response-time-ms 990000 --trace-rpc-abi eosio.token=" + abs_path
+        abs_path = os.path.abspath(os.getcwd() + f'/unittests/contracts/{Utils.TokenAccount}/{Utils.TokenAccount}.abi')
+        tracenodeArgs=f" --http-max-response-time-ms 990000 --trace-rpc-abi {Utils.TokenAccount}=" + abs_path
         extraNodeArgs=tracenodeArgs + " --plugin eosio::prometheus_plugin --database-map-mode mapped_private "
         specificnodeInstances={0: Utils.NodeServerPath}
         if cluster.launch(totalNodes=total_nodes, pnodes=pnodes, topo=topo, prodCount=prodCount, activateIF=activateIF, onlyBios=onlyBios, dontBootstrap=dontBootstrap, extraNodeArgs=extraNodeArgs, specificnodeInstances=specificnodeInstances) is False:
@@ -116,7 +116,7 @@ try:
     Print("Creating wallet \"%s\"." % (testWalletName))
     walletAccounts=[cluster.defproduceraAccount,cluster.defproducerbAccount]
     if not dontLaunch:
-        walletAccounts.append(cluster.eosioAccount)
+        walletAccounts.append(cluster.sysAccount)
     testWallet=walletMgr.create(testWalletName, walletAccounts)
 
     Print("Wallet \"%s\" password=%s." % (testWalletName, testWallet.password.encode("utf-8")))
@@ -305,9 +305,9 @@ try:
     if hashNum != 0:
         errorExit("FAILURE - get code currency1111 failed", raw=True)
 
-    contractDir="unittests/contracts/eosio.token"
-    wasmFile="eosio.token.wasm"
-    abiFile="eosio.token.abi"
+    contractDir=f"unittests/contracts/{Utils.TokenAccount}"
+    wasmFile=f"{Utils.TokenAccount}.wasm"
+    abiFile=f"{Utils.TokenAccount}.abi"
     Print("Publish contract")
     trans=node.publishContract(currencyAccount, contractDir, wasmFile, abiFile, waitForTransBlock=True)
     if trans is None:
@@ -575,9 +575,9 @@ try:
     # Verify "set code" and "set abi" work
     Print("Verify set code and set abi work")
     setCodeAbiAccount = Account("setcodeabi")
-    setCodeAbiAccount.ownerPublicKey = cluster.eosioAccount.ownerPublicKey
-    setCodeAbiAccount.activePublicKey = cluster.eosioAccount.ownerPublicKey
-    cluster.createAccountAndVerify(setCodeAbiAccount, cluster.eosioAccount, buyRAM=100000)
+    setCodeAbiAccount.ownerPublicKey = cluster.sysAccount.ownerPublicKey
+    setCodeAbiAccount.activePublicKey = cluster.sysAccount.ownerPublicKey
+    cluster.createAccountAndVerify(setCodeAbiAccount, cluster.sysAccount, buyRAM=100000)
     wasmFile="unittests/test-contracts/payloadless/payloadless.wasm"
     abiFile="unittests/test-contracts/payloadless/payloadless.abi"
     assert(node.setCodeOrAbi(setCodeAbiAccount, "code", wasmFile))

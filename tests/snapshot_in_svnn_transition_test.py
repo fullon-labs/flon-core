@@ -57,12 +57,12 @@ try:
                       activateIF=False, specificExtraNodeArgs=specificExtraNodeArgs) is False:
         errorExit("Failed to stand up eos cluster.")
 
-    assert cluster.biosNode.getInfo(exitOnError=True)["head_block_producer"] != "eosio", "launch should have waited for production to change"
+    assert cluster.biosNode.getInfo(exitOnError=True)["head_block_producer"] != Utils.SysAccount, "launch should have waited for production to change"
 
     Print("Configure and launch txn generators")
     targetTpsPerGenerator = 10
     testTrxGenDurationSec=60*60
-    cluster.launchTrxGenerators(contractOwnerAcctName=cluster.eosioAccount.name, acctNamesList=[cluster.defproduceraAccount.name, cluster.defproducerbAccount.name],
+    cluster.launchTrxGenerators(contractOwnerAcctName=cluster.sysAccount.name, acctNamesList=[cluster.defproduceraAccount.name, cluster.defproducerbAccount.name],
                                 acctPrivKeysList=[cluster.defproduceraAccount.activePrivateKey,cluster.defproducerbAccount.activePrivateKey], nodeId=cluster.getNode(0).nodeId,
                                 tpsPerGenerator=targetTpsPerGenerator, numGenerators=numTrxGenerators, durationSec=testTrxGenDurationSec,
                                 waitToComplete=False)

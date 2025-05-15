@@ -17,7 +17,7 @@ if not os.path.exists(config_dir):
     os.makedirs(config_dir)
 
 try:
-    start_node_cmd = f"{Utils.NodeServerPath} -e -p eosio --data-dir={data_dir} --config-dir={config_dir} --blocks-log-stride 10" \
+    start_node_cmd = f"{Utils.NodeServerPath} -e -p {Utils.SysAccount} --data-dir={data_dir} --config-dir={config_dir} --blocks-log-stride 10" \
                         " --plugin=eosio::http_plugin --plugin=eosio::chain_api_plugin --http-server-address=localhost:8888"
 
     node.launchCmd(start_node_cmd, node_id)

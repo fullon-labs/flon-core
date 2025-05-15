@@ -134,10 +134,10 @@ def startCluster():
     producerNode = cluster.getNode()
     apiNode = cluster.nodes[-1]
 
-    eosioCodeHash = getCodeHash(producerNode, "eosio.token")
-    # eosio.* should be using oc unless oc tierup disabled
-    Utils.Print(f"search: executing {eosioCodeHash} with eos vm oc")
-    found = producerNode.findInLog(f"executing {eosioCodeHash} with eos vm oc")
+    sysCodeHash = getCodeHash(producerNode, Utils.TokenAccount)
+    # sys.* should be using oc unless oc tierup disabled
+    Utils.Print(f"search: executing {sysCodeHash} with eos vm oc")
+    found = producerNode.findInLog(f"executing {sysCodeHash} with eos vm oc")
     assert( found or (noOC and not found) )
 
     if args.eos_vm_oc_enable:
@@ -170,12 +170,12 @@ def deployTestContracts():
     testAccount = Account(testAccountName)
     testAccount.ownerPublicKey = EOSIO_ACCT_PUBLIC_DEFAULT_KEY
     testAccount.activePublicKey = EOSIO_ACCT_PUBLIC_DEFAULT_KEY
-    cluster.createAccountAndVerify(testAccount, cluster.eosioAccount, buyRAM=500000) # 95632 bytes required for test contract
+    cluster.createAccountAndVerify(testAccount, cluster.sysAccount, buyRAM=500000) # 95632 bytes required for test contract
 
     userAccount = Account(userAccountName)
     userAccount.ownerPublicKey = EOSIO_ACCT_PUBLIC_DEFAULT_KEY
     userAccount.activePublicKey = EOSIO_ACCT_PUBLIC_DEFAULT_KEY
-    cluster.createAccountAndVerify(userAccount, cluster.eosioAccount, stakeCPU=2000)
+    cluster.createAccountAndVerify(userAccount, cluster.sysAccount, stakeCPU=2000)
 
     noAuthTableContractDir="unittests/test-contracts/no_auth_table"
     noAuthTableWasmFile="no_auth_table.wasm"
@@ -187,7 +187,7 @@ def deployTestContracts():
     payloadlessAccount = Account(payloadlessAccountName)
     payloadlessAccount.ownerPublicKey = EOSIO_ACCT_PUBLIC_DEFAULT_KEY
     payloadlessAccount.activePublicKey = EOSIO_ACCT_PUBLIC_DEFAULT_KEY
-    cluster.createAccountAndVerify(payloadlessAccount, cluster.eosioAccount, buyRAM=100000)
+    cluster.createAccountAndVerify(payloadlessAccount, cluster.sysAccount, buyRAM=100000)
     payloadlessContractDir="unittests/test-contracts/payloadless"
     payloadlessWasmFile="payloadless.wasm"
     payloadlessAbiFile="payloadless.abi"
@@ -345,10 +345,10 @@ def chainApiTests():
     runReadOnlyTrxAndRpcInParallel("chain", "get_raw_code_and_abi", "account_name", expectedValue=testAccountName, payload = {"account_name":testAccountName})
     runReadOnlyTrxAndRpcInParallel("chain", "get_raw_abi", "account_name", expectedValue=testAccountName, payload = {"account_name":testAccountName})
     runReadOnlyTrxAndRpcInParallel("chain", "get_producers", "rows", payload = {"json":"true","lower_bound":""})
-    runReadOnlyTrxAndRpcInParallel("chain", "get_table_rows", "rows", payload = {"json":"true","code":"eosio","scope":"eosio","table":"global"})
+    runReadOnlyTrxAndRpcInParallel("chain", "get_table_rows", "rows", payload = {"json":"true","code":Utils.SysAccount,"scope":Utils.SysAccount,"table":"global"})
     runReadOnlyTrxAndRpcInParallel("chain", "get_table_by_scope", fieldIn="rows", payload = {"json":"true","table":"noauth"})
-    runReadOnlyTrxAndRpcInParallel("chain", "get_currency_balance", code=200, payload = {"code":"eosio.token", "account":testAccountName})
-    runReadOnlyTrxAndRpcInParallel("chain", "get_currency_stats", fieldIn="SYS", payload = {"code":"eosio.token", "symbol":"SYS"})
+    runReadOnlyTrxAndRpcInParallel("chain", "get_currency_balance", code=200, payload = {"code":Utils.TokenAccount, "account":testAccountName})
+    runReadOnlyTrxAndRpcInParallel("chain", "get_currency_stats", fieldIn="SYS", payload = {"code":Utils.TokenAccount, "symbol":"SYS"})
     runReadOnlyTrxAndRpcInParallel("chain", "get_required_keys", code=400)
     runReadOnlyTrxAndRpcInParallel("chain", "get_transaction_id", code=400, payload = {"ref_block_num":"1"})
     runReadOnlyTrxAndRpcInParallel("chain", "push_block", code=202, payload = {"block":"signed_block"})

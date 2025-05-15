@@ -86,10 +86,10 @@ class PerformanceTestBasic:
 
         @dataclass
         class SpecifiedContract:
-            contractDir: str = "unittests/contracts/eosio.system"
-            wasmFile: str = "eosio.system.wasm"
-            abiFile: str = "eosio.system.abi"
-            account: Account = Account("eosio")
+            contractDir: str = "unittests/contracts/" + Utils.makeSysName("system")
+            wasmFile: str = Utils.makeSysName("system") + ".wasm"
+            abiFile: str = Utils.makeSysName("system") + ".abi"
+            account: Account = Account(Utils.SysAccount)
 
         producerNodeCount: int = 1
         validationNodeCount: int = 1
@@ -217,7 +217,7 @@ class PerformanceTestBasic:
         self.trxGenLogDirPath = self.loggingConfig.logDirPath/Path("trxGenLogs")
         self.varLogsDirPath = self.loggingConfig.logDirPath/Path("var")
         self.etcLogsDirPath = self.loggingConfig.logDirPath/Path("etc")
-        self.etcEosioLogsDirPath = self.etcLogsDirPath/Path("eosio")
+        self.etcEosioLogsDirPath = self.etcLogsDirPath/Path(Utils.ProgramRootName)
         self.blockDataLogDirPath = self.loggingConfig.logDirPath/Path("blockDataLogs")
         self.blockDataPath = self.blockDataLogDirPath/Path("blockData.txt")
         self.transactionMetricsDataPath = self.blockDataLogDirPath/Path("transaction_metrics.csv")
@@ -310,7 +310,7 @@ class PerformanceTestBasic:
         if "v2" in self.clusterConfig.nodeVers:
             return False
         else:
-            if transaction['actions'][0]['account'] != 'eosio' or transaction['actions'][0]['action'] != 'onblock':
+            if transaction['actions'][0]['account'] != Utils.SysAccount or transaction['actions'][0]['action'] != 'onblock':
                 return False
         return True
 
@@ -375,7 +375,7 @@ class PerformanceTestBasic:
                     if ret is None:
                         newAccountNames.append(name)
             self.cluster.populateWallet(accountsCount=len(newAccountNames), wallet=self.wallet, accountNames=newAccountNames)
-            self.cluster.createAccounts(self.cluster.eosioAccount, stakedDeposit=0, validationNodeIndex=self.validationNodeId)
+            self.cluster.createAccounts(self.cluster.sysAccount, stakedDeposit=0, validationNodeIndex=self.validationNodeId)
             if len(newAccountNames) != 0:
                 for index in range(len(self.accountNames), len(accountNames)):
                     self.accountNames.append(self.cluster.accounts[index].name)
@@ -383,7 +383,7 @@ class PerformanceTestBasic:
                     self.accountPrivKeys.append(self.cluster.accounts[index].ownerPrivateKey)
         else:
             self.cluster.populateWallet(accountsCount=accountCnt, wallet=self.wallet)
-            self.cluster.createAccounts(self.cluster.eosioAccount, stakedDeposit=0, validationNodeIndex=self.validationNodeId)
+            self.cluster.createAccounts(self.cluster.sysAccount, stakedDeposit=0, validationNodeIndex=self.validationNodeId)
             for index in range(0, accountCnt):
                 self.accountNames.append(self.cluster.accounts[index].name)
                 self.accountPrivKeys.append(self.cluster.accounts[index].activePrivateKey)
@@ -393,9 +393,9 @@ class PerformanceTestBasic:
             self.userTrxDataDict = json.load(f)
 
     def setupContract(self):
-        if self.clusterConfig.specifiedContract.account.name != self.cluster.eosioAccount.name:
+        if self.clusterConfig.specifiedContract.account.name != self.cluster.sysAccount.name:
             self.cluster.populateWallet(accountsCount=1, wallet=self.wallet, accountNames=[self.clusterConfig.specifiedContract.account.name], createProducerAccounts=False)
-            self.cluster.createAccounts(self.cluster.eosioAccount, stakedDeposit=0, validationNodeIndex=self.validationNodeId)
+            self.cluster.createAccounts(self.cluster.sysAccount, stakedDeposit=0, validationNodeIndex=self.validationNodeId)
             self.clusterConfig.specifiedContract.account = self.cluster.accounts[0]
             print("Publishing contract")
             transaction=self.cluster.biosNode.publishContract(self.clusterConfig.specifiedContract.account, self.clusterConfig.specifiedContract.contractDir,
@@ -455,8 +455,8 @@ class PerformanceTestBasic:
             for act in self.userTrxDataDict['actions']:
                 actionAuthAcct=act["actionAuthAcct"]
                 actionAuthPrivKey=None
-                if actionAuthAcct == self.cluster.eosioAccount.name:
-                    actionAuthPrivKey = self.cluster.eosioAccount.activePrivateKey
+                if actionAuthAcct == self.cluster.sysAccount.name:
+                    actionAuthPrivKey = self.cluster.sysAccount.activePrivateKey
                 else:
                     for account in self.cluster.accounts:
                         if actionAuthAcct == account.name:
@@ -732,10 +732,10 @@ class PtbArgumentsHandler(object):
         ptbBaseParserGroup.add_argument("--quiet", help=argparse.SUPPRESS if suppressHelp else "Whether to quiet printing intermediate results and reports to stdout", action='store_true')
         ptbBaseParserGroup.add_argument("--prods-enable-trace-api", help=argparse.SUPPRESS if suppressHelp else "Determines whether producer nodes should have eosio::trace_api_plugin enabled", action='store_true')
         ptbBaseParserGroup.add_argument("--print-missing-transactions", type=bool, help=argparse.SUPPRESS if suppressHelp else "Print missing transactions upon test completion.", default=True)
-        ptbBaseParserGroup.add_argument("--account-name", type=str, help=argparse.SUPPRESS if suppressHelp else "Name of the account to create and assign a contract to", default="eosio")
-        ptbBaseParserGroup.add_argument("--contract-dir", type=str, help=argparse.SUPPRESS if suppressHelp else "Path to contract dir", default="unittests/contracts/eosio.system")
-        ptbBaseParserGroup.add_argument("--wasm-file", type=str, help=argparse.SUPPRESS if suppressHelp else "WASM file name for contract", default="eosio.system.wasm")
-        ptbBaseParserGroup.add_argument("--abi-file", type=str, help=argparse.SUPPRESS if suppressHelp else "ABI file name for contract", default="eosio.system.abi")
+        ptbBaseParserGroup.add_argument("--account-name", type=str, help=argparse.SUPPRESS if suppressHelp else "Name of the account to create and assign a contract to", default=Utils.SysAccount)
+        ptbBaseParserGroup.add_argument("--contract-dir", type=str, help=argparse.SUPPRESS if suppressHelp else "Path to contract dir", default="unittests/contracts/" + Utils.makeSysName("system"))
+        ptbBaseParserGroup.add_argument("--wasm-file", type=str, help=argparse.SUPPRESS if suppressHelp else "WASM file name for contract", default=Utils.makeSysName("system") + ".wasm")
+        ptbBaseParserGroup.add_argument("--abi-file", type=str, help=argparse.SUPPRESS if suppressHelp else "ABI file name for contract", default=Utils.makeSysName("system") + ".abi")
         ptbBaseParserGroup.add_argument("--user-trx-data-file", type=str, help=argparse.SUPPRESS if suppressHelp else "Path to transaction data JSON file")
         ptbBaseParserGroup.add_argument("--wasm-runtime", type=str, help=argparse.SUPPRESS if suppressHelp else "Override default WASM runtime (\"eos-vm-jit\", \"eos-vm\")\
                                          \"eos-vm-jit\" : A WebAssembly runtime that compiles WebAssembly code to native x86 code prior to\

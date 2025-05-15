@@ -72,13 +72,13 @@ try:
     account1 = Account('account1')
     account1.ownerPublicKey = EOSIO_ACCT_PUBLIC_DEFAULT_KEY
     account1.activePublicKey = EOSIO_ACCT_PUBLIC_DEFAULT_KEY
-    cluster.createAccountAndVerify(account1, cluster.eosioAccount, stakedDeposit=1000)
+    cluster.createAccountAndVerify(account1, cluster.sysAccount, stakedDeposit=1000)
 
     Print("Creating account2")
     account2 = Account('account2')
     account2.ownerPublicKey = EOSIO_ACCT_PUBLIC_DEFAULT_KEY
     account2.activePublicKey = EOSIO_ACCT_PUBLIC_DEFAULT_KEY
-    cluster.createAccountAndVerify(account2, cluster.eosioAccount, stakedDeposit=1000, stakeCPU=1)
+    cluster.createAccountAndVerify(account2, cluster.sysAccount, stakedDeposit=1000, stakeCPU=1)
 
     Print("Validating accounts after bootstrap")
     cluster.validateAccounts([account1, account2], testSysAccounts=False)
@@ -100,7 +100,7 @@ try:
         memo = 'tx-{}'.format(x)
         txn = {
 
-            "actions": [{"account": "eosio.token","name": "transfer",
+            "actions": [{"account": Utils.TokenAccount,"name": "transfer",
                          "authorization": [{"actor": "account1","permission": "active"}],
                          "data": {"from": "account1","to": "account2","quantity": "100000.0001 SYS","memo": memo},
                          "compression": "none"}]
@@ -123,7 +123,7 @@ try:
         memo = 'tx-{}'.format(x)
         txn = {
 
-            "actions": [{"account": "eosio.token","name": "transfer",
+            "actions": [{"account": Utils.TokenAccount,"name": "transfer",
                          "authorization": [{"actor": "account2","permission": "active"}],
                          "data": {"from": "account2","to": "account1","quantity": "100000.0001 SYS","memo": memo},
                          "compression": "none"}]
@@ -146,7 +146,7 @@ try:
         memo = 'tx-{}'.format(x)
         txn = {
 
-            "actions": [{"account": "eosio.token","name": "transfer",
+            "actions": [{"account": Utils.TokenAccount,"name": "transfer",
                          "authorization": [{"actor": "account1","permission": "active"}],
                          "data": {"from": "account1","to": "account2","quantity": "100000.0001 SYS","memo": memo},
                          "compression": "none"}]

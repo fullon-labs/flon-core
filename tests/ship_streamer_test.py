@@ -102,7 +102,7 @@ try:
     jumboAcc = Account("itsjumbotime")
     jumboAcc.ownerPublicKey = "EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV"
     jumboAcc.activePublicKey = "EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV"
-    nonProdNode.createAccount(jumboAcc, cluster.eosioAccount)
+    nonProdNode.createAccount(jumboAcc, cluster.sysAccount)
 
     contract = "jumborow"
     contractDir = "unittests/contracts/%s" % (contract)
@@ -124,7 +124,7 @@ try:
     targetTpsPerGenerator = 10
     testTrxGenDurationSec=60*60
     numTrxGenerators=2
-    cluster.launchTrxGenerators(contractOwnerAcctName=cluster.eosioAccount.name, acctNamesList=[cluster.defproduceraAccount.name, cluster.defproducerbAccount.name],
+    cluster.launchTrxGenerators(contractOwnerAcctName=cluster.sysAccount.name, acctNamesList=[cluster.defproduceraAccount.name, cluster.defproducerbAccount.name],
                                 acctPrivKeysList=[cluster.defproduceraAccount.activePrivateKey,cluster.defproducerbAccount.activePrivateKey], nodeId=prodNode3.nodeId,
                                 tpsPerGenerator=targetTpsPerGenerator, numGenerators=numTrxGenerators, durationSec=testTrxGenDurationSec,
                                 waitToComplete=False)

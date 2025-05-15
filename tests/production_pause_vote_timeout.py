@@ -83,7 +83,7 @@ try:
                       topo="./tests/production_pause_vote_timeout_test_shape.json") is False:
         errorExit("Failed to stand up eos cluster.")
 
-    assert cluster.biosNode.getInfo(exitOnError=True)["head_block_producer"] != "eosio", "launch should have waited for production to change"
+    assert cluster.biosNode.getInfo(exitOnError=True)["head_block_producer"] != Utils.SysAccount, "launch should have waited for production to change"
 
     node0          = cluster.getNode(0)   # producer and finalizer node for defproducera
     node1          = cluster.getNode(1)   # producer and finalizer node for defproducerb

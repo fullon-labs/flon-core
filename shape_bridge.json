@@ -1,0 +1,116 @@
+{
+    "name": "testnet_",
+    "nodes": {
+        "bios": {
+            "_dot_label": "localhost:9776\nbios\nprod=flon",
+            "config_dir_name": "/home/seanchen/work/fullon/flon-core/TestLogs/node_contrl_c_test3672724/node_bios",
+            "data_dir_name": "/home/seanchen/work/fullon/flon-core/TestLogs/node_contrl_c_test3672724/node_bios",
+            "dont_start": false,
+            "host_name": "localhost",
+            "http_port": 8788,
+            "index": -100,
+            "keys": [
+                {
+                    "blspop": "SIG_BLS_L5MXQpJTX_v7cXDy4ML4fWVw_69MKuG5qTq7dD_Zb3Yuw1RbMXBOYXDoAbFF37gFmHudY3kkqXtETLs9nMTjTaTwgdDZWpFy1_csEIZT-xIOQttc76bpZhI67902g2sIDf6JSf9JtbhdTUc_HNbL7H2ZR2bqGS3YPbV5z7x24AR2vwTcJogMqLyy6H5nKQAEwIvXcL15gbs2EkH_ch-IZDdn4F0zUYifpOo-ovXY_CX_yL2rKIx_2a9IHg0pPrMOdfHs9A",
+                    "blsprivkey": "PVT_BLS_edLoUiiP2FfMem4la3Ek8zxIDjDjOFylRw9ymdeOVCC0CuXN",
+                    "blspubkey": "PUB_BLS_qVbh4IjYZpRGo8U_0spBUM-u-r_G0fMo4MzLZRsKWmm5uyeQTp74YFaMN9IDWPoVVT5rj_Tw1gvps6K9_OZ6sabkJJzug3uGfjA6qiaLbLh5Fnafwv-nVgzzzBlU2kwRrcHc8Q",
+                    "privkey": "5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3",
+                    "pubkey": "EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV"
+                }
+            ],
+            "listen_addr": "0.0.0.0",
+            "name": "bios",
+            "p2p_port": 9776,
+            "peers": [
+                "testnet_00"
+            ],
+            "producers": [
+                "flon"
+            ],
+            "public_name": "localhost"
+        },
+        "testnet_00": {
+            "_dot_label": "localhost:9876\ntestnet_00\nprod=defproducera",
+            "config_dir_name": "/home/seanchen/work/fullon/flon-core/TestLogs/node_contrl_c_test3672724/node_00",
+            "data_dir_name": "/home/seanchen/work/fullon/flon-core/TestLogs/node_contrl_c_test3672724/node_00",
+            "dont_start": false,
+            "host_name": "localhost",
+            "http_port": 8888,
+            "index": 0,
+            "keys": [
+                {
+                    "blspop": "SIG_BLS_kLDXM2WO23n5RpKJdqBTXFf0CABA5eV21gqYtkhHWs8MU7p0gKvPQehFAGTTnXUFGGR5AhwQfFTxC6Tn5BKJ_8VKLB5_8Xf0Af7Y43G4aubiNuyRhJKwXY0561d0YeAO42Xj2NhaFVRdRzP1I12Lrrs9l3xHDROComB9SDpie3S6ZEZJSL2B5EGVVMqRXWUGYTpYNo8BT0bFf3BgS8x4AmHTOCP1gSEyuCaifc_YNwWfDFgkQ_9KfMJ10R2OLRkCww7WYw",
+                    "blsprivkey": "PVT_BLS_LFtbIWyy7PvNTcCjfGKMQ5pltr-aecJ39IIcjv7BzFDWtJ-a",
+                    "blspubkey": "PUB_BLS_ncAlFDBrrcmbxpHED0msQDyubiFoDAS-C727zLHt8lqrmQJFmd5RyolQpTEBfNEPFVJmC0sBZtyEb6S54teYbqY2JjHsrX7kOTTm3XIt9zUYM_9E6qXbJgHn8iGOAVcBNDwTbA",
+                    "privkey": "5KGzmJXMps7CrbxdQ7f6DvHyT2Xb7RcBRRmHvrwNZs7hXTXi59g",
+                    "pubkey": "FU7u6zdpg4Gsgnoetui9FQ6Nvu2iWjuLcd1wQzD1c5uJy2ufzHx5"
+                }
+            ],
+            "listen_addr": "0.0.0.0",
+            "name": "testnet_00",
+            "p2p_port": 9876,
+            "peers": [
+                "testnet_02"
+            ],
+            "producers": [
+                "defproducera"
+            ],
+            "public_name": "localhost"
+        },
+        "testnet_01": {
+            "_dot_label": "localhost:9877\ntestnet_01\nprod=defproducerb",
+            "config_dir_name": "/home/seanchen/work/fullon/flon-core/TestLogs/node_contrl_c_test3672724/node_01",
+            "data_dir_name": "/home/seanchen/work/fullon/flon-core/TestLogs/node_contrl_c_test3672724/node_01",
+            "dont_start": false,
+            "host_name": "localhost",
+            "http_port": 8889,
+            "index": 1,
+            "keys": [
+                {
+                    "blspop": "SIG_BLS_TQwNdxsVfhu4NAHh6ftT_rwzvzqKNTmJ4j5fTz2-pBndcGEpPOGH2Jyq1md6qdYW3rcAjXiqST2msomsEbSvNmNRTfVPt21ivtPlMNC6fDv8kBDIvlntSSIJSZMTzRER2lkJM8hE9GGixZtIyQFV1atM3Ap619lihQUMJvVduoE7TnJoDT-hoIi-NQdecqILQultitwMFVuA60-RPuVtkWd82270v27Iyfx0A7P0XB-MEo5Ys723POgqy5Wy814WpyUdsw",
+                    "blsprivkey": "PVT_BLS_gRho9eIZKMkv0wAWNpopr79xJhCdqP4WfV0KQ-_SLBRRBSrR",
+                    "blspubkey": "PUB_BLS_-foNf-lvZU9RqFS2w8azewTmlI2trQqyomj6VF1hUwDpsVzBMXpTKKBPqnZ85vwYWcdakZ7QdrtxabIak61JOBHyQSbajkBDVqnNQJkVPTvBGqiGLnizjxxq1UB9L44I8QdEZg",
+                    "privkey": "5J7BymzDLWUMw2D8XsUjxXA5rGxZBdt9F9WbUYF4iYMduwFkqe7",
+                    "pubkey": "FU7j5jF11Kti9MVi33efwVCSMQhc4YCtAfyi9ZyiSghe83pxVj8q"
+                }
+            ],
+            "listen_addr": "0.0.0.0",
+            "name": "testnet_01",
+            "p2p_port": 9877,
+            "peers": [
+                "testnet_02"
+            ],
+            "producers": [
+                "defproducerb"
+            ],
+            "public_name": "localhost"
+        },
+        "testnet_02": {
+            "_dot_label": "localhost:9878\ntestnet_02\nprod=<none>",
+            "config_dir_name": "/home/seanchen/work/fullon/flon-core/TestLogs/node_contrl_c_test3672724/node_02",
+            "data_dir_name": "/home/seanchen/work/fullon/flon-core/TestLogs/node_contrl_c_test3672724/node_02",
+            "dont_start": false,
+            "host_name": "localhost",
+            "http_port": 8890,
+            "index": 2,
+            "keys": [
+                {
+                    "blspop": "SIG_BLS_dFqCRzqAUQ47m0cv_knb8u_bMphef9rNzRt832T6qrQF5QayfUH9UeWKINVTLyEC1aDiT9ZHj5H9bIRrpAUPsr40f2tXPyuwqKZcWZLP1rZfA6SIyGzTnEbZ4bKC3Z0Fzov4PhrCWrVuakxMa3ge4_eL_Ot00ngnvoJwQioqyGuG0Uxrn_CzVTHNUC4xNRoMx3Xt6w4NJzFAM8Nf-NKY9UuiSP2GioWqqs2QpTlqFS_ilmd681e-BoBpp8Qx2aMTvfNxKA",
+                    "blsprivkey": "PVT_BLS_aYdg0v8vU8mvo9vjSSPpcj6Sa7ZRBoXiSNlsQOwVHWJ_iBC2",
+                    "blspubkey": "PUB_BLS_ypIfAcWklJIZsimWGcNtGErtF-Z-us5Y9Cqgi0QzFcy8PJKkecJaQDeyWiRuE1oIc2_f1voXafZm6u1eNJW21E8SHaMvhXHz8OHDnXOxT-xr0AQ4P-91LHlUrHNqcIAMcnqU5A",
+                    "privkey": "5KA8Vi4ZUdFBUdYY1gKeHHExA6UmcjsdgH1K2vkthxrc7FGvyuu",
+                    "pubkey": "FU7WAhzyBwqJfEVGeaZXtbXQYM5rea72rFR56mxPjoajd4WAiBPA"
+                }
+            ],
+            "listen_addr": "0.0.0.0",
+            "name": "testnet_02",
+            "p2p_port": 9878,
+            "peers": [
+                "testnet_00",
+                "testnet_01"
+            ],
+            "producers": [],
+            "public_name": "localhost"
+        }
+    }
+}

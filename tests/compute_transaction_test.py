@@ -67,13 +67,13 @@ try:
     account1 = Account('account1')
     account1.ownerPublicKey = EOSIO_ACCT_PUBLIC_DEFAULT_KEY
     account1.activePublicKey = EOSIO_ACCT_PUBLIC_DEFAULT_KEY
-    cluster.createAccountAndVerify(account1, cluster.eosioAccount, stakedDeposit=1000)
+    cluster.createAccountAndVerify(account1, cluster.sysAccount, stakedDeposit=1000)
 
     Print("Creating account2")
     account2 = Account('account2')
     account2.ownerPublicKey = EOSIO_ACCT_PUBLIC_DEFAULT_KEY
     account2.activePublicKey = EOSIO_ACCT_PUBLIC_DEFAULT_KEY
-    cluster.createAccountAndVerify(account2, cluster.eosioAccount, stakedDeposit=1000, stakeCPU=1)
+    cluster.createAccountAndVerify(account2, cluster.sysAccount, stakedDeposit=1000, stakeCPU=1)
 
     Print("Validating accounts after bootstrap")
     cluster.validateAccounts([account1, account2])
@@ -86,14 +86,14 @@ try:
 
     transferAmount="1000.0000 {0}".format(CORE_SYMBOL)
 
-    npnode.transferFunds(cluster.eosioAccount, account1, transferAmount, "fund account", waitForTransBlock=True)
+    npnode.transferFunds(cluster.sysAccount, account1, transferAmount, "fund account", waitForTransBlock=True)
     preBalances = node.getEosBalances([account1, account2])
     Print("Starting balances:")
     Print(preBalances)
 
     Print("Sending read-only transfer")
     trx = {
-        "actions": [{"account": "eosio.token","name": "transfer",
+        "actions": [{"account": "%s","name": "transfer" % (Utils.TokenAccount),
         "authorization": [{"actor": "account1","permission": "active"}],
         "data": {"from": "account1","to": "account2","quantity": "1.0001 SYS","memo": "tx1"},
         "compression": "none"}]

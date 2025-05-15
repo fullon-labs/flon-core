@@ -83,7 +83,7 @@ try:
     cluster.populateWallet(2, wallet)
 
     Print("Create test accounts for transactions.")
-    cluster.createAccounts(cluster.eosioAccount, stakedDeposit=0)
+    cluster.createAccounts(cluster.sysAccount, stakedDeposit=0)
 
     account1Name = cluster.accounts[0].name
     account2Name = cluster.accounts[1].name
@@ -122,7 +122,7 @@ try:
     Print("Configure and launch txn generators")
     targetTpsPerGenerator = 10
     testTrxGenDurationSec=60*60
-    cluster.launchTrxGenerators(contractOwnerAcctName=cluster.eosioAccount.name, acctNamesList=[account1Name, account2Name],
+    cluster.launchTrxGenerators(contractOwnerAcctName=cluster.sysAccount.name, acctNamesList=[account1Name, account2Name],
                                 acctPrivKeysList=[account1PrivKey,account2PrivKey], nodeId=node0.nodeId,
                                 tpsPerGenerator=targetTpsPerGenerator, numGenerators=trxGeneratorCnt, durationSec=testTrxGenDurationSec,
                                 waitToComplete=False)

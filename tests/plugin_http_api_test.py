@@ -97,7 +97,7 @@ class PluginHttpTest(unittest.TestCase):
                         "--p2p-peer-address localhost:9011 --resource-monitor-not-shutdown-on-threshold-exceeded ") % (self.data_dir, self.config_dir, self.data_dir, "\'*\'", "false")
         node_flags += category_config.nodeArgs()
 
-        start_node_cmd = ("%s -e -p eosio %s %s ") % (Utils.NodeServerPath, node_plugins, node_flags)
+        start_node_cmd = ("%s -e -p %s %s %s ") % (Utils.NodeServerPath, Utils.SysAccount, node_plugins, node_flags)
         self.node = Node(TestHelper.LOCAL_HOST, TestHelper.DEFAULT_PORT, self.node_id, self.data_dir, self.config_dir, shlex.split(start_node_cmd), walletMgr=self.wallet)
         time.sleep(self.sleep_s*2)
         self.node.waitForBlock(1, timeout=30)
@@ -110,15 +110,15 @@ class PluginHttpTest(unittest.TestCase):
         wasmFile = "%s.wasm" % (contract)
         abiFile = "%s.abi" % (contract)
 
-        eosioAccount = Account("eosio")
-        eosioAccount.ownerPrivateKey = eosioAccount.activePrivateKey = self.EOSIO_ACCT_PRIVATE_DEFAULT_KEY
-        eosioAccount.ownerPublicKey = eosioAccount.activePublicKey = self.EOSIO_ACCT_PUBLIC_DEFAULT_KEY
+        sysAccount = Account(Utils.SysAccount)
+        sysAccount.ownerPrivateKey = sysAccount.activePrivateKey = self.EOSIO_ACCT_PRIVATE_DEFAULT_KEY
+        sysAccount.ownerPublicKey = sysAccount.activePublicKey = self.EOSIO_ACCT_PUBLIC_DEFAULT_KEY
 
         testWalletName = "test"
-        walletAccounts = [eosioAccount]
+        walletAccounts = [sysAccount]
         self.wallet.create(testWalletName, walletAccounts)
 
-        retMap = self.node.publishContract(eosioAccount, contractDir, wasmFile, abiFile, waitForTransBlock=True)
+        retMap = self.node.publishContract(sysAccount, contractDir, wasmFile, abiFile, waitForTransBlock=True)
 
         self.node.preactivateAllBuiltinProtocolFeature()
 
@@ -355,21 +355,21 @@ class PluginHttpTest(unittest.TestCase):
         payload = {"block_num_or_id":head_block_num}
         ret_json = self.node.processUrllibRequest(resource, command, payload, endpoint=endpoint)
         self.assertEqual(ret_json["payload"]["block_num"], head_block_num)
-        self.assertEqual(ret_json["payload"]["header"]["producer"], "eosio")
+        self.assertEqual(ret_json["payload"]["header"]["producer"], Utils.SysAccount)
         # and by id
         ret_json = self.node.processUrllibRequest(resource, command, {"block_num_or_id":ret_json["payload"]["id"]}, endpoint=endpoint)
         self.assertEqual(ret_json["payload"]["block_num"], head_block_num)
-        self.assertEqual(ret_json["payload"]["header"]["producer"], "eosio")
+        self.assertEqual(ret_json["payload"]["header"]["producer"], Utils.SysAccount)
         # get_block_header_state with irreversible block
         lib_block_num = self.node.getIrreversibleBlockNum()
         payload = {"block_num_or_id":lib_block_num}
         ret_json = self.node.processUrllibRequest(resource, command, payload, endpoint=endpoint)
         self.assertEqual(ret_json["payload"]["block_num"], lib_block_num)
-        self.assertEqual(ret_json["payload"]["header"]["producer"], "eosio")
+        self.assertEqual(ret_json["payload"]["header"]["producer"], Utils.SysAccount)
         # and by id
         ret_json = self.node.processUrllibRequest(resource, command, {"block_num_or_id":ret_json["payload"]["id"]}, endpoint=endpoint)
         self.assertEqual(ret_json["payload"]["block_num"], lib_block_num)
-        self.assertEqual(ret_json["payload"]["header"]["producer"], "eosio")
+        self.assertEqual(ret_json["payload"]["header"]["producer"], Utils.SysAccount)
         # get_block_header_state with block far in future
         payload = {"block_num_or_id":head_block_num+2000000}
         ret_json = self.node.processUrllibRequest(resource, command, payload, endpoint=endpoint)
@@ -550,7 +550,7 @@ class PluginHttpTest(unittest.TestCase):
         self.assertEqual(ret_json["code"], 400)
         self.assertEqual(ret_json["error"]["code"], 3200006)
         # get_currency_balance with valid parameter
-        payload = {"code":"eosio.token", "account":"unknown"}
+        payload = {"code":Utils.TokenAccount, "account":"unknown"}
         ret_json = self.node.processUrllibRequest(resource, command, payload, endpoint=endpoint)
         self.assertEqual(ret_json["code"], 400)
 
@@ -568,7 +568,7 @@ class PluginHttpTest(unittest.TestCase):
         self.assertEqual(ret_json["code"], 400)
         self.assertEqual(ret_json["error"]["code"], 3200006)
         # get_currency_stats with valid parameter
-        payload = {"code":"eosio.token","symbol":"SYS"}
+        payload = {"code":Utils.TokenAccount,"symbol":"SYS"}
         ret_json = self.node.processUrllibRequest(resource, command, payload, endpoint=endpoint)
         self.assertEqual(ret_json["code"], 400)
 
@@ -713,7 +713,7 @@ class PluginHttpTest(unittest.TestCase):
                    "max_cpu_usage_ms":0,
                    "delay_sec":0,
                    "context_free_actions":[],
-                   "actions":[{"account":"eosio.token","name": "transfer","authorization": [{"actor": "han","permission": "active"}],"data": "000000000000a6690000000000ea305501000000000000000453595300000000016d"}],
+                   "actions":[{"account":Utils.TokenAccount,"name": "transfer","authorization": [{"actor": "han","permission": "active"}],"data": "000000000000a6690000000000ea305501000000000000000453595300000000016d"}],
                    "transaction_extensions": [],
                    "signatures": ["SIG_K1_KeqfqiZu1GwUxQb7jzK9Fdks6HFaVBQ9AJtCZZj56eG9qGgvVMVtx8EerBdnzrhFoX437sgwtojf2gfz6S516Ty7c22oEp"],
                    "context_free_data": []}
@@ -727,7 +727,7 @@ class PluginHttpTest(unittest.TestCase):
                 "max_cpu_usage_ms":0,
                 "delay_sec":0,
                 "context_free_actions":[],
-                "actions":[{"account":"eosio.token","name": "transfer","authorization": [{"actor": "han","permission": "active"}],
+                "actions":[{"account":Utils.TokenAccount,"name": "transfer","authorization": [{"actor": "han","permission": "active"}],
                 "data": "{\"entry\":774831,\"miner\":\"eosminer1111\",\"nonce\":139429}\"}",
                 "hex_data": "000000000000a6690000000000ea305501000000000000000453595300000000016d"}],
                 "transaction_extensions": [],

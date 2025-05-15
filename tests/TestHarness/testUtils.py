@@ -94,6 +94,10 @@ class Utils:
         return Utils.SysNamePrefix + '.' + name
 
     @staticmethod
+    def makePubKey(k):
+        return chain_config.PUBLIC_KEY_LEGACY_PREFIX + k
+
+    @staticmethod
     def timestamp():
         return datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%f")
 

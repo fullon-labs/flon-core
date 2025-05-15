@@ -177,7 +177,7 @@ try:
     testWalletName="test"
 
     Print("Creating wallet \"%s\"." % (testWalletName))
-    testWallet=walletMgr.create(testWalletName, [cluster.eosioAccount,accounts[0],accounts[1],accounts[2],accounts[3],accounts[4]])
+    testWallet=walletMgr.create(testWalletName, [cluster.sysAccount,accounts[0],accounts[1],accounts[2],accounts[3],accounts[4]])
 
     for _, account in cluster.defProducerAccounts.items():
         walletMgr.importKey(account, testWallet, ignoreDupKeyWarning=True)
@@ -199,17 +199,17 @@ try:
     node3=cluster.getNode(3)
 
     node=node0
-    # create accounts via eosio as otherwise a bid is needed
+    # create accounts via system account as otherwise a bid is needed
     transferAmount="100000000.0000 {0}".format(CORE_SYMBOL)
     for account in accounts:
-        Print("Create new account %s via %s" % (account.name, cluster.eosioAccount.name))
-        trans=nonProdNode.createInitializeAccount(account, cluster.eosioAccount, stakedDeposit=0,
+        Print("Create new account %s via %s" % (account.name, cluster.sysAccount.name))
+        trans=nonProdNode.createInitializeAccount(account, cluster.sysAccount, stakedDeposit=0,
                                                   waitForTransBlock=True if account == accounts[-1] else False,
                                                   stakeNet=1000, stakeCPU=1000, buyRAM=1000, exitOnError=True)
 
     for account in accounts:
-        Print("Transfer funds %s from account %s to %s" % (transferAmount, cluster.eosioAccount.name, account.name))
-        nonProdNode.transferFunds(cluster.eosioAccount, account, transferAmount, "test transfer",
+        Print("Transfer funds %s from account %s to %s" % (transferAmount, cluster.sysAccount.name, account.name))
+        nonProdNode.transferFunds(cluster.sysAccount, account, transferAmount, "test transfer",
                                   waitForTransBlock=True if account == accounts[-1] else False)
 
     for account in accounts:

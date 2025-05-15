@@ -81,18 +81,18 @@ try:
     MIacct = Account('nestcontnmi')
     MIacct.ownerPublicKey = EOSIO_ACCT_PUBLIC_DEFAULT_KEY
     MIacct.activePublicKey = EOSIO_ACCT_PUBLIC_DEFAULT_KEY
-    cluster.createAccountAndVerify(MIacct, cluster.eosioAccount, buyRAM=7000000)
+    cluster.createAccountAndVerify(MIacct, cluster.sysAccount, buyRAM=7000000)
     Print("Creating user account alice")
     useracct_I = Account('alice')
     useracct_I.ownerPublicKey = EOSIO_ACCT_PUBLIC_DEFAULT_KEY
     useracct_I.activePublicKey = EOSIO_ACCT_PUBLIC_DEFAULT_KEY
-    cluster.createAccountAndVerify(useracct_I, cluster.eosioAccount, buyRAM=7000000)
+    cluster.createAccountAndVerify(useracct_I, cluster.sysAccount, buyRAM=7000000)
 
     Print("Creating user account bob")
     useracct_II = Account('bob')
     useracct_II.ownerPublicKey = EOSIO_ACCT_PUBLIC_DEFAULT_KEY
     useracct_II.activePublicKey = EOSIO_ACCT_PUBLIC_DEFAULT_KEY
-    cluster.createAccountAndVerify(useracct_II, cluster.eosioAccount, buyRAM=7000000)
+    cluster.createAccountAndVerify(useracct_II, cluster.sysAccount, buyRAM=7000000)
 
     Print("Validating accounts")
     cluster.validateAccounts([MIacct, useracct_I, useracct_II])
@@ -100,7 +100,7 @@ try:
     node = cluster.getNode()
 
     Print("Setting account privilege")
-    node.pushMessage(cluster.eosioAccount.name, 'setpriv', '["nestcontnmi", 1]', '-p eosio@active')
+    node.pushMessage(cluster.sysAccount.name, 'setpriv', '["nestcontnmi", 1]', f'-p {Utils.SysAccount}@active')
 
     Print("Loading nested container contract")
     node.publishContract(MIacct, contractDir, wasmFile, abiFile, waitForTransBlock=True)

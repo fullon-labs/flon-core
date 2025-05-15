@@ -383,20 +383,20 @@ class Transactions(NodeQueries):
         return dep(protocolFeatures)
 
 
-    # Require PREACTIVATE_FEATURE to be activated and require eosio.bios with preactivate_feature
+    # Require PREACTIVATE_FEATURE to be activated and require bios contract with preactivate_feature
     def preactivateProtocolFeatures(self, featureDigests:list):
         for group in featureDigests:
             for digest in group:
                 Utils.Print("push activate action with digest {}".format(digest))
                 data="{{\"feature_digest\":{}}}".format(digest)
-                opts="--permission eosio@active"
-                success, trans=self.pushMessage("eosio", "activate", data, opts)
+                opts="--permission %s@active" % (Utils.SysAccount)
+                success, trans=self.pushMessage(Utils.SysAccount, "activate", data, opts)
                 if not success:
                     Utils.Print("ERROR: Failed to preactive digest {}".format(digest))
                     return None
             self.waitForTransactionInBlock(trans['transaction_id'])
 
-    # Require PREACTIVATE_FEATURE to be activated and require eosio.bios with preactivate_feature
+    # Require PREACTIVATE_FEATURE to be activated and require bios contract with preactivate_feature
     def preactivateAllBuiltinProtocolFeature(self):
         allBuiltinProtocolFeatureDigests = self.getAllBuiltinFeatureDigestsToPreactivate()
         self.preactivateProtocolFeatures(allBuiltinProtocolFeatureDigests)

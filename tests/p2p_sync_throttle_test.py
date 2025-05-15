@@ -77,15 +77,15 @@ try:
     testWalletName="test"
 
     Print("Creating wallet \"%s\"." % (testWalletName))
-    testWallet=walletMgr.create(testWalletName, [cluster.eosioAccount,accounts[0],accounts[1]])
+    testWallet=walletMgr.create(testWalletName, [cluster.sysAccount,accounts[0],accounts[1]])
 
-    # create accounts via eosio as otherwise a bid is needed
+    # create accounts via system account as otherwise a bid is needed
     for account in accounts:
-        Print("Create new account %s via %s" % (account.name, cluster.eosioAccount.name))
-        trans=nonProdNode.createInitializeAccount(account, cluster.eosioAccount, stakedDeposit=0, waitForTransBlock=True, stakeNet=1000, stakeCPU=1000, buyRAM=1000, exitOnError=True)
+        Print("Create new account %s via %s" % (account.name, cluster.sysAccount.name))
+        trans=nonProdNode.createInitializeAccount(account, cluster.sysAccount, stakedDeposit=0, waitForTransBlock=True, stakeNet=1000, stakeCPU=1000, buyRAM=1000, exitOnError=True)
         transferAmount="100000000.0000 {0}".format(CORE_SYMBOL)
-        Print("Transfer funds %s from account %s to %s" % (transferAmount, cluster.eosioAccount.name, account.name))
-        nonProdNode.transferFunds(cluster.eosioAccount, account, transferAmount, "test transfer", waitForTransBlock=True)
+        Print("Transfer funds %s from account %s to %s" % (transferAmount, cluster.sysAccount.name, account.name))
+        nonProdNode.transferFunds(cluster.sysAccount, account, transferAmount, "test transfer", waitForTransBlock=True)
         trans=nonProdNode.delegatebw(account, 20000000.0000, 20000000.0000, waitForTransBlock=True, exitOnError=True)
 
     beginLargeBlocksHeadBlock = nonProdNode.getHeadBlockNum()
@@ -94,7 +94,7 @@ try:
     targetTpsPerGenerator = 500
     testTrxGenDurationSec=90
     trxGeneratorCnt=1
-    cluster.launchTrxGenerators(contractOwnerAcctName=cluster.eosioAccount.name, acctNamesList=[accounts[0].name,accounts[1].name],
+    cluster.launchTrxGenerators(contractOwnerAcctName=cluster.sysAccount.name, acctNamesList=[accounts[0].name,accounts[1].name],
                                 acctPrivKeysList=[account1PrivKey,account2PrivKey], nodeId=prodNode.nodeId, tpsPerGenerator=targetTpsPerGenerator,
                                 numGenerators=trxGeneratorCnt, durationSec=testTrxGenDurationSec, waitToComplete=True)
 

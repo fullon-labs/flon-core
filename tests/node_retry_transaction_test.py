@@ -98,7 +98,7 @@ try:
     namedAccounts=NamedAccounts(cluster,args.total_accounts)
     accounts=namedAccounts.accounts
 
-    accountsToCreate = [cluster.eosioAccount]
+    accountsToCreate = [cluster.sysAccount]
     for account in accounts:
         accountsToCreate.append(account)
 
@@ -133,9 +133,9 @@ try:
     node=apiNodes[0]
     checkTransIds = []
     startTime = time.perf_counter()
-    Print("Create new accounts via %s" % (cluster.eosioAccount.name))
+    Print("Create new accounts via %s" % (cluster.sysAccount.name))
     for account in accounts:
-        trans = node.createInitializeAccount(account, cluster.eosioAccount, stakedDeposit=0, waitForTransBlock=False, stakeNet=1000, stakeCPU=1000, buyRAM=1000, exitOnError=True)
+        trans = node.createInitializeAccount(account, cluster.sysAccount, stakedDeposit=0, waitForTransBlock=False, stakeNet=1000, stakeCPU=1000, buyRAM=1000, exitOnError=True)
         checkTransIds.append(Node.getTransId(trans))
 
     node.waitForTransactionsInBlock(checkTransIds)
@@ -143,11 +143,11 @@ try:
     Print("Create new accounts took %s sec" % (nextTime - startTime))
     startTime = nextTime
 
-    Print("Transfer funds to new accounts via %s" % (cluster.eosioAccount.name))
+    Print("Transfer funds to new accounts via %s" % (cluster.sysAccount.name))
     for account in accounts:
         transferAmount="1000.0000 {0}".format(CORE_SYMBOL)
-        Print("Transfer funds %s from account %s to %s" % (transferAmount, cluster.eosioAccount.name, account.name))
-        trans = node.transferFunds(cluster.eosioAccount, account, transferAmount, "test transfer", waitForTransBlock=False, reportStatus=False)
+        Print("Transfer funds %s from account %s to %s" % (transferAmount, cluster.sysAccount.name, account.name))
+        trans = node.transferFunds(cluster.sysAccount, account, transferAmount, "test transfer", waitForTransBlock=False, reportStatus=False)
         checkTransIds.append(Node.getTransId(trans))
 
     node.waitForTransactionsInBlock(checkTransIds)
@@ -169,8 +169,8 @@ try:
     overdrawAccount = accounts[0]
     Print(f"Attempt to transfer more funds than available from {overdrawAccount.name} to test transaction fails with overdrawn balance, not expiration in retry.")
     overdrawTransferAmount = "1001.0000 {0}".format(CORE_SYMBOL)
-    Print("Transfer funds %s from account %s to %s" % (overdrawTransferAmount, overdrawAccount.name, cluster.eosioAccount.name))
-    overdrawtrans = node.transferFunds(overdrawAccount, cluster.eosioAccount, overdrawTransferAmount, "test overdraw transfer", exitOnError=False, reportStatus=False, retry=1)
+    Print("Transfer funds %s from account %s to %s" % (overdrawTransferAmount, overdrawAccount.name, cluster.sysAccount.name))
+    overdrawtrans = node.transferFunds(overdrawAccount, cluster.sysAccount, overdrawTransferAmount, "test overdraw transfer", exitOnError=False, reportStatus=False, retry=1)
     assert overdrawtrans is None, f"ERROR: Overdraw transaction attempt should have failed with overdrawn balance: {overdrawtrans}"
 
     def cacheTransIdInBlock(transId, transToBlock, node):

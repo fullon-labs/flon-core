@@ -9,7 +9,7 @@ from TestHarness import Cluster, Node, TestHelper, Utils, WalletMgr, createAccou
 
 ###############################################################
 # node_producer_watermark_test
-# --dump-error-details <Upon error print etc/eosio/node_*/config.ini and node_producer_watermark_test<pid>/node_*/stderr.log to stdout>
+# --dump-error-details <Upon error print etc/{ProgramRootName}/node_*/config.ini and node_producer_watermark_test<pid>/node_*/stderr.log to stdout>
 # --keep-logs <Don't delete TestLogs/node_producer_watermark_test<pid>/node_* folders upon test completion>
 ###############################################################
 def isValidBlockProducer(prodsActive, blockNum, node):
@@ -44,9 +44,9 @@ def setProds(sharedProdKey):
 
     setProdsStr += ' ] }'
     Utils.Print("setprods: %s" % (setProdsStr))
-    opts="--permission eosio@active"
+    opts=f"--permission {Utils.SysAccount}@active"
     # pylint: disable=redefined-variable-type
-    trans=cluster.biosNode.pushMessage("eosio", "setprods", setProdsStr, opts)
+    trans=cluster.biosNode.pushMessage(Utils.SysAccount, "setprods", setProdsStr, opts)
     if trans is None or not trans[0]:
         Utils.Print("ERROR: Failed to set producer with cmd %s" % (setProdsStr))
 
@@ -198,7 +198,7 @@ try:
     while tries > 0:
         node.infoValid = False
         info = node.getInfo()
-        if node.infoValid and node.lastRetrievedHeadBlockProducer != "eosio":
+        if node.infoValid and node.lastRetrievedHeadBlockProducer != Utils.SysAccount:
             break
         time.sleep(1)
         tries = tries-1
