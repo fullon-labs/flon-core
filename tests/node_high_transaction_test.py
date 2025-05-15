@@ -121,7 +121,7 @@ try:
     startTime = time.perf_counter()
     Print("Create new accounts via %s" % (cluster.sysAccount.name))
     for account in accounts:
-        trans = node.createInitializeAccount(account, cluster.sysAccount, stakedDeposit=0, waitForTransBlock=(account == accounts[-1]), stakeNet=1000, stakeCPU=1000, buyRAM=1000, exitOnError=True)
+        trans = node.createInitializeAccount(account, cluster.sysAccount, fund=0, waitForTransBlock=(account == accounts[-1]), buyGas=1.0, exitOnError=True)
         checkTransIds.append(Node.getTransId(trans))
 
     nextTime = time.perf_counter()
@@ -130,7 +130,7 @@ try:
 
     Print("Transfer funds to new accounts via %s" % (cluster.sysAccount.name))
     for account in accounts:
-        transferAmount="1000.0000 {0}".format(CORE_SYMBOL)
+        transferAmount=Utils.coreAssetFrom("1000.0000")
         Print("Transfer funds %s from account %s to %s" % (transferAmount, cluster.sysAccount.name, account.name))
         trans = node.transferFunds(cluster.sysAccount, account, transferAmount, "test transfer", waitForTransBlock=(account == accounts[-1]), reportStatus=False)
         checkTransIds.append(Node.getTransId(trans))

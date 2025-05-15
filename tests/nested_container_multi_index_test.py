@@ -79,18 +79,18 @@ try:
     MIacct = Account('nestcontnmi')
     MIacct.ownerPublicKey = Utils.SysAccountPubKeyDefault
     MIacct.activePublicKey = Utils.SysAccountPubKeyDefault
-    cluster.createAccountAndVerify(MIacct, cluster.sysAccount, buyRAM=7000000)
+    cluster.createAccountAndVerify(MIacct, cluster.sysAccount, buyGas=700.0000)
     Print("Creating user account alice")
     useracct_I = Account('alice')
     useracct_I.ownerPublicKey = Utils.SysAccountPubKeyDefault
     useracct_I.activePublicKey = Utils.SysAccountPubKeyDefault
-    cluster.createAccountAndVerify(useracct_I, cluster.sysAccount, buyRAM=7000000)
+    cluster.createAccountAndVerify(useracct_I, cluster.sysAccount, buyGas=700.0000)
 
     Print("Creating user account bob")
     useracct_II = Account('bob')
     useracct_II.ownerPublicKey = Utils.SysAccountPubKeyDefault
     useracct_II.activePublicKey = Utils.SysAccountPubKeyDefault
-    cluster.createAccountAndVerify(useracct_II, cluster.sysAccount, buyRAM=7000000)
+    cluster.createAccountAndVerify(useracct_II, cluster.sysAccount, buyGas=700.0000)
 
     Print("Validating accounts")
     cluster.validateAccounts([MIacct, useracct_I, useracct_II])

@@ -65,13 +65,13 @@ try:
     account1 = Account('account1')
     account1.ownerPublicKey = Utils.SysAccountPubKeyDefault
     account1.activePublicKey = Utils.SysAccountPubKeyDefault
-    cluster.createAccountAndVerify(account1, cluster.sysAccount, stakedDeposit=1000)
+    cluster.createAccountAndVerify(account1, cluster.sysAccount, fund=0.1000)
 
     Print("Creating account2")
     account2 = Account('account2')
     account2.ownerPublicKey = Utils.SysAccountPubKeyDefault
     account2.activePublicKey = Utils.SysAccountPubKeyDefault
-    cluster.createAccountAndVerify(account2, cluster.sysAccount, stakedDeposit=1000, stakeCPU=1)
+    cluster.createAccountAndVerify(account2, cluster.sysAccount, fund=0.1000)
 
     Print("Validating accounts after bootstrap")
     cluster.validateAccounts([account1, account2])
@@ -82,7 +82,7 @@ try:
     npnode = cluster.nodes[-1]
 
 
-    transferAmount="1000.0000 {0}".format(CORE_SYMBOL)
+    transferAmount=Utils.coreAssetFrom("1000.0000")
 
     npnode.transferFunds(cluster.sysAccount, account1, transferAmount, "fund account", waitForTransBlock=True)
     preBalances = node.getEosBalances([account1, account2])

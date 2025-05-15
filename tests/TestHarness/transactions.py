@@ -17,28 +17,20 @@ class Transactions(NodeQueries):
         super().__init__(host, port, walletMgr)
 
     # Create & initialize account and return creation transactions. Return transaction json object
-    def createInitializeAccount(self, account, creatorAccount, stakedDeposit=1000, waitForTransBlock=False, silentErrors=False, stakeNet=100, stakeCPU=100, buyRAM=10000, exitOnError=False, sign=False, additionalArgs='', retry_num_blocks=None):
+    def createInitializeAccount(self, account, creatorAccount, fund=0.1000, waitForTransBlock=False, silentErrors=False, buyGas=1.0, exitOnError=False, sign=False, additionalArgs='', retry_num_blocks=None):
         signStr = NodeQueries.sign_str(sign, [ creatorAccount.activePublicKey ])
         cmdDesc="system newaccount"
         retry_num_blocks = self.retry_num_blocks_default if retry_num_blocks is None else retry_num_blocks
         retryStr = f"--retry-num-blocks {retry_num_blocks}" if waitForTransBlock else ""
         cmd=(f'{cmdDesc} -j {signStr} {creatorAccount.name} {account.name} \'{account.ownerPublicKey}\' '
-             f'\'{account.activePublicKey}\' --stake-net "{stakeNet} {CORE_SYMBOL}" --stake-cpu '
-             f'"{stakeCPU} {CORE_SYMBOL}" --buy-ram "{buyRAM} {CORE_SYMBOL}" {additionalArgs} {retryStr}')
+             f'\'{account.activePublicKey}\' --fund-account "{Utils.coreAssetFromFund(fund)}" '
+             f'--fund-gas "{Utils.coreAssetFromFund(buyGas)}" {additionalArgs} {retryStr}')
         msg="(creator account=%s, account=%s)" % (creatorAccount.name, account.name);
         trans=self.processClientCmd(cmd, cmdDesc, silentErrors=silentErrors, exitOnError=exitOnError, exitMsg=msg)
         self.trackCmdTransaction(trans)
-        transId=NodeQueries.getTransId(trans)
-
-        if stakedDeposit > 0:
-            if not waitForTransBlock: # Wait for account creation to be finalized if we haven't already
-                self.waitForTransactionInBlock(transId)
-            trans = self.transferFunds(creatorAccount, account, NodeQueries.currencyIntToStr(stakedDeposit, CORE_SYMBOL), "init", waitForTransBlock=waitForTransBlock)
-            transId=NodeQueries.getTransId(trans)
-
         return trans
 
-    def createAccount(self, account, creatorAccount, stakedDeposit=1000, waitForTransBlock=False, silentErrors=False,exitOnError=False, sign=False, retry_num_blocks=None):
+    def createAccount(self, account, creatorAccount, fund=1.0, waitForTransBlock=False, silentErrors=False,exitOnError=False, sign=False, retry_num_blocks=None):
         """Create account and return creation transactions. Return transaction json object.
         waitForTransBlock: wait on creation transaction id to appear in a block."""
         signStr = NodeQueries.sign_str(sign, [ creatorAccount.activePublicKey ])
@@ -47,15 +39,15 @@ class Transactions(NodeQueries):
         retryStr = f"--retry-num-blocks {retry_num_blocks}" if waitForTransBlock else ""
         cmd=(f"{cmdDesc} -j {signStr} {creatorAccount.name} {account.name} {account.ownerPublicKey} "
              f"{account.activePublicKey} {retryStr}")
-        msg="(creator account=%s, account=%s)" % (creatorAccount.name, account.name);
+        msg="(creator account=%s, account=%s)" % (creatorAccount.name, account.name)
         trans=self.processClientCmd(cmd, cmdDesc, silentErrors=silentErrors, exitOnError=exitOnError, exitMsg=msg)
         self.trackCmdTransaction(trans)
         transId=NodeQueries.getTransId(trans)
 
-        if stakedDeposit > 0:
+        if Utils.fundToAmount(fund) > 0:
             if not waitForTransBlock: # account creation needs to be finalized before transfer can happen so wait if we haven't already
                 self.waitForTransactionInBlock(transId)
-            trans = self.transferFunds(creatorAccount, account, "%0.04f %s" % (stakedDeposit/10000, CORE_SYMBOL), "init")
+            trans = self.transferFunds(creatorAccount, account, Utils.coreAssetFromFund(fund), "init")
             self.trackCmdTransaction(trans)
             transId=NodeQueries.getTransId(trans)
 

@@ -894,33 +894,33 @@ class Cluster(object):
 
         node.validateAccounts(myAccounts)
 
-    def createAccountAndVerify(self, account, creator, stakedDeposit=1000, stakeNet=100, stakeCPU=100, buyRAM=10000, validationNodeIndex=-1):
+    def createAccountAndVerify(self, account, creator, fund=0.1000, buyGas=1.0000, validationNodeIndex=-1):
         """create account, verify account and return transaction id"""
         node=self.nodes[validationNodeIndex]
         waitViaRetry =  self.totalNodesCount > self.productionNodesCount
-        trans=node.createInitializeAccount(account, creator, stakedDeposit, waitForTransBlock=waitViaRetry, stakeNet=stakeNet, stakeCPU=stakeCPU, buyRAM=buyRAM, exitOnError=True)
+        trans=node.createInitializeAccount(account, creator, fund, waitForTransBlock=waitViaRetry, buyGas=buyGas, exitOnError=True)
         if not waitViaRetry:
             node.waitForTransBlockIfNeeded(trans, True, exitOnError=True)
         assert(node.verifyAccount(account))
         return trans
 
     # # create account, verify account and return transaction id
-    # def createAccountAndVerify(self, account, creator, stakedDeposit=1000):
+    # def createAccountAndVerify(self, account, creator, fund=0.1000):
     #     if len(self.nodes) == 0:
     #         Utils.Print("ERROR: No nodes initialized.")
     #         return None
     #     node=self.nodes[0]
 
-    #     transId=node.createAccount(account, creator, stakedDeposit)
+    #     transId=node.createAccount(account, creator, fund)
 
     #     if transId is not None and node.verifyAccount(account) is not None:
     #         return transId
     #     return None
 
-    def createInitializeAccount(self, account, creatorAccount, stakedDeposit=1000, waitForTransBlock=False, stakeNet=100, stakeCPU=100, buyRAM=10000, exitOnError=False):
+    def createInitializeAccount(self, account, creatorAccount, fund=0.1000, waitForTransBlock=False, buyGas=1.0000, exitOnError=False):
         assert(len(self.nodes) > 0)
         node=self.nodes[0]
-        trans=node.createInitializeAccount(account, creatorAccount, stakedDeposit, waitForTransBlock, stakeNet=stakeNet, stakeCPU=stakeCPU, buyRAM=buyRAM)
+        trans=node.createInitializeAccount(account, creatorAccount, fund, waitForTransBlock, buyGas=buyGas)
         return trans
 
     @staticmethod
@@ -1120,13 +1120,13 @@ class Cluster(object):
         Node.validateTransaction(trans)
 
         contract=Utils.makeSysName('bios')
-        contractDir= str(self.libTestingContractsPath / contract)
-        wasmFile="%s.wasm" % (contract)
-        abiFile="%s.abi" % (contract)
-        Utils.Print("Publish %s contract" % (contract))
+        contractDir= str(Utils.SysContractsDir / contract)
+        wasmFile=f"{contract}.wasm"
+        abiFile=f"{contract}.abi"
+        Utils.Print(f"Publish {contract} contract")
         trans=biosNode.publishContract(sysAccount, contractDir, wasmFile, abiFile, waitForTransBlock=True)
         if trans is None:
-            Utils.Print("ERROR: Failed to publish contract %s." % (contract))
+            Utils.Print(f"ERROR: Failed to publish contract {contract}.")
             return None
 
         if activateIF:
@@ -1135,8 +1135,9 @@ class Cluster(object):
                 Utils.Print("ERROR: Activate instant finality failed")
                 return None
 
-        Utils.Print("Creating accounts: %s " % ", ".join(producerKeys.keys()))
         producerKeys.pop(sysName)
+
+        Utils.Print("Creating accounts: %s " % ", ".join(producerKeys.keys()))
         accounts=[]
         for name, keys in producerKeys.items():
             initx = Account(name)
@@ -1188,7 +1189,7 @@ class Cluster(object):
                 setProdsStr += ' }'
                 if Utils.Debug: Utils.Print("setprods: %s" % (setProdsStr))
                 Utils.Print("Setting producers: %s." % (", ".join(prodNames)))
-                opts="--permission %s@active" (Utils.SysAccount)
+                opts=f"--permission {Utils.SysAccount}@active"
                 # pylint: disable=redefined-variable-type
                 trans=biosNode.pushMessage(Utils.SysAccount, "setprods", setProdsStr, opts)
                 if trans is None or not trans[0]:
@@ -1261,7 +1262,7 @@ class Cluster(object):
         contract=sysTokenAccount.name
         Utils.Print("push create action to %s contract" % (contract))
         action="create"
-        data="{\"issuer\":\"%s\",\"maximum_supply\":\"1000000000.0000 %s\"}" % (sysAccount.name, CORE_SYMBOL)
+        data="{\"issuer\":\"%s\",\"maximum_supply\":\"10000000000.00000000 %s\"}" % (sysAccount.name, CORE_SYMBOL)
         opts="--permission %s@active" % (contract)
         trans=biosNode.pushMessage(contract, action, data, opts)
         if trans is None or not trans[0]:
@@ -1277,7 +1278,7 @@ class Cluster(object):
         contract=sysTokenAccount.name
         Utils.Print("push issue action to %s contract" % (contract))
         action="issue"
-        data="{\"to\":\"%s\",\"quantity\":\"1000000000.0000 %s\",\"memo\":\"initial issue\"}" % (sysAccount.name, CORE_SYMBOL)
+        data="{\"to\":\"%s\",\"quantity\":\"10000000000.00000000 %s\",\"memo\":\"initial issue\"}" % (sysAccount.name, CORE_SYMBOL)
         opts="--permission %s@active" % (sysAccount.name)
         trans=biosNode.pushMessage(contract, action, data, opts)
         if trans is None or not trans[0]:
@@ -1289,7 +1290,7 @@ class Cluster(object):
         transId=Node.getTransId(trans[1])
         biosNode.waitForTransactionInBlock(transId)
 
-        expectedAmount="1000000000.0000 {0}".format(CORE_SYMBOL)
+        expectedAmount=Utils.coreAssetFrom("1000000000.0000")
         Utils.Print("Verify token issue, Expected: %s" % (expectedAmount))
         actualAmount=biosNode.getAccountEosBalanceStr(sysAccount.name)
         if expectedAmount != actualAmount:
@@ -1298,7 +1299,7 @@ class Cluster(object):
             return None
 
         if loadSystemContract:
-            contract=Utils.SysAccount
+            contract=Utils.makeSysName('system')
             contractDir=str(self.sysContractsPath / contract)
             wasmFile="%s.wasm" % (contract)
             abiFile="%s.abi" % (contract)
@@ -1310,7 +1311,7 @@ class Cluster(object):
 
             Node.validateTransaction(trans)
 
-        initialFunds="1000000.0000 {0}".format(CORE_SYMBOL)
+        initialFunds=Utils.coreAssetFrom("1000000.0000")
         Utils.Print("Transfer initial fund %s to individual accounts." % (initialFunds))
         trans=None
         contract=sysTokenAccount.name
@@ -1517,7 +1518,7 @@ class Cluster(object):
         return True
 
     # Create accounts, if account does not already exist, and validates that the last transaction is received on root node
-    def createAccounts(self, creator, waitForTransBlock=True, stakedDeposit=1000, validationNodeIndex=-1):
+    def createAccounts(self, creator, waitForTransBlock=True, fund=0.1000, validationNodeIndex=-1):
         if self.accounts is None:
             return True
         transId=None
@@ -1526,7 +1527,7 @@ class Cluster(object):
             if ret is None:
                 if Utils.Debug: Utils.Print("Create account %s." % (account.name))
                 if Utils.Debug: Utils.Print("Validation node %s" % validationNodeIndex)
-                trans=self.createAccountAndVerify(account, creator, stakedDeposit, validationNodeIndex=validationNodeIndex)
+                trans=self.createAccountAndVerify(account, creator, fund, validationNodeIndex=validationNodeIndex)
                 if trans is None:
                     Utils.Print("ERROR: Failed to create account %s." % (account.name))
                     return False

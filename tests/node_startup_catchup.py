@@ -83,7 +83,7 @@ try:
     cluster.populateWallet(2, wallet)
 
     Print("Create test accounts for transactions.")
-    cluster.createAccounts(cluster.sysAccount, stakedDeposit=0)
+    cluster.createAccounts(cluster.sysAccount, fund=0)
 
     account1Name = cluster.accounts[0].name
     account2Name = cluster.accounts[1].name

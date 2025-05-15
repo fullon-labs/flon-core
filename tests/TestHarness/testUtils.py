@@ -17,6 +17,7 @@ import traceback
 import shutil
 import sys
 from pathlib import Path
+from decimal import Decimal
 
 from . import chain_config
 
@@ -84,6 +85,10 @@ class Utils:
     SysAccountPrivateKeyDefault = "5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3"
     SysAccountPubKeyDefault = f"{PubKeyPrefix}6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV"
 
+    CoreSymbolName = chain_config.CORE_SYMBOL_NAME
+    CoreSymbolPrecision = chain_config.CORE_SYMBOL_PRECISION
+    CoreAssetBoost = 10**CoreSymbolPrecision
+
     ShuttingDown=False
 
     FileDivider="================================================================="
@@ -99,6 +104,26 @@ class Utils:
     @staticmethod
     def makeSysName(name):
         return Utils.SysNamePrefix + '.' + name
+
+    @staticmethod
+    def coreAssetFromAmount(a: int):
+        return f'{a // Utils.CoreAssetBoost}.{a // Utils.CoreAssetBoost} {Utils.CoreSymbolName}'
+
+    @staticmethod
+    def coreAssetFrom(s: str):
+        d = Decimal(s) * Utils.CoreAssetBoost
+        if (d % 1 != 0):
+            raise ValueError(f"The precision of {s} exceeds the max limit {Utils.CoreSymbolPrecision}")
+        return Utils.coreAssetFromAmount(int(d))
+
+
+    @staticmethod
+    def fundToAmount(f: float):
+        return int(f * Utils.CoreAssetBoost)
+
+    @staticmethod
+    def coreAssetFromFund(f: float):
+        return Utils.coreAssetFromAmount(Utils.fundToAmount(f))
 
     @staticmethod
     def makePubKey(k):

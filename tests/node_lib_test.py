@@ -205,16 +205,16 @@ try:
     cluster.validateAccounts(None)
 
     Print("Create new account %s via %s" % (testeraAccount.name, cluster.defproduceraAccount.name))
-    transId=node.createInitializeAccount(testeraAccount, cluster.defproduceraAccount, stakedDeposit=0, waitForTransBlock=True, exitOnError=True)
+    transId=node.createInitializeAccount(testeraAccount, cluster.defproduceraAccount, fund=0, waitForTransBlock=True, exitOnError=True)
 
     Print("Create new account %s via %s" % (testerbAccount.name, cluster.defproduceraAccount.name))
-    transId=node.createInitializeAccount(testerbAccount, cluster.defproduceraAccount, stakedDeposit=0, waitForTransBlock=False, exitOnError=True)
+    transId=node.createInitializeAccount(testerbAccount, cluster.defproduceraAccount, fund=0, waitForTransBlock=False, exitOnError=True)
 
     Print("Create new account %s via %s" % (currencyAccount.name, cluster.defproduceraAccount.name))
-    transId=node.createInitializeAccount(currencyAccount, cluster.defproduceraAccount, buyRAM=200000, stakedDeposit=5000, exitOnError=True)
+    transId=node.createInitializeAccount(currencyAccount, cluster.defproduceraAccount, buyGas=2.0, fund=5.0, exitOnError=True)
 
     Print("Create new account %s via %s" % (exchangeAccount.name, cluster.defproduceraAccount.name))
-    transId=node.createInitializeAccount(exchangeAccount, cluster.defproduceraAccount, buyRAM=200000, waitForTransBlock=True, exitOnError=True)
+    transId=node.createInitializeAccount(exchangeAccount, cluster.defproduceraAccount, buyGas=2.0, waitForTransBlock=True, exitOnError=True)
 
     Print("Validating accounts after user accounts creation")
     accounts=[testeraAccount, currencyAccount, exchangeAccount]
@@ -224,7 +224,7 @@ try:
     if not node.verifyAccount(testeraAccount):
         errorExit("FAILURE - account creation failed.", raw=True)
 
-    transferAmount="97.5321 {0}".format(CORE_SYMBOL)
+    transferAmount=Utils.coreAssetFrom("97.5321")
     Print("Transfer funds %s from account %s to %s" % (transferAmount, defproduceraAccount.name, testeraAccount.name))
     node.transferFunds(defproduceraAccount, testeraAccount, transferAmount, "test transfer", waitForTransBlock=True)
 
@@ -235,12 +235,12 @@ try:
         cmdError("FAILURE - transfer failed")
         errorExit("Transfer verification failed. Excepted %s, actual: %s" % (expectedAmount, actualAmount))
 
-    transferAmount="0.0100 {0}".format(CORE_SYMBOL)
+    transferAmount=Utils.coreAssetFrom("0.0100")
     Print("Force transfer funds %s from account %s to %s" % (
         transferAmount, defproduceraAccount.name, testeraAccount.name))
     node.transferFunds(defproduceraAccount, testeraAccount, transferAmount, "test transfer", force=True, waitForTransBlock=True)
 
-    expectedAmount="97.5421 {0}".format(CORE_SYMBOL)
+    expectedAmount=Utils.coreAssetFrom("97.5421")
     Print("Verify transfer, Expected: %s" % (expectedAmount))
     actualAmount=node.getAccountEosBalanceStr(testeraAccount.name)
     if expectedAmount != actualAmount:
@@ -261,13 +261,13 @@ try:
         cmdError("%s wallet unlock" % (ClientName))
         errorExit("Failed to unlock wallet %s" % (testWallet.name))
 
-    transferAmount="97.5311 {0}".format(CORE_SYMBOL)
+    transferAmount=Utils.coreAssetFrom("97.5311")
     Print("Transfer funds %s from account %s to %s" % (
         transferAmount, testeraAccount.name, currencyAccount.name))
     trans=node.transferFunds(testeraAccount, currencyAccount, transferAmount, "test transfer a->b", waitForTransBlock=True)
     transId=Node.getTransId(trans)
 
-    expectedAmount="98.0311 {0}".format(CORE_SYMBOL) # 5000 initial deposit
+    expectedAmount=Utils.coreAssetFrom("98.0311") # 5000 initial deposit
     Print("Verify transfer, Expected: %s" % (expectedAmount))
     actualAmount=node.getAccountEosBalanceStr(currencyAccount.name)
     if expectedAmount != actualAmount:
@@ -577,7 +577,7 @@ try:
     setCodeAbiAccount = Account("setcodeabi")
     setCodeAbiAccount.ownerPublicKey = cluster.sysAccount.ownerPublicKey
     setCodeAbiAccount.activePublicKey = cluster.sysAccount.ownerPublicKey
-    cluster.createAccountAndVerify(setCodeAbiAccount, cluster.sysAccount, buyRAM=100000)
+    cluster.createAccountAndVerify(setCodeAbiAccount, cluster.sysAccount, buyGas=1.00000)
     wasmFile="unittests/test-contracts/payloadless/payloadless.wasm"
     abiFile="unittests/test-contracts/payloadless/payloadless.abi"
     assert(node.setCodeOrAbi(setCodeAbiAccount, "code", wasmFile))

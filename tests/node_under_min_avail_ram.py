@@ -78,21 +78,19 @@ try:
     # create accounts via system account as otherwise a bid is needed
     for account in accounts:
         Print("Create new account %s via %s" % (account.name, cluster.sysAccount.name))
-        trans=nonProdNode.createInitializeAccount(account, cluster.sysAccount, stakedDeposit=500000, waitForTransBlock=True, stakeNet=50000, stakeCPU=50000, buyRAM=50000, exitOnError=True)
-        transferAmount="70000000.0000 {0}".format(CORE_SYMBOL)
+        trans=nonProdNode.createInitializeAccount(account, cluster.sysAccount, fund=50.0000, waitForTransBlock=True, buyGas=5.0000, exitOnError=True)
+        transferAmount=Utils.coreAssetFrom("70000000.0000")
         Print("Transfer funds %s from account %s to %s" % (transferAmount, cluster.sysAccount.name, account.name))
         nonProdNode.transferFunds(cluster.sysAccount, account, transferAmount, "test transfer", waitForTransBlock=True)
-        trans=nonProdNode.delegatebw(account, 1000000.0000, 68000000.0000, waitForTransBlock=True, exitOnError=True)
 
     contractAccount=createAccountKeys(1)[0]
     contractAccount.name="contracttest"
     walletMgr.importKey(contractAccount, testWallet)
     Print("Create new account %s via %s" % (contractAccount.name, cluster.sysAccount.name))
-    trans=nonProdNode.createInitializeAccount(contractAccount, cluster.sysAccount, stakedDeposit=500000, waitForTransBlock=True, stakeNet=50000, stakeCPU=50000, buyRAM=50000, exitOnError=True)
-    transferAmount="90000000.0000 {0}".format(CORE_SYMBOL)
+    trans=nonProdNode.createInitializeAccount(contractAccount, cluster.sysAccount, fund=50.0000, waitForTransBlock=True, buyGas=5.0000, exitOnError=True)
+    transferAmount=Utils.coreAssetFrom("90000000.0000")
     Print("Transfer funds %s from account %s to %s" % (transferAmount, cluster.sysAccount.name, contractAccount.name))
     nonProdNode.transferFunds(cluster.sysAccount, contractAccount, transferAmount, "test transfer", waitForTransBlock=True)
-    trans=nonProdNode.delegatebw(contractAccount, 1000000.0000, 88000000.0000, waitForTransBlock=True, exitOnError=True)
 
     contractDir="unittests/test-contracts/integration_test"
     wasmFile="integration_test.wasm"

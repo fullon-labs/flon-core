@@ -118,10 +118,10 @@ try:
     nonProdNode=cluster.getAllNodes()[-1]
 
     Print("Create new account %s via %s" % (testeraAccount.name, cluster.defproduceraAccount.name))
-    transId=node.createInitializeAccount(testeraAccount, cluster.defproduceraAccount, stakedDeposit=0, waitForTransBlock=False, exitOnError=True)
+    transId=node.createInitializeAccount(testeraAccount, cluster.defproduceraAccount, fund=0, waitForTransBlock=False, exitOnError=True)
 
     Print("Create new account %s via %s" % (testerbAccount.name, cluster.defproduceraAccount.name))
-    transId=nonProdNode.createInitializeAccount(testerbAccount, cluster.defproduceraAccount, stakedDeposit=0, waitForTransBlock=True, exitOnError=True)
+    transId=nonProdNode.createInitializeAccount(testerbAccount, cluster.defproduceraAccount, fund=0, waitForTransBlock=True, exitOnError=True)
 
     Print("Validating accounts after user accounts creation")
     accounts=[testeraAccount, testerbAccount]

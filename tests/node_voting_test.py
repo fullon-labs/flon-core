@@ -200,21 +200,21 @@ try:
 
     node=node0
     # create accounts via system account as otherwise a bid is needed
-    transferAmount="100000000.0000 {0}".format(CORE_SYMBOL)
+    transferAmount=Utils.coreAssetFrom("100000000.0000")
     for account in accounts:
         Print("Create new account %s via %s" % (account.name, cluster.sysAccount.name))
-        trans=nonProdNode.createInitializeAccount(account, cluster.sysAccount, stakedDeposit=0,
+        trans=nonProdNode.createInitializeAccount(account, cluster.sysAccount, fund=0,
                                                   waitForTransBlock=True if account == accounts[-1] else False,
-                                                  stakeNet=1000, stakeCPU=1000, buyRAM=1000, exitOnError=True)
+                                                  buyGas=0.1000, exitOnError=True)
 
     for account in accounts:
         Print("Transfer funds %s from account %s to %s" % (transferAmount, cluster.sysAccount.name, account.name))
         nonProdNode.transferFunds(cluster.sysAccount, account, transferAmount, "test transfer",
                                   waitForTransBlock=True if account == accounts[-1] else False)
 
-    for account in accounts:
-        trans=nonProdNode.delegatebw(account, 20000000.0000, 20000000.0000,
-                                     waitForTransBlock=True if account == accounts[-1] else False, exitOnError=True)
+    # for account in accounts:
+    #     trans=nonProdNode.delegatebw(account, 20000000.0000, 20000000.0000,
+    #                                  waitForTransBlock=True if account == accounts[-1] else False, exitOnError=True)
 
     # containers for tracking producers
     prodsActive={}

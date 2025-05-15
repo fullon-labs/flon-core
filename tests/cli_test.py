@@ -367,7 +367,7 @@ def abi_file_with_node_test():
             account.ownerPublicKey = account.activePublicKey = Utils.makePubKey("6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV")
             accounts.append(account)
         walletMgr.create(Utils.SysAccount, [accounts[0]])
-        node.createAccount(accounts[1], accounts[0], stakedDeposit=0)
+        node.createAccount(accounts[1], accounts[0], fund=0)
         node.publishContract(accounts[1], contractDir, Utils.TokenAccount + '.wasm', Utils.TokenAccount + '.abi')
         account = Utils.TokenAccount
         action = 'create'
@@ -377,8 +377,8 @@ def abi_file_with_node_test():
         action = 'issue'
         data = '{"from":"%s","to":"%s","quantity":"100000.0000 SYS","memo":"issue"}' % (Utils.TokenAccount, Utils.TokenAccount)
         node.pushMessage(account, action, data, permission)
-        node.createAccount(accounts[2], accounts[0], stakedDeposit=0)
-        node.createAccount(accounts[3], accounts[0], stakedDeposit=0)
+        node.createAccount(accounts[2], accounts[0], fund=0)
+        node.createAccount(accounts[3], accounts[0], fund=0)
 
         node.transferFunds(accounts[1], accounts[2], '100.0000 SYS')
 

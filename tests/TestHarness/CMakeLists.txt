@@ -1,7 +1,6 @@
 
 configure_file(chain_config.py.in chain_config.py)
 configure_file(__init__.py . COPYONLY)
-configure_file(core_symbol.py.in core_symbol.py)
 configure_file(testUtils.py . COPYONLY)
 configure_file(WalletMgr.py . COPYONLY)
 configure_file(Node.py . COPYONLY)

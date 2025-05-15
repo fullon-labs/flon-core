@@ -33,7 +33,7 @@ class TraceApiPluginTest(unittest.TestCase):
             self.accounts[idx].name =  account_names[idx]
             self.walletMgr.importKey(self.accounts[idx], testWallet)
         for account in self.accounts:
-            node.createInitializeAccount(account, self.cluster.sysAccount, buyRAM=1000000, stakedDeposit=5000000, waitForTransBlock=True if account == self.accounts[-1] else False, exitOnError=True)
+            node.createInitializeAccount(account, self.cluster.sysAccount, buyGas=100.0000, fund=500.0000, waitForTransBlock=True if account == self.accounts[-1] else False, exitOnError=True)
 
     def get_block(self, params: str, node: Node) -> json:
         resource = "trace_api"

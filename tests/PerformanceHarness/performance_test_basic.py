@@ -375,7 +375,7 @@ class PerformanceTestBasic:
                     if ret is None:
                         newAccountNames.append(name)
             self.cluster.populateWallet(accountsCount=len(newAccountNames), wallet=self.wallet, accountNames=newAccountNames)
-            self.cluster.createAccounts(self.cluster.sysAccount, stakedDeposit=0, validationNodeIndex=self.validationNodeId)
+            self.cluster.createAccounts(self.cluster.sysAccount, fund=0, validationNodeIndex=self.validationNodeId)
             if len(newAccountNames) != 0:
                 for index in range(len(self.accountNames), len(accountNames)):
                     self.accountNames.append(self.cluster.accounts[index].name)
@@ -383,7 +383,7 @@ class PerformanceTestBasic:
                     self.accountPrivKeys.append(self.cluster.accounts[index].ownerPrivateKey)
         else:
             self.cluster.populateWallet(accountsCount=accountCnt, wallet=self.wallet)
-            self.cluster.createAccounts(self.cluster.sysAccount, stakedDeposit=0, validationNodeIndex=self.validationNodeId)
+            self.cluster.createAccounts(self.cluster.sysAccount, fund=0, validationNodeIndex=self.validationNodeId)
             for index in range(0, accountCnt):
                 self.accountNames.append(self.cluster.accounts[index].name)
                 self.accountPrivKeys.append(self.cluster.accounts[index].activePrivateKey)
@@ -395,7 +395,7 @@ class PerformanceTestBasic:
     def setupContract(self):
         if self.clusterConfig.specifiedContract.account.name != self.cluster.sysAccount.name:
             self.cluster.populateWallet(accountsCount=1, wallet=self.wallet, accountNames=[self.clusterConfig.specifiedContract.account.name], createProducerAccounts=False)
-            self.cluster.createAccounts(self.cluster.sysAccount, stakedDeposit=0, validationNodeIndex=self.validationNodeId)
+            self.cluster.createAccounts(self.cluster.sysAccount, fund=0, validationNodeIndex=self.validationNodeId)
             self.clusterConfig.specifiedContract.account = self.cluster.accounts[0]
             print("Publishing contract")
             transaction=self.cluster.biosNode.publishContract(self.clusterConfig.specifiedContract.account, self.clusterConfig.specifiedContract.contractDir,

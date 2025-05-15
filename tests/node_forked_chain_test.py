@@ -228,8 +228,8 @@ try:
     # create accounts via system account as otherwise a bid is needed
     for account in accounts:
         Print("Create new account %s via %s" % (account.name, cluster.sysAccount.name))
-        trans=node.createInitializeAccount(account, cluster.sysAccount, stakedDeposit=0, waitForTransBlock=True, stakeNet=1000, stakeCPU=1000, buyRAM=1000, exitOnError=True)
-        transferAmount="100000000.0000 {0}".format(CORE_SYMBOL)
+        trans=node.createInitializeAccount(account, cluster.sysAccount, fund=0, waitForTransBlock=True, buyGas=1.0000, exitOnError=True)
+        transferAmount=Utils.coreAssetFrom("100000000.0000")
         Print("Transfer funds %s from account %s to %s" % (transferAmount, cluster.sysAccount.name, account.name))
         node.transferFunds(cluster.sysAccount, account, transferAmount, "test transfer", waitForTransBlock=True)
         trans=node.delegatebw(account, 20000000.0000, 20000000.0000, waitForTransBlock=False, exitOnError=True)

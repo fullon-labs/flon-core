@@ -168,12 +168,12 @@ def deployTestContracts():
     testAccount = Account(testAccountName)
     testAccount.ownerPublicKey = Utils.SysAccountPubKeyDefault
     testAccount.activePublicKey = Utils.SysAccountPubKeyDefault
-    cluster.createAccountAndVerify(testAccount, cluster.sysAccount, buyRAM=500000) # 95632 bytes required for test contract
+    cluster.createAccountAndVerify(testAccount, cluster.sysAccount, buyGas=50.0000) # 95632 bytes required for test contract
 
     userAccount = Account(userAccountName)
     userAccount.ownerPublicKey = Utils.SysAccountPubKeyDefault
     userAccount.activePublicKey = Utils.SysAccountPubKeyDefault
-    cluster.createAccountAndVerify(userAccount, cluster.sysAccount, stakeCPU=2000)
+    cluster.createAccountAndVerify(userAccount, cluster.sysAccount)
 
     noAuthTableContractDir="unittests/test-contracts/no_auth_table"
     noAuthTableWasmFile="no_auth_table.wasm"
@@ -185,7 +185,7 @@ def deployTestContracts():
     payloadlessAccount = Account(payloadlessAccountName)
     payloadlessAccount.ownerPublicKey = Utils.SysAccountPubKeyDefault
     payloadlessAccount.activePublicKey = Utils.SysAccountPubKeyDefault
-    cluster.createAccountAndVerify(payloadlessAccount, cluster.sysAccount, buyRAM=100000)
+    cluster.createAccountAndVerify(payloadlessAccount, cluster.sysAccount, buyGas=1.00000)
     payloadlessContractDir="unittests/test-contracts/payloadless"
     payloadlessWasmFile="payloadless.wasm"
     payloadlessAbiFile="payloadless.abi"

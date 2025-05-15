@@ -135,7 +135,7 @@ try:
     startTime = time.perf_counter()
     Print("Create new accounts via %s" % (cluster.sysAccount.name))
     for account in accounts:
-        trans = node.createInitializeAccount(account, cluster.sysAccount, stakedDeposit=0, waitForTransBlock=False, stakeNet=1000, stakeCPU=1000, buyRAM=1000, exitOnError=True)
+        trans = node.createInitializeAccount(account, cluster.sysAccount, fund=0, waitForTransBlock=False, buyGas=1.0, exitOnError=True)
         checkTransIds.append(Node.getTransId(trans))
 
     node.waitForTransactionsInBlock(checkTransIds)
@@ -145,7 +145,7 @@ try:
 
     Print("Transfer funds to new accounts via %s" % (cluster.sysAccount.name))
     for account in accounts:
-        transferAmount="1000.0000 {0}".format(CORE_SYMBOL)
+        transferAmount=Utils.coreAssetFrom("1000.0000")
         Print("Transfer funds %s from account %s to %s" % (transferAmount, cluster.sysAccount.name, account.name))
         trans = node.transferFunds(cluster.sysAccount, account, transferAmount, "test transfer", waitForTransBlock=False, reportStatus=False)
         checkTransIds.append(Node.getTransId(trans))
@@ -168,7 +168,7 @@ try:
 
     overdrawAccount = accounts[0]
     Print(f"Attempt to transfer more funds than available from {overdrawAccount.name} to test transaction fails with overdrawn balance, not expiration in retry.")
-    overdrawTransferAmount = "1001.0000 {0}".format(CORE_SYMBOL)
+    overdrawTransferAmount = Utils.coreAssetFrom("1001.0000")
     Print("Transfer funds %s from account %s to %s" % (overdrawTransferAmount, overdrawAccount.name, cluster.sysAccount.name))
     overdrawtrans = node.transferFunds(overdrawAccount, cluster.sysAccount, overdrawTransferAmount, "test overdraw transfer", exitOnError=False, reportStatus=False, retry=1)
     assert overdrawtrans is None, f"ERROR: Overdraw transaction attempt should have failed with overdrawn balance: {overdrawtrans}"
