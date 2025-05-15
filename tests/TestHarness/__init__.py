@@ -10,4 +10,3 @@ from .testUtils import Utils
 from .Node import ReturnType
 from .TestHelper import TestHelper
 from .TransactionGeneratorsLauncher import TransactionGeneratorsLauncher, TpsTrxGensConfig
-from .chain_config import CORE_SYMBOL

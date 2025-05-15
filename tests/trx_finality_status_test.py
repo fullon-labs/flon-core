@@ -7,7 +7,7 @@ import os
 import signal
 import subprocess
 
-from TestHarness import Account, Cluster, TestHelper, Utils, WalletMgr, CORE_SYMBOL
+from TestHarness import Account, Cluster, TestHelper, Utils, WalletMgr
 from TestHarness.Node import BlockType
 from TestHarness.TestHelper import AppArgs
 
@@ -124,7 +124,7 @@ try:
     # through the chain of nodes to node0 to be added to a block. It is still possible to hit the end of a block and state be IN_BLOCK here.
     # defproducera -> defproducerb -> defproducerc -> NPN
     prod0.waitForProducer("defproducera", exitOnError=True)
-    testNode.transferFunds(cluster.sysAccount, account1, f"{transferAmount}.0000 {CORE_SYMBOL}", "fund account")
+    testNode.transferFunds(cluster.sysAccount, account1, Utils.coreAssetFrom("10.0000"), "fund account")
     transId=testNode.getLastTrackedTransactionId()
     retStatus=testNode.getTransactionStatus(transId)
     state = getState(retStatus)

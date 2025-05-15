@@ -14,7 +14,6 @@ import json
 import socket
 from pathlib import Path
 
-from .core_symbol import CORE_SYMBOL
 from .accounts import Account, createAccountKeys
 from .testUtils import BlockLogAction
 from .testUtils import Utils
@@ -766,7 +765,7 @@ class Cluster(object):
 
     # Spread funds across accounts with transactions spread through cluster nodes.
     #  Validate transactions are synchronized on root node
-    def spreadFunds(self, source, accounts, amount=1):
+    def spreadFunds(self, source, accounts, fund=1.0000):
         assert(source)
         assert(isinstance(source, Account))
         assert(accounts)
@@ -775,8 +774,8 @@ class Cluster(object):
         Utils.Print("len(accounts): %d" % (len(accounts)))
 
         count=len(accounts)
-        transferAmount=(count*amount)+amount
-        transferAmountStr=Node.currencyIntToStr(transferAmount, CORE_SYMBOL)
+        totalFund=(count * fund) + fund
+        transferAmountStr=Utils.coreAssetFromFund(totalFund)
         node=self.nodes[0]
         fromm=source
         to=accounts[0]
@@ -812,8 +811,8 @@ class Cluster(object):
                 Utils.Print("ERROR: Failed to validate transaction %s got rolled into a block on server port %d." % (transId, node.port))
                 return False
 
-            transferAmount -= amount
-            transferAmountStr=Node.currencyIntToStr(transferAmount, CORE_SYMBOL)
+            curFund -= fund
+            transferAmountStr=Utils.coreAssetFromFund(curFund)
             fromm=account
             to=accounts[i+1] if i < (count-1) else source
             Utils.Print("Transfer %s units from account %s to %s on eos server port %d." %
@@ -1262,7 +1261,7 @@ class Cluster(object):
         contract=sysTokenAccount.name
         Utils.Print("push create action to %s contract" % (contract))
         action="create"
-        data="{\"issuer\":\"%s\",\"maximum_supply\":\"10000000000.00000000 %s\"}" % (sysAccount.name, CORE_SYMBOL)
+        data="{\"issuer\":\"%s\",\"maximum_supply\":\"%s\"}" % (sysAccount.name, Utils.coreAssetFrom('10000000000.0000'))
         opts="--permission %s@active" % (contract)
         trans=biosNode.pushMessage(contract, action, data, opts)
         if trans is None or not trans[0]:
@@ -1278,7 +1277,7 @@ class Cluster(object):
         contract=sysTokenAccount.name
         Utils.Print("push issue action to %s contract" % (contract))
         action="issue"
-        data="{\"to\":\"%s\",\"quantity\":\"10000000000.00000000 %s\",\"memo\":\"initial issue\"}" % (sysAccount.name, CORE_SYMBOL)
+        data="{\"to\":\"%s\",\"quantity\":\"%s\",\"memo\":\"initial issue\"}" % (sysAccount.name, Utils.coreAssetFrom("10000000000.0000"))
         opts="--permission %s@active" % (sysAccount.name)
         trans=biosNode.pushMessage(contract, action, data, opts)
         if trans is None or not trans[0]:
@@ -1335,7 +1334,7 @@ class Cluster(object):
         # Only call init if the system contract is loaded
         if loadSystemContract:
             action="init"
-            data="{\"version\":0,\"core\":\"4,%s\"}" % (CORE_SYMBOL)
+            data="{\"version\":0,\"core\":\"%s\"}" % (Utils.CoreSymbol)
             opts="--permission %s@active" % (sysAccount.name)
             trans=biosNode.pushMessage(sysAccount.name, action, data, opts)
             transId=Node.getTransId(trans[1])

@@ -7,7 +7,7 @@ import sys
 import time
 import urllib
 
-from TestHarness import Cluster, TestHelper, Utils, WalletMgr, CORE_SYMBOL, createAccountKeys, ReturnType
+from TestHarness import Cluster, TestHelper, Utils, WalletMgr, createAccountKeys, ReturnType
 from TestHarness.TestHelper import AppArgs
 
 ###############################################################

@@ -10,7 +10,6 @@ import urllib.request
 import urllib.parse
 import urllib.error
 
-from .core_symbol import CORE_SYMBOL
 from .accounts import Account
 from .testUtils import EnumType
 from .testUtils import addEnum
@@ -362,7 +361,7 @@ class NodeQueries:
             print("transaction[rows][0][balance] not found. Transaction: %s" % (trans))
             raise
 
-    def getCurrencyBalance(self, contract, account, symbol=CORE_SYMBOL, exitOnError=False):
+    def getCurrencyBalance(self, contract, account, symbol=Utils.CoreSymbolName, exitOnError=False):
         """returns raw output from get currency balance e.g. '99999.9950 CUR'"""
         assert(contract)
         assert(isinstance(contract, str))
@@ -372,10 +371,10 @@ class NodeQueries:
         assert(isinstance(symbol, str))
         cmdDesc = "get currency balance"
         cmd="%s %s %s %s" % (cmdDesc, contract, account, symbol)
-        msg="contract=%s, account=%s, symbol=%s" % (contract, account, symbol);
+        msg="contract=%s, account=%s, symbol=%s" % (contract, account, symbol)
         return self.processClientCmd(cmd, cmdDesc, exitOnError=exitOnError, exitMsg=msg, returnType=ReturnType.raw)
 
-    def getCurrencyStats(self, contract, symbol=CORE_SYMBOL, exitOnError=False):
+    def getCurrencyStats(self, contract, symbol=Utils.CoreSymbolName, exitOnError=False):
         """returns Json output from get currency stats."""
         assert(contract)
         assert(isinstance(contract, str))
@@ -383,7 +382,7 @@ class NodeQueries:
         assert(isinstance(symbol, str))
         cmdDesc = "get currency stats"
         cmd="%s %s %s" % (cmdDesc, contract, symbol)
-        msg="contract=%s, symbol=%s" % (contract, symbol);
+        msg="contract=%s, symbol=%s" % (contract, symbol)
         return self.processClientCmd(cmd, cmdDesc, exitOnError=exitOnError, exitMsg=msg)
 
     # Verifies account. Returns "get account" json return object

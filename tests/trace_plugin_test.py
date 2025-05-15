@@ -7,7 +7,7 @@ import unittest
 import os
 import signal
 
-from TestHarness import Cluster, Node, TestHelper, Utils, WalletMgr, CORE_SYMBOL, createAccountKeys
+from TestHarness import Cluster, Node, TestHelper, Utils, WalletMgr, createAccountKeys
 
 testSuccessful = True
 
@@ -46,14 +46,14 @@ class TraceApiPluginTest(unittest.TestCase):
         for account in self.accounts:
             self.assertIsNotNone(node.verifyAccount(account))
 
-        expectedAmount = Node.currencyIntToStr(5000000, CORE_SYMBOL)
+        expectedAmount = Utils.coreAssetFrom("500.0000")
         account_balances = []
         for account in self.accounts:
             amount = node.getAccountEosBalanceStr(account.name)
             self.assertEqual(amount, expectedAmount)
             account_balances.append(amount)
 
-        xferAmount = Node.currencyIntToStr(123456, CORE_SYMBOL)
+        xferAmount = Utils.coreAssetFrom('12.3456')
         trans = node.transferFunds(self.accounts[0], self.accounts[1], xferAmount, "test transfer a->b")
         transId = Node.getTransId(trans)
         blockNum = Node.getTransBlockNum(trans)

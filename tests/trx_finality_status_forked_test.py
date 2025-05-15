@@ -7,7 +7,7 @@ import math
 import re
 import signal
 
-from TestHarness import Account, Cluster, Node, TestHelper, Utils, WalletMgr, CORE_SYMBOL
+from TestHarness import Account, Cluster, Node, TestHelper, Utils, WalletMgr
 from TestHarness.Node import BlockType
 
 ###############################################################
@@ -136,9 +136,8 @@ try:
             f"ERROR: getTransactionStatus returned a status object that didn't have a \"head_id\" field. status: {json.dumps(status, indent=1)}"
         return status["head_id"]
 
-    transferAmount = 10
     # Does not use transaction retry (not needed)
-    transfer = prodD.transferFunds(cluster.sysAccount, cluster.defproduceraAccount, f"{transferAmount}.0000 {CORE_SYMBOL}", "fund account")
+    transfer = prodD.transferFunds(cluster.sysAccount, cluster.defproduceraAccount, Utils.coreAssetFrom("10.0000"), "fund account")
     transBlockNum = transfer['processed']['block_num']
     transId = prodD.getLastTrackedTransactionId()
     retStatus = prodD.getTransactionStatus(transId)

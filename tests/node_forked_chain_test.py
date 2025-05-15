@@ -7,7 +7,7 @@ import json
 import signal
 import os
 
-from TestHarness import Cluster, Node, TestHelper, Utils, WalletMgr, CORE_SYMBOL, createAccountKeys
+from TestHarness import Cluster, Node, TestHelper, Utils, WalletMgr, createAccountKeys
 from TestHarness.TestHelper import AppArgs
 
 ###############################################################

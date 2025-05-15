@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from TestHarness import Cluster, TestHelper, Utils, WalletMgr, CORE_SYMBOL, createAccountKeys
+from TestHarness import Cluster, TestHelper, Utils, WalletMgr, createAccountKeys
 
 ###############################################################
 # node_voting_test

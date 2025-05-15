@@ -2,7 +2,7 @@
 
 import random
 
-from TestHarness import Account, Cluster, ReturnType, TestHelper, Utils, WalletMgr, CORE_SYMBOL
+from TestHarness import Account, Cluster, ReturnType, TestHelper, Utils, WalletMgr
 
 ###############################################################
 # compute_transaction_tests

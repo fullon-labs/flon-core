@@ -85,9 +85,10 @@ class Utils:
     SysAccountPrivateKeyDefault = "5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3"
     SysAccountPubKeyDefault = f"{PubKeyPrefix}6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV"
 
-    CoreSymbolName = chain_config.CORE_SYMBOL_NAME
-    CoreSymbolPrecision = chain_config.CORE_SYMBOL_PRECISION
-    CoreAssetBoost = 10**CoreSymbolPrecision
+    CoreSymbolName          = chain_config.CORE_SYMBOL_NAME
+    CoreSymbolPrecision     = int(chain_config.CORE_SYMBOL_PRECISION)
+    CoreSymbol              = f'{chain_config.CORE_SYMBOL_PRECISION},{chain_config.CORE_SYMBOL_NAME}'
+    CoreAssetBoost          = 10**CoreSymbolPrecision
 
     ShuttingDown=False
 
@@ -107,7 +108,7 @@ class Utils:
 
     @staticmethod
     def coreAssetFromAmount(a: int):
-        return f'{a // Utils.CoreAssetBoost}.{a // Utils.CoreAssetBoost} {Utils.CoreSymbolName}'
+        return f'{a // Utils.CoreAssetBoost}.{a % Utils.CoreAssetBoost} {Utils.CoreSymbolName}'
 
     @staticmethod
     def coreAssetFrom(s: str):

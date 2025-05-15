@@ -2,7 +2,7 @@
 
 import time
 
-from TestHarness import Cluster, TestHelper, Utils, WalletMgr, CORE_SYMBOL, createAccountKeys
+from TestHarness import Cluster, TestHelper, Utils, WalletMgr, createAccountKeys
 from TestHarness.accounts import NamedAccounts
 
 ###############################################################

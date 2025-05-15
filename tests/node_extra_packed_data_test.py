@@ -3,7 +3,7 @@
 import json
 import copy
 
-from TestHarness import Cluster, TestHelper, Utils, WalletMgr, CORE_SYMBOL, createAccountKeys
+from TestHarness import Cluster, TestHelper, Utils, WalletMgr, createAccountKeys
 from TestHarness.Cluster import PFSetupPolicy
 from TestHarness.TestHelper import AppArgs
 
@@ -133,7 +133,7 @@ try:
         if i == 1:
             node = cluster.getNode(pnodes - 1)
 
-        transferAmount="{0}.0 {1}".format(i + 1, CORE_SYMBOL)
+        transferAmount=Utils.coreAssetFromFund( i + 1)
         Print("Transfer funds %s from account %s to %s" % (transferAmount, cluster.defproduceraAccount.name, testeraAccount.name))
         trx = node.transferFunds(cluster.defproduceraAccount, testeraAccount, transferAmount, "test transfer", dontSend=True)
 

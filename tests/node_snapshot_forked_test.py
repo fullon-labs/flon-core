@@ -4,7 +4,7 @@ import os
 import json
 import signal
 
-from TestHarness import Account, Cluster, TestHelper, Utils, WalletMgr, CORE_SYMBOL
+from TestHarness import Account, Cluster, TestHelper, Utils, WalletMgr
 from TestHarness.Node import BlockType
 
 ###############################################################

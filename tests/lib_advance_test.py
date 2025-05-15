@@ -7,7 +7,7 @@ import math
 import re
 import signal
 
-from TestHarness import Account, Cluster, Node, TestHelper, Utils, WalletMgr, CORE_SYMBOL
+from TestHarness import Account, Cluster, Node, TestHelper, Utils, WalletMgr
 from TestHarness.Node import BlockType
 
 ###############################################################
@@ -106,9 +106,8 @@ try:
 
     assert not nonProdNode.verifyAlive(), "Bridge node should have been killed if test was functioning correctly."
 
-    transferAmount = 10
     # Does not use transaction retry (not needed)
-    transfer = prodD.transferFunds(cluster.sysAccount, cluster.defproduceraAccount, f"{transferAmount}.0000 {CORE_SYMBOL}", "fund account")
+    transfer = prodD.transferFunds(cluster.sysAccount, cluster.defproduceraAccount, Utils.coreAssetFrom("10.0000"), "fund account")
     transBlockNum = transfer['processed']['block_num']
     transId = prodD.getLastTrackedTransactionId()
 

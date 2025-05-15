@@ -15,7 +15,6 @@ from dataclasses import InitVar, dataclass, field, is_dataclass, asdict
 
 from datetime import datetime
 from datetime import timedelta
-from .core_symbol import CORE_SYMBOL
 from .queries import NodeQueries, BlockType
 from .transactions import Transactions
 from .accounts import Account

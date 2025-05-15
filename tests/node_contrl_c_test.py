@@ -3,7 +3,7 @@
 import signal
 import time
 
-from TestHarness import Cluster, Node, TestHelper, Utils, WalletMgr, CORE_SYMBOL, createAccountKeys
+from TestHarness import Cluster, Node, TestHelper, Utils, WalletMgr, createAccountKeys
 
 ###############################################################
 # node_contrl_c_lr_test

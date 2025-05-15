@@ -4,7 +4,7 @@ import signal
 import time
 import json
 
-from TestHarness import Cluster, Node, TestHelper, Utils, WalletMgr, CORE_SYMBOL
+from TestHarness import Cluster, Node, TestHelper, Utils, WalletMgr
 from TestHarness.accounts import NamedAccounts
 from TestHarness.TestHelper import AppArgs
 
@@ -258,7 +258,7 @@ try:
 
         trackedTransPopens = []
 
-        transferAmount = Node.currencyIntToStr(round + 1, CORE_SYMBOL)
+        transferAmount = Utils.coreAssetFromFund(round + 1)
         Print("Sending round %d, transfer: %s" % (round, transferAmount))
         for accountIndex in range(0, args.total_accounts):
             fromAccount = accounts[accountIndex]

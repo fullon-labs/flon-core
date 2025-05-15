@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from TestHarness import Account, Cluster, Node, ReturnType, TestHelper, Utils, WalletMgr, CORE_SYMBOL, createAccountKeys
+from TestHarness import Account, Cluster, Node, ReturnType, TestHelper, Utils, WalletMgr, createAccountKeys
 
 import decimal
 import re
