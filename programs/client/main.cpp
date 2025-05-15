@@ -233,7 +233,7 @@ void add_standard_transaction_options(CLI::App* cmd, string default_permission =
    cmd->add_flag("-j,--json", tx_print_json, localized("Print result as JSON"));
    cmd->add_option("--json-file", tx_json_save_file, localized("Save result in JSON format into a file"));
    cmd->add_flag("-d,--dont-broadcast", tx_dont_broadcast, localized("Don't broadcast transaction to the network (just print to stdout)"));
-   cmd->add_flag("-u,--unpack-action-data", tx_unpack_data, localized("Unpack all action data within transaction, needs interaction with ${n} unless --abi-file. Used in conjunction with --dont-broadcast.", ("n", node_executable_name)));
+   cmd->add_flag("-u,--unpack-action-data", tx_unpack_data, localized("Unpack all action data within transaction, needs interaction with wallet unless --abi-file. Used in conjunction with --dont-broadcast."));
    cmd->add_flag("--return-packed", tx_return_packed, localized("Used in conjunction with --dont-broadcast to get the packed transaction"));
    cmd->add_option("-r,--ref-block", tx_ref_block_num_or_id, (localized("Set the reference block num or block id used for TAPOS (Transaction as Proof-of-Stake)")));
    cmd->add_flag("--use-old-rpc", tx_use_old_rpc, localized("Use old RPC push_transaction, rather than new RPC send_transaction"));
@@ -2058,7 +2058,7 @@ CLI::callback_t header_opt_callback = [](CLI::results_t res) {
    return true;
 };
 
-CLI::callback_t abi_files_overide_callback = [](CLI::results_t account_abis) {
+CLI::callback_t abi_files_override_callback = [](CLI::results_t account_abis) {
    for (vector<string>::iterator itr = account_abis.begin(); itr != account_abis.end(); ++itr) {
       size_t delim = itr->find(":");
       std::string acct_name, abi_path;
@@ -2111,20 +2111,20 @@ int main( int argc, char** argv ) {
    app.require_subcommand();
 
    // Hide obsolete options by putting them into a group with an empty name.
-   app.add_option( "-H,--host", obsoleted_option_host_port, localized("The host where ${n} is running", ("n", node_executable_name)) )->group("");
-   app.add_option( "-p,--port", obsoleted_option_host_port, localized("The port where ${n} is running", ("n", node_executable_name)) )->group("");
-   app.add_option( "--wallet-host", obsoleted_option_host_port, localized("The host where ${k} is running", ("k", key_store_executable_name)) )->group("");
-   app.add_option( "--wallet-port", obsoleted_option_host_port, localized("The port where ${k} is running", ("k", key_store_executable_name)) )->group("");
+   app.add_option( "-H,--host", obsoleted_option_host_port, localized("The host where wallet is running") )->group("");
+   app.add_option( "-p,--port", obsoleted_option_host_port, localized("The port where wallet is running") )->group("");
+   app.add_option( "--wallet-host", obsoleted_option_host_port, localized("The host where wallet is running") )->group("");
+   app.add_option( "--wallet-port", obsoleted_option_host_port, localized("The port where wallet is running") )->group("");
 
    app.add_option_function<std::string>( "-u,--url", set_url_no_trailing_slash(::default_url),
-      localized( "The http/https URL where ${n} is running", ("n", node_executable_name)))->default_str(::default_url);
+      localized( "The http/https URL where wallet is running"))->default_str(::default_url);
    app.add_option_function<std::string>( "--wallet-url", set_url_no_trailing_slash(wallet_url),
-      localized("The http/https URL where ${k} is running", ("k", key_store_executable_name)))->default_str(::default_wallet_url);
+      localized("The http/https URL where wallet is running"))->default_str(::default_wallet_url);
 
-   app.add_option( "--abi-file", abi_files_overide_callback, localized("In form of <contract name>:<abi file path>, use a local abi file for serialization and deserialization instead of getting the abi data from the blockchain; repeat this option to pass multiple abi files for different contracts"))->type_size(0, 1000);
+   app.add_option( "--abi-file", abi_files_override_callback, localized("In form of <contract name>:<abi file path>, use a local abi file for serialization and deserialization instead of getting the abi data from the blockchain; repeat this option to pass multiple abi files for different contracts"))->type_size(0, 1000);
    app.add_option( "-r,--header", header_opt_callback, localized("Pass specific HTTP header; repeat this option to pass multiple headers"));
    app.add_flag( "-n,--no-verify", http_config.no_verify_cert, localized("Don't verify peer certificate when using HTTPS"));
-   app.add_flag( "--no-auto-" + string(key_store_executable_name), no_auto_wallet, localized("Don't automatically launch a ${k} if one is not currently running", ("k", key_store_executable_name)));
+   app.add_flag( "--no-auto-wallet", no_auto_wallet, localized("Don't automatically launch a wallet if one is not currently running"));
    app.parse_complete_callback([&app]{ ensure_wallet_running(&app);});
 
    app.add_flag( "-v,--verbose", verbose, localized("Output verbose errors and action console output"));
@@ -2187,7 +2187,7 @@ int main( int argc, char** argv ) {
    bool pack_action_data_flag = false;
    auto pack_transaction = convert->add_subcommand("pack_transaction", localized("From plain signed JSON to packed form"));
    pack_transaction->add_option("transaction", plain_signed_transaction_json, localized("The plain signed JSON (string)"))->required();
-   pack_transaction->add_flag("--pack-action-data", pack_action_data_flag, localized("Pack all action data within transaction, needs interaction with ${n}", ("n", node_executable_name)));
+   pack_transaction->add_flag("--pack-action-data", pack_action_data_flag, localized("Pack all action data within transaction, needs interaction with wallet"));
    pack_transaction->callback([&] {
       fc::variant trx_var = json_from_file_or_string( plain_signed_transaction_json );
       if( pack_action_data_flag ) {
@@ -2210,7 +2210,7 @@ int main( int argc, char** argv ) {
    bool unpack_action_data_flag = false;
    auto unpack_transaction = convert->add_subcommand("unpack_transaction", localized("From packed to plain signed JSON form"));
    unpack_transaction->add_option("transaction", packed_transaction_json, localized("The packed transaction JSON (string containing packed_trx and optionally compression fields)"))->required();
-   unpack_transaction->add_flag("--unpack-action-data", unpack_action_data_flag, localized("Unpack all action data within transaction, needs interaction with ${n}", ("n", node_executable_name)));
+   unpack_transaction->add_flag("--unpack-action-data", unpack_action_data_flag, localized("Unpack all action data within transaction, needs interaction with wallet"));
    unpack_transaction->callback([&] {
       fc::variant packed_trx_var = json_from_file_or_string( packed_transaction_json );
       packed_transaction packed_trx;
@@ -2342,7 +2342,7 @@ int main( int argc, char** argv ) {
       std::optional<chain_id_type> chain_id;
 
       if( str_chain_id.size() == 0 ) {
-         ilog( "grabbing chain_id from ${n}", ("n", node_executable_name) );
+         ilog( "grabbing chain_id from wallet" );
          auto info = get_info();
          chain_id = info.chain_id;
       } else {
@@ -2468,7 +2468,7 @@ int main( int argc, char** argv ) {
          const auto old_result = call(get_code_func, fc::mutable_variant_object("account_name", accountName)("code_as_wasm",code_as_wasm));
          code_hash = old_result["code_hash"].as_string();
          wasm = old_result["wasm"].as_string();
-         std::cout << localized("Warning: communicating to older ${n} which returns malformed binary wasm", ("n", node_executable_name)) << std::endl;
+         std::cout << localized("Warning: communicating to older wallet which returns malformed binary wasm") << std::endl;
          abi = fc::json::to_pretty_string(old_result["abi"]);
       }
 
@@ -3253,7 +3253,7 @@ int main( int argc, char** argv ) {
       std::optional<chain_id_type> chain_id;
 
       if( str_chain_id.size() == 0 ) {
-         ilog( "grabbing chain_id from ${n}", ("n", node_executable_name) );
+         ilog( "grabbing chain_id from wallet" );
          auto info = get_info();
          chain_id = info.chain_id;
       } else {
