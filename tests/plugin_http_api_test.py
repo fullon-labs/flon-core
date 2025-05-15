@@ -53,8 +53,6 @@ class PluginHttpTest(unittest.TestCase):
     config_dir = Path(Utils.getNodeConfigDir(node_id))
     empty_content_dict = {}
     http_post_invalid_param = '{invalid}'
-    EOSIO_ACCT_PRIVATE_DEFAULT_KEY = "5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3"
-    EOSIO_ACCT_PUBLIC_DEFAULT_KEY = "EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV"
 
     def endpoint(self, category: str):
         return f'http://{self.node.host}:{category_config.port(category)}'
@@ -111,8 +109,8 @@ class PluginHttpTest(unittest.TestCase):
         abiFile = "%s.abi" % (contract)
 
         sysAccount = Account(Utils.SysAccount)
-        sysAccount.ownerPrivateKey = sysAccount.activePrivateKey = self.EOSIO_ACCT_PRIVATE_DEFAULT_KEY
-        sysAccount.ownerPublicKey = sysAccount.activePublicKey = self.EOSIO_ACCT_PUBLIC_DEFAULT_KEY
+        sysAccount.ownerPrivateKey = sysAccount.activePrivateKey = Utils.SysAccountPrivateKeyDefault
+        sysAccount.ownerPublicKey = sysAccount.activePublicKey = Utils.SysAccountPubKeyDefault
 
         testWalletName = "test"
         walletAccounts = [sysAccount]

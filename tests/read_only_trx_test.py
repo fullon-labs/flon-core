@@ -59,8 +59,6 @@ random.seed(seed) # Use a fixed seed for repeatability.
 cluster=Cluster(loggingLevel="all", unshared=args.unshared, keepRunning=True if nodesFile is not None else args.leave_running, keepLogs=args.keep_logs)
 
 walletMgr=WalletMgr(True)
-EOSIO_ACCT_PRIVATE_DEFAULT_KEY = "5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3"
-EOSIO_ACCT_PUBLIC_DEFAULT_KEY = "EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV"
 
 producerNode = None
 apiNode = None
@@ -168,13 +166,13 @@ def verifyOcVirtualMemory():
 def deployTestContracts():
     Utils.Print("create test accounts")
     testAccount = Account(testAccountName)
-    testAccount.ownerPublicKey = EOSIO_ACCT_PUBLIC_DEFAULT_KEY
-    testAccount.activePublicKey = EOSIO_ACCT_PUBLIC_DEFAULT_KEY
+    testAccount.ownerPublicKey = Utils.SysAccountPubKeyDefault
+    testAccount.activePublicKey = Utils.SysAccountPubKeyDefault
     cluster.createAccountAndVerify(testAccount, cluster.sysAccount, buyRAM=500000) # 95632 bytes required for test contract
 
     userAccount = Account(userAccountName)
-    userAccount.ownerPublicKey = EOSIO_ACCT_PUBLIC_DEFAULT_KEY
-    userAccount.activePublicKey = EOSIO_ACCT_PUBLIC_DEFAULT_KEY
+    userAccount.ownerPublicKey = Utils.SysAccountPubKeyDefault
+    userAccount.activePublicKey = Utils.SysAccountPubKeyDefault
     cluster.createAccountAndVerify(userAccount, cluster.sysAccount, stakeCPU=2000)
 
     noAuthTableContractDir="unittests/test-contracts/no_auth_table"
@@ -185,8 +183,8 @@ def deployTestContracts():
 
     Utils.Print("Create payloadless account and deploy payloadless contract")
     payloadlessAccount = Account(payloadlessAccountName)
-    payloadlessAccount.ownerPublicKey = EOSIO_ACCT_PUBLIC_DEFAULT_KEY
-    payloadlessAccount.activePublicKey = EOSIO_ACCT_PUBLIC_DEFAULT_KEY
+    payloadlessAccount.ownerPublicKey = Utils.SysAccountPubKeyDefault
+    payloadlessAccount.activePublicKey = Utils.SysAccountPubKeyDefault
     cluster.createAccountAndVerify(payloadlessAccount, cluster.sysAccount, buyRAM=100000)
     payloadlessContractDir="unittests/test-contracts/payloadless"
     payloadlessWasmFile="payloadless.wasm"

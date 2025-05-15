@@ -114,7 +114,7 @@ def client_sign_test():
 
     # Test packed transaction is unpacked. Only with options --print-request and --public-key
     # the sign request is dumped to stderr.
-    cmd = [Utils.ClientPath, '--print-request', '--no-auto-wallet', 'sign', '-c', chain, '--public-key', 'EOS8Dq1KosJ9PMn1vKQK3TbiihgfUiDBUsz471xaCE6eYUssPB1KY', packed_trx]
+    cmd = [Utils.ClientPath, '--print-request', '--no-auto-wallet', 'sign', '-c', chain, '--public-key', Utils.makePubKey('8Dq1KosJ9PMn1vKQK3TbiihgfUiDBUsz471xaCE6eYUssPB1KY'), packed_trx]
     outs=None
     errs=None
     try:
@@ -203,7 +203,7 @@ def client_abi_file_test():
         "owner": {
           "threshold": 1,
           "keys": [{
-              "key": "EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV",
+              "key": "%s6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV",
               "weight": 1
             }
           ],
@@ -213,7 +213,7 @@ def client_abi_file_test():
         "active": {
           "threshold": 1,
           "keys": [{
-              "key": "EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV",
+              "key": "%s6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV",
               "weight": 1
             }
           ],
@@ -257,7 +257,7 @@ def client_abi_file_test():
                 "owner": {
                 "threshold": 1,
                 "keys": [{
-                    "key": "EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV",
+                    "key": "%s6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV",
                     "weight": 1
                     }
                 ],
@@ -267,7 +267,7 @@ def client_abi_file_test():
                 "active": {
                 "threshold": 1,
                 "keys": [{
-                    "key": "EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV",
+                    "key": "%s6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV",
                     "weight": 1
                     }
                 ],
@@ -298,7 +298,7 @@ def client_abi_file_test():
             "SIG_K1_K3LfbB7ZV2DNBu67iSn3yUMseTdiwoT49gAcwSZVT1QTvGXVHjkcvKqhentCW4FJngZJ1H9gBRSWgo9UPiWEXWHyKpXNCZ"
         ],
         "context_free_data": []
-    }""" % (Utils.SysAccount, Utils.SysAccount, Utils.SysAccount, Utils.TokenAccount)
+    }""" % (Utils.SysAccount, Utils.SysAccount, Utils.SysAccount, Utils.PubKeyPrefix, Utils.PubKeyPrefix, Utils.TokenAccount)
 
     expected_output = b'3aacf360ee010b864b7e00000000020000000000ea305500409e9a2264b89a010000000000ea305500000000a8ed3232660000000000ea30550000000000000e3d01000000010002c0ded2bc1f1305fb0faac5e6c03ee3a1924234985427b6167ca569d13df435cf0100000001000000010002c0ded2bc1f1305fb0faac5e6c03ee3a1924234985427b6167ca569d13df435cf0100000000a6823403ea3055000000572d3ccdcd010000000000008c3100000000a8ed3232260000000000008c31000000000000ce39a08601000000000004535953000000000568656c6c6f00'
     cmd = [Utils.ClientPath, '-u','http://127.0.0.1:12345', '--abi-file', system_abi_file_arg, token_abi_file_arg, 'convert', 'pack_transaction', '--pack-action-data', unpacked_trx]
@@ -364,7 +364,7 @@ def abi_file_with_node_test():
         for name in accountNames:
             account = Account(name)
             account.ownerPrivateKey = account.activePrivateKey = "5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3"
-            account.ownerPublicKey = account.activePublicKey = "EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV"
+            account.ownerPublicKey = account.activePublicKey = Utils.makePubKey("6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV")
             accounts.append(account)
         walletMgr.create(Utils.SysAccount, [accounts[0]])
         node.createAccount(accounts[1], accounts[0], stakedDeposit=0)

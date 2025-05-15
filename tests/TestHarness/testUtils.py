@@ -79,6 +79,11 @@ class Utils:
     EosServerName=chain_config.NODE_EXECUTABLE_NAME
     NodeServerPath=str(testBinPath / EosServerName)
 
+    PubKeyPrefix = chain_config.PUBLIC_KEY_LEGACY_PREFIX
+
+    SysAccountPrivateKeyDefault = "5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3"
+    SysAccountPubKeyDefault = f"{PubKeyPrefix}6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV"
+
     ShuttingDown=False
 
     FileDivider="================================================================="
