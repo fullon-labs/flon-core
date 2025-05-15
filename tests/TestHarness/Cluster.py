@@ -95,7 +95,7 @@ class Cluster(object):
         self.defProducerAccounts={}
         self.defproduceraAccount=self.defProducerAccounts["defproducera"]= Account("defproducera")
         self.defproducerbAccount=self.defProducerAccounts["defproducerb"]= Account("defproducerb")
-        self.eosioAccount=self.defProducerAccounts["eosio"]= Account("eosio")
+        self.eosioAccount=self.defProducerAccounts[Utils.SysAccount]= Account(Utils.SysAccount)
 
         self.defproduceraAccount.ownerPrivateKey=defproduceraPrvtKey
         self.defproduceraAccount.activePrivateKey=defproduceraPrvtKey
@@ -189,7 +189,7 @@ class Cluster(object):
         pfSetupPolicy: determine the protocol feature setup policy (none, preactivate_feature_only, or full)
         alternateVersionLabelsFile: Supply an alternate version labels file to use with associatedNodeLabels.
         associatedNodeLabels: Supply a dictionary of node numbers to use an alternate label for a specific node.
-        loadSystemContract: indicate whether the eosio.system contract should be loaded
+        loadSystemContract: indicate whether the system contract contract should be loaded
         activateIF: Activate/enable instant-finality by setting finalizers
         biosFinalizer: True if the biosNode should act as a finalizer
         signatureProviderForNonProducer: Add signature provider for non-producer
@@ -555,7 +555,7 @@ class Cluster(object):
             initAccountKeys(account, producerKeys[name])
             self.defProducerAccounts[name] = account
 
-        self.eosioAccount=self.defProducerAccounts["eosio"]
+        self.eosioAccount=self.defProducerAccounts[Utils.SysAccount]
         self.defproduceraAccount=self.defProducerAccounts["defproducera"]
         self.defproducerbAccount=self.defProducerAccounts["defproducerb"]
 
@@ -1057,7 +1057,7 @@ class Cluster(object):
         if Utils.Debug: Utils.Print("setfinalizers: %s" % (setFinStr))
         Utils.Print("Setting finalizers")
         opts = "--permission eosio@active"
-        trans = node.pushMessage("eosio", "setfinalizer", setFinStr, opts)
+        trans = node.pushMessage(Utils.SysAccount, "setfinalizer", setFinStr, opts)
         if trans is None or not trans[0]:
             Utils.Print("ERROR: Failed to set finalizers")
             return None
@@ -1089,7 +1089,7 @@ class Cluster(object):
 
         ignWallet=self.walletMgr.create("ignition")
 
-        eosioName="eosio"
+        eosioName=Utils.SysAccount
         eosioKeys=producerKeys[eosioName]
         eosioAccount=Account(eosioName)
         eosioAccount.ownerPrivateKey=eosioKeys["private"]
@@ -1104,7 +1104,7 @@ class Cluster(object):
         if not PFSetupPolicy.hasPreactivateFeature(pfSetupPolicy):
             return True
 
-        contract="eosio.boot"
+        contract=Utils.makeSysName('boot')
         contractDir= str(self.unittestsContractsPath / contract)
         wasmFile="%s.wasm" % (contract)
         abiFile="%s.abi" % (contract)
@@ -1118,7 +1118,7 @@ class Cluster(object):
             biosNode.preactivateAllBuiltinProtocolFeature()
         Node.validateTransaction(trans)
 
-        contract="eosio.bios"
+        contract=Utils.makeSysName('bios')
         contractDir= str(self.libTestingContractsPath / contract)
         wasmFile="%s.wasm" % (contract)
         abiFile="%s.abi" % (contract)
@@ -1167,7 +1167,7 @@ class Cluster(object):
 
                     Utils.Print("Setting producers.")
                     opts="--permission eosio@active"
-                    myTrans=biosNode.pushMessage("eosio", "setprods", setProdsStr, opts)
+                    myTrans=biosNode.pushMessage(Utils.SysAccount, "setprods", setProdsStr, opts)
                     if myTrans is None or not myTrans[0]:
                         Utils.Print("ERROR: Failed to set producers.")
                         return None
@@ -1189,7 +1189,7 @@ class Cluster(object):
                 Utils.Print("Setting producers: %s." % (", ".join(prodNames)))
                 opts="--permission eosio@active"
                 # pylint: disable=redefined-variable-type
-                trans=biosNode.pushMessage("eosio", "setprods", setProdsStr, opts)
+                trans=biosNode.pushMessage(Utils.SysAccount, "setprods", setProdsStr, opts)
                 if trans is None or not trans[0]:
                     Utils.Print("ERROR: Failed to set producer %s." % (keys["name"]))
                     return None
@@ -1201,7 +1201,7 @@ class Cluster(object):
                 return None
 
             # wait for block production handover (essentially a block produced by anyone but eosio).
-            lam = lambda: biosNode.getInfo(exitOnError=True)["head_block_producer"] != "eosio"
+            lam = lambda: biosNode.getInfo(exitOnError=True)["head_block_producer"] != Utils.SysAccount
             ret=Utils.waitForBool(lam)
             if not ret:
                 Utils.Print("ERROR: Block production handover failed.")
@@ -1218,7 +1218,18 @@ class Cluster(object):
                 return None
             return trans
 
-        systemAccounts = ['eosio.bpay', 'eosio.msig', 'eosio.names', 'eosio.ram', 'eosio.ramfee', 'eosio.saving', 'eosio.stake', 'eosio.token', 'eosio.vpay', 'eosio.wrap']
+        systemAccounts = [
+            Utils.makeSysName('bpay'),
+            Utils.makeSysName('msig'),
+            Utils.makeSysName('names'),
+            Utils.makeSysName('ram'),
+            Utils.makeSysName('fees'),
+            Utils.makeSysName('saving'),
+            Utils.makeSysName('stake'),
+            Utils.makeSysName('token'),
+            Utils.makeSysName('reward'),
+            Utils.makeSysName('vote')
+        ]
         acctTrans = list(map(createSystemAccount, systemAccounts))
 
         for trans in acctTrans:
@@ -1234,8 +1245,8 @@ class Cluster(object):
         #             self.activateInstantFinality()
 
         eosioTokenAccount = copy.deepcopy(eosioAccount)
-        eosioTokenAccount.name = 'eosio.token'
-        contract="eosio.token"
+        eosioTokenAccount.name = Utils.TokenAccount
+        contract=Utils.TokenAccount
         contractDir=str(self.unittestsContractsPath / contract)
         wasmFile="%s.wasm" % (contract)
         abiFile="%s.abi" % (contract)
@@ -1286,7 +1297,7 @@ class Cluster(object):
             return None
 
         if loadSystemContract:
-            contract="eosio.system"
+            contract=Utils.SysAccount
             contractDir=str(self.unittestsContractsPath / contract)
             wasmFile="%s.wasm" % (contract)
             abiFile="%s.abi" % (contract)
@@ -1498,7 +1509,7 @@ class Cluster(object):
         Utils.Print("setprods: %s" % (setProdsStr))
         opts = "--permission eosio@active"
         # pylint: disable=redefined-variable-type
-        trans = self.biosNode.pushMessage("eosio", "setprods", setProdsStr, opts)
+        trans = self.biosNode.pushMessage(Utils.SysAccount, "setprods", setProdsStr, opts)
         if trans is None or not trans[0]:
             Utils.Print("ERROR: Failed to set producer with cmd %s" % (setProdsStr))
             return None

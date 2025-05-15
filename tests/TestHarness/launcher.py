@@ -172,7 +172,7 @@ class cluster_generator:
         parser.add_argument('--bounce', type=comma_separated, help='comma-separated list of node numbers that will be restarted', default=[])
         parser.add_argument('--roll', type=comma_separated, help='comma-separated list of host names where the nodes will be rolled to a new version')
         parser.add_argument('-b', '--base_dir', type=Path, help='base directory where configuration and data files will be written', default=Path('.'))
-        parser.add_argument('--config-dir', type=Path, help='directory containing configuration files such as config.ini', default=Path('etc') / 'eosio')
+        parser.add_argument('--config-dir', type=Path, help='directory containing configuration files such as config.ini', default=Path('etc') / Utils.ProgramRootName)
         parser.add_argument('--data-dir', type=Path, help='name of subdirectory under base-dir where node data will be written', default=Path('var') / 'lib')
         parser.add_argument('-c', '--config', type=Path, help='configuration file name relative to config-dir', default='config.ini')
         parser.add_argument('-v', '--version', action='version', version='%(prog)s 1.0')
@@ -188,11 +188,11 @@ class cluster_generator:
         cfg.add_argument('-s', '--shape', help='network topology, use "star", "mesh", "ring", "line" or give a filename for custom', default='star')
         cfg.add_argument('-g', '--genesis', type=Path, help='set the path to genesis.json', default='./genesis.json')
         cfg.add_argument('--skip-signature', action='store_true', help='do not require transaction signatures', default=False)
-        cfg.add_argument('--' + Utils.EosServerName, help=f'forward {Utils.EosServerName} command line argument(s) to each instance of {Utils.EosServerName}; enclose all arg(s) in quotes')
-        cfg.add_argument('--specific-num', type=int, action='append', dest='specific_nums', default=[], help=f'forward {Utils.EosServerName} command line argument(s) (using "--specific-{Utils.EosServerName}" flag to this specific instance of {Utils.EosServerName}.  This parameter can be entered multiple times and requires a paired "--specific-{Utils.EosServerName}" flag each time it is used.')
-        cfg.add_argument('--specific-' + Utils.EosServerName, action='append', dest=f'specific_{Utils.EosServerName}es', default=[], help=f'forward {Utils.EosServerName} command line argument(s) to its paired specific instance of {Utils.EosServerName} (using "--specific-num"); enclose arg(s) in quotes')
-        cfg.add_argument('--spcfc-inst-num', type=int, action='append', dest='spcfc_inst_nums', default=[], help=f'specify a path to a binary (using "--spcfc-inst-{Utils.EosServerName}" flag) for launching this numbered instance of {Utils.EosServerName}.  This parameter can be entered multiple times and requires a paired "--spcfc-inst-{Utils.EosServerName}" flag each time it is used.')
-        cfg.add_argument('--spcfc-inst-' + Utils.EosServerName, action='append', dest=f'spcfc_inst_{Utils.EosServerName}es', default=[], help=f'path to a binary to launch for the {Utils.EosServerName} instance number specified by the corresponding "--spcfc-inst-num" flag')
+        cfg.add_argument('--node', help=f'forward node command line argument(s) to each instance of node; enclose all arg(s) in quotes')
+        cfg.add_argument('--specific-num', type=int, action='append', dest='specific_nums', default=[], help=f'forward node command line argument(s) (using "--specific-node" flag to this specific instance of node.  This parameter can be entered multiple times and requires a paired "--specific-node" flag each time it is used.')
+        cfg.add_argument('--specific-node', action='append', dest=f'specific_nodes', default=[], help=f'forward node command line argument(s) to its paired specific instance of node (using "--specific-num"); enclose arg(s) in quotes')
+        cfg.add_argument('--spcfc-inst-num', type=int, action='append', dest='spcfc_inst_nums', default=[], help=f'specify a path to a binary (using "--spcfc-inst-node" flag) for launching this numbered instance of node.  This parameter can be entered multiple times and requires a paired "--spcfc-inst-node" flag each time it is used.')
+        cfg.add_argument('--spcfc-inst-node', action='append', dest=f'spcfc_inst_nodes', default=[], help=f'path to a binary to launch for the node instance number specified by the corresponding "--spcfc-inst-num" flag')
         cfg.add_argument('-d', '--delay', type=int, help='seconds delay before starting each node after the first', default=0)
         cfg.add_argument('--boot', action='store_true', help='after deploying the nodes, boot the network', default=False)
         cfg.add_argument('--nogen', action='store_true', help='launch nodes without writing new config files', default=False)
@@ -215,10 +215,10 @@ class cluster_generator:
             r.launch = 'none'
         if r.shape not in ['star', 'mesh', 'ring', 'line'] and not Path(r.shape).is_file():
             parser.error('-s, --shape must be one of "star", "mesh", "ring", "line", or a file')
-        if len(r.specific_nums) != len(getattr(r, f'specific_{Utils.EosServerName}es')):
-            parser.error(f'Count of uses of --specific-num and --specific-{Utils.EosServerName} must match')
-        if len(r.spcfc_inst_nums) != len(getattr(r, f'spcfc_inst_{Utils.EosServerName}es')):
-            parser.error(f'Count of uses of --spcfc-inst-num and --spcfc-inst-{Utils.EosServerName} must match')
+        if len(r.specific_nums) != len(getattr(r, f'specific_nodes')):
+            parser.error(f'Count of uses of --specific-num and --specific-node must match')
+        if len(r.spcfc_inst_nums) != len(getattr(r, f'spcfc_inst_nodes')):
+            parser.error(f'Count of uses of --spcfc-inst-num and --spcfc-inst-node must match')
         r.pnodes += 1 # add one for the bios node
         r.total_nodes += 1
         if r.pnodes > r.producers + 1:
@@ -296,7 +296,7 @@ class cluster_generator:
                                             'PUB_BLS_qVbh4IjYZpRGo8U_0spBUM-u-r_G0fMo4MzLZRsKWmm5uyeQTp74YFaMN9IDWPoVVT5rj_Tw1gvps6K9_OZ6sabkJJzug3uGfjA6qiaLbLh5Fnafwv-nVgzzzBlU2kwRrcHc8Q',
                                             'PVT_BLS_edLoUiiP2FfMem4la3Ek8zxIDjDjOFylRw9ymdeOVCC0CuXN',
                                              'SIG_BLS_L5MXQpJTX_v7cXDy4ML4fWVw_69MKuG5qTq7dD_Zb3Yuw1RbMXBOYXDoAbFF37gFmHudY3kkqXtETLs9nMTjTaTwgdDZWpFy1_csEIZT-xIOQttc76bpZhI67902g2sIDf6JSf9JtbhdTUc_HNbL7H2ZR2bqGS3YPbV5z7x24AR2vwTcJogMqLyy6H5nKQAEwIvXcL15gbs2EkH_ch-IZDdn4F0zUYifpOo-ovXY_CX_yL2rKIx_2a9IHg0pPrMOdfHs9A'))
-                node.producers.append('eosio')
+                node.producers.append(Utils.SysAccount)
             else:
                 node.keys.append(KeyStrings(account.ownerPublicKey, account.ownerPrivateKey, account.blsFinalizerPublicKey, account.blsFinalizerPrivateKey, account.blsFinalizerPOP))
                 if i < non_bios:
@@ -503,7 +503,7 @@ class cluster_generator:
         is_bios = instance.name == 'bios'
 
         if instance.index in self.args.spcfc_inst_nums:
-            eosdcmd = [f"{getattr(self.args, f'spcfc_inst_{Utils.EosServerName}es')[self.args.spcfc_inst_nums.index(instance.index)]}"]
+            eosdcmd = [f"{getattr(self.args, f'spcfc_inst_nodes')[self.args.spcfc_inst_nums.index(instance.index)]}"]
         else:
             eosdcmd = [Utils.NodeServerPath]
 
@@ -537,11 +537,11 @@ class cluster_generator:
 
         if self.args.skip_signature:
             a(eosdcmd, '--skip-transaction-signatures')
-        if getattr(self.args, Utils.EosServerName):
-            eosdcmd.extend(shlex.split(getattr(self.args, Utils.EosServerName)))
+        if getattr(self.args, "node"):
+            eosdcmd.extend(shlex.split(getattr(self.args, "node")))
         if instance.index in self.args.specific_nums:
             i = self.args.specific_nums.index(instance.index)
-            specifics = getattr(self.args, f'specific_{Utils.EosServerName}es')[i]
+            specifics = getattr(self.args, f'specific_nodes')[i]
             if specifics[0] == "'" and specifics[-1] == "'":
                 specificList = shlex.split(specifics[1:-1])
             else:

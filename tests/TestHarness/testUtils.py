@@ -65,11 +65,14 @@ class Utils:
     MiscEosClientArgs="--no-auto-wallet"
 
     SysAccount=str(chain_config.SYSTEM_ACCOUNT_NAME)
+    SysNamePrefix=str(chain_config.SYSTEM_ACCOUNT_PREFIX)
     TokenAccount=str(chain_config.TOKEN_ACCOUNT)
     SpringClientPath=str(testBinPath / chain_config.UTIL_EXECUTABLE_NAME)
 
     EosWalletName=chain_config.KEY_STORE_EXECUTABLE_NAME
     EosWalletPath=str(testBinPath / EosWalletName)
+
+    ProgramRootName=chain_config.PROGRAM_ROOT_NAME
 
     EosServerName=chain_config.NODE_EXECUTABLE_NAME
     NodeServerPath=str(testBinPath / EosServerName)
@@ -85,6 +88,10 @@ class Utils:
     ConfigDir=f"{DataPath}/"
 
     TimeFmt='%Y-%m-%dT%H:%M:%S.%f'
+
+    @staticmethod
+    def makeSysName(name):
+        return Utils.SysNamePrefix + '.' + name
 
     @staticmethod
     def timestamp():
