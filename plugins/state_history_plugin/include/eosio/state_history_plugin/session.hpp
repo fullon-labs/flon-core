@@ -86,7 +86,7 @@ private:
    }
 
    template<typename F>
-   boost::asio::awaitable<void> readwrite_coro_exception_wrapper(F&& f) {
+   boost::asio::awaitable<void> readwrite_coro_exception_wrapper(const char* op, F&& f) {
       coros_running++;
 
       try {
@@ -97,19 +97,19 @@ private:
       }
       catch(fc::exception& e) {
          if(has_logged_exception.test_and_set() == false)
-            fc_ilog(logger, "state history connection from ${a} failed: ${w}", ("a", remote_endpoint_string)("w", e.top_message()));
+            fc_ilog(logger, "state history connection from ${a} ${op} failed: ${w}", ("a", remote_endpoint_string)("op", op)("w", e.top_message()));
       }
       catch(boost::system::system_error& e) {
          if(has_logged_exception.test_and_set() == false)
-            fc_ilog(logger, "state history connection from ${a} failed: ${w}", ("a", remote_endpoint_string)("w", e.code().message()));
+            fc_ilog(logger, "state history connection from ${a} ${op} failed: ${w}", ("a", remote_endpoint_string)("op", op)("w", e.code().message()));
       }
       catch(std::exception& e) {
          if(has_logged_exception.test_and_set() == false)
-            fc_ilog(logger, "state history connection from ${a} failed: ${w}", ("a", remote_endpoint_string)("w", e.what()));
+            fc_ilog(logger, "state history connection from ${a} ${op} failed: ${w}", ("a", remote_endpoint_string)("op", op)("w", e.what()));
       }
       catch(...) {
          if(has_logged_exception.test_and_set() == false)
-            fc_ilog(logger, "state history connection from ${a} failed", ("a", remote_endpoint_string));
+            fc_ilog(logger, "state history connection from ${a} ${op} failed", ("a", remote_endpoint_string)("op", op));
       }
 
       drop_exceptions([this](){ stream.next_layer().close(); });
@@ -117,7 +117,7 @@ private:
    }
 
    boost::asio::awaitable<void> read_loop() {
-      co_await readwrite_coro_exception_wrapper([this]() -> boost::asio::awaitable<void> {
+      co_await readwrite_coro_exception_wrapper("reading", [this]() -> boost::asio::awaitable<void> {
          wake_timer.expires_at(std::chrono::steady_clock::time_point::max());
 
          if constexpr(std::is_same_v<SocketType, boost::asio::ip::tcp::socket>)
@@ -211,7 +211,7 @@ private:
    }
 
    boost::asio::awaitable<void> write_loop() {
-      co_await readwrite_coro_exception_wrapper([this]() -> boost::asio::awaitable<void> {
+      co_await readwrite_coro_exception_wrapper("writing", [this]() -> boost::asio::awaitable<void> {
          get_status_result_v1 current_status_result;
          struct block_package {
             get_blocks_result_base blocks_result_base;
