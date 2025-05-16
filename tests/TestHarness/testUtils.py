@@ -101,6 +101,7 @@ class Utils:
     ConfigDir=f"{DataPath}/"
 
     TimeFmt='%Y-%m-%dT%H:%M:%S.%f'
+    CoreAssetFormat = f'%d.%0{ CoreSymbolPrecision }d %s'
 
     @staticmethod
     def makeSysName(name):
@@ -108,7 +109,9 @@ class Utils:
 
     @staticmethod
     def coreAssetFromAmount(a: int):
-        return f'{a // Utils.CoreAssetBoost}.{a % Utils.CoreAssetBoost} {Utils.CoreSymbolName}'
+        return Utils.CoreAssetFormat % (
+            a // Utils.CoreAssetBoost, a % Utils.CoreAssetBoost, Utils.CoreSymbolName
+        )
 
     @staticmethod
     def coreAssetFrom(s: str):

@@ -1289,7 +1289,7 @@ class Cluster(object):
         transId=Node.getTransId(trans[1])
         biosNode.waitForTransactionInBlock(transId)
 
-        expectedAmount=Utils.coreAssetFrom("1000000000.0000")
+        expectedAmount=Utils.coreAssetFrom("10000000000.0000")
         Utils.Print("Verify token issue, Expected: %s" % (expectedAmount))
         actualAmount=biosNode.getAccountEosBalanceStr(sysAccount.name)
         if expectedAmount != actualAmount:
@@ -1311,7 +1311,7 @@ class Cluster(object):
             Node.validateTransaction(trans)
 
         initialFunds=Utils.coreAssetFrom("1000000.0000")
-        Utils.Print("Transfer initial fund %s to individual accounts." % (initialFunds))
+        Utils.Print(f'Transfer initial fund "{initialFunds}" to individual accounts.')
         trans=None
         contract=sysTokenAccount.name
         action="transfer"
