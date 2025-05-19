@@ -17,7 +17,7 @@
         ],
         "peers": [],
         "producers": [
-          "eosio"
+          "@SYSTEM_ACCOUNT_NAME@"
         ],
         "dont_start": false
       },

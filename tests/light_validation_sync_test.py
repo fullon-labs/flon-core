@@ -48,8 +48,8 @@ try:
     # Create a transaction to create an account
     Utils.Print("create a new account payloadless from the producer node")
     payloadlessAcc = Account("payloadless")
-    payloadlessAcc.ownerPublicKey = "EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV"
-    payloadlessAcc.activePublicKey = "EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV"
+    payloadlessAcc.ownerPublicKey = Utils.SysAccountPubKeyDefault
+    payloadlessAcc.activePublicKey = Utils.SysAccountPubKeyDefault
     producerNode.createAccount(payloadlessAcc, cluster.sysAccount)
 
 

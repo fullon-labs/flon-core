@@ -1,5 +1,5 @@
 {
-  "name": "testnet_", 
+  "name": "testnet_",
   "nodes": {
     "bios": {
       "index": -100,
@@ -17,7 +17,7 @@
         "testnet_00"
       ],
       "producers": [
-        "eosio"
+        "@SYSTEM_ACCOUNT_NAME@"
       ],
       "dont_start": false,
       "p2p_port": 9776,
@@ -25,7 +25,7 @@
       "host_name": "localhost",
       "public_name": "localhost",
       "listen_addr": "0.0.0.0",
-      "_dot_label": "localhost:9776\nbios\nprod=eosio"
+      "_dot_label": "localhost:9776\nbios\nprod=@SYSTEM_ACCOUNT_NAME@"
     },
     "testnet_00": {
       "index": 0,

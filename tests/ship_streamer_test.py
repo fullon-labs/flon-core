@@ -100,8 +100,8 @@ try:
 
     Print("Create a jumbo row")
     jumboAcc = Account("itsjumbotime")
-    jumboAcc.ownerPublicKey = "EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV"
-    jumboAcc.activePublicKey = "EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV"
+    jumboAcc.ownerPublicKey = Utils.SysAccountPubKeyDefault
+    jumboAcc.activePublicKey = Utils.SysAccountPubKeyDefault
     nonProdNode.createAccount(jumboAcc, cluster.sysAccount)
 
     contract = "jumborow"
