@@ -65,8 +65,8 @@ try:
         abs_path = str(Utils.SysContractsDir / Utils.TokenAccount / f'{Utils.TokenAccount}.abi')
         tracenodeArgs=f" --http-max-response-time-ms 990000 --trace-rpc-abi {Utils.TokenAccount}=" + abs_path
         extraNodeArgs=tracenodeArgs + " --plugin eosio::prometheus_plugin --database-map-mode mapped_private "
-        specificnodeInstances={0: Utils.NodeServerPath}
-        if cluster.launch(totalNodes=total_nodes, pnodes=pnodes, topo=topo, prodCount=prodCount, activateIF=activateIF, onlyBios=onlyBios, dontBootstrap=dontBootstrap, extraNodeArgs=extraNodeArgs, specificnodeInstances=specificnodeInstances) is False:
+        specificNodeInstances={0: Utils.NodeServerPath}
+        if cluster.launch(totalNodes=total_nodes, pnodes=pnodes, topo=topo, prodCount=prodCount, activateIF=activateIF, onlyBios=onlyBios, dontBootstrap=dontBootstrap, extraNodeArgs=extraNodeArgs, specificNodeInstances=specificNodeInstances) is False:
             cmdError("launcher")
             errorExit("Failed to stand up eos cluster.")
     else:
@@ -211,10 +211,10 @@ try:
     transId=node.createInitializeAccount(testerbAccount, cluster.defproduceraAccount, fund=0, waitForTransBlock=False, exitOnError=True)
 
     Print("Create new account %s via %s" % (currencyAccount.name, cluster.defproduceraAccount.name))
-    transId=node.createInitializeAccount(currencyAccount, cluster.defproduceraAccount, buyGas=2.0, fund=5.0, exitOnError=True)
+    transId=node.createInitializeAccount(currencyAccount, cluster.defproduceraAccount, buyGas=20.0000, fund=0.5000, exitOnError=True)
 
     Print("Create new account %s via %s" % (exchangeAccount.name, cluster.defproduceraAccount.name))
-    transId=node.createInitializeAccount(exchangeAccount, cluster.defproduceraAccount, buyGas=2.0, waitForTransBlock=True, exitOnError=True)
+    transId=node.createInitializeAccount(exchangeAccount, cluster.defproduceraAccount, buyGas=20.0000, waitForTransBlock=True, exitOnError=True)
 
     Print("Validating accounts after user accounts creation")
     accounts=[testeraAccount, currencyAccount, exchangeAccount]
@@ -305,7 +305,7 @@ try:
     if hashNum != 0:
         errorExit("FAILURE - get code currency1111 failed", raw=True)
 
-    contractDir=str(Utils.SysContractsDir /{Utils.TokenAccount})
+    contractDir=str(Utils.SysContractsDir / Utils.TokenAccount)
     wasmFile=f"{Utils.TokenAccount}.wasm"
     abiFile=f"{Utils.TokenAccount}.abi"
     Print("Publish contract")
