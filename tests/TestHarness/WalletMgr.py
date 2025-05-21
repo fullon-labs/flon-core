@@ -175,19 +175,22 @@ class WalletMgr(object):
 
     def importKey(self, account, wallet, ignoreDupKeyWarning=False):
         warningMsg="Key already in wallet"
-        cmd="%s %s wallet import --name %s --private-key %s" % (
-            Utils.ClientPath, self.getArgs(), wallet.name, account.ownerPrivateKey)
-        if Utils.Debug: Utils.Print("cmd: %s" % (cmd))
-        try:
-            Utils.checkOutput(cmd.split())
-        except subprocess.CalledProcessError as ex:
-            msg=ex.stderr.decode("utf-8")
-            if warningMsg in msg:
-                if not ignoreDupKeyWarning:
-                    Utils.Print("WARNING: This key is already imported into the wallet.")
-            else:
-                Utils.Print("ERROR: Failed to import account owner key %s. %s" % (account.ownerPrivateKey, msg))
-                return False
+        if account.ownerPrivateKey is None:
+            Utils.Print("WARNING: Owner private key is not defined for account \"%s\"" % (account.name))
+        else:
+            cmd="%s %s wallet import --name %s --private-key %s" % (
+                Utils.ClientPath, self.getArgs(), wallet.name, account.ownerPrivateKey)
+            if Utils.Debug: Utils.Print("cmd: %s" % (cmd))
+            try:
+                Utils.checkOutput(cmd.split())
+            except subprocess.CalledProcessError as ex:
+                msg=ex.stderr.decode("utf-8")
+                if warningMsg in msg:
+                    if not ignoreDupKeyWarning:
+                        Utils.Print("WARNING: This key is already imported into the wallet.")
+                else:
+                    Utils.Print("ERROR: Failed to import account owner key %s. %s" % (account.ownerPrivateKey, msg))
+                    return False
 
         if account.activePrivateKey is None:
             Utils.Print("WARNING: Active private key is not defined for account \"%s\"" % (account.name))
