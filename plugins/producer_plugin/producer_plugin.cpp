@@ -707,6 +707,7 @@ public:
    fc::microseconds                                  _max_irreversible_block_age_us;
    block_num_type                                    _max_reversible_blocks{0};
    // produce-block-offset is in terms of the complete round, internally use calculated value for each block of round
+   bool                                              _enable_block_time_strategy                  = true;
    fc::microseconds                                  _produce_block_cpu_effort;
    fc::time_point                                    _pending_block_deadline;
    uint32_t                                          _max_block_cpu_usage_threshold_us            = 0;
@@ -831,8 +832,37 @@ public:
    }
 
    fc::microseconds get_produce_block_offset() const {
-      return fc::milliseconds( (config::block_interval_ms * config::producer_repetitions) -
-                               ((_produce_block_cpu_effort.count() / 1000) * config::producer_repetitions) );
+      return fc::milliseconds( ( (config::block_interval_us - _produce_block_cpu_effort.count()) * config::producer_repetitions / 1000 ) );
+   }
+
+   fc::time_point calculate_producing_block_deadline(chain::block_timestamp_type block_time) {
+      if (_enable_block_time_strategy) {
+         return block_timing_util::calculate_producing_block_deadline(_produce_block_cpu_effort, block_time);
+      } else {
+         return block_time.to_time_point() + get_produce_block_offset();
+      }
+   }
+
+   // Return the *next* block start time according to its block time slot.
+   // Returns empty optional if no producers are in the active_schedule.
+   // block_num is only used for watermark minimum offset.
+   inline std::optional<fc::time_point> calculate_producer_wake_up_time(fc::microseconds cpu_effort, uint32_t block_num,
+                                                                        const chain::block_timestamp_type& ref_block_time,
+                                                                        const std::set<chain::account_name>& producers,
+                                                                        const std::vector<chain::producer_authority>& active_schedule,
+                                                                        const block_timing_util::producer_watermarks& prod_watermarks) {
+
+      auto wake_up_slot = calculate_producer_wake_slot(block_num, ref_block_time, producers, active_schedule, prod_watermarks);
+
+      if (!wake_up_slot) {
+         return std::nullopt;
+      }
+
+      if (_enable_block_time_strategy) {
+         return block_timing_util::calculate_producer_wake_up_time(cpu_effort, *wake_up_slot);
+      } else {
+         return chain::block_timestamp_type(*wake_up_slot).to_time_point();
+      }
    }
 
    bool implicitly_paused() const {
@@ -1288,6 +1318,8 @@ void producer_plugin::set_program_options(
           #endif//ENABLE_GREYLIST_LIMIT
          ("produce-block-offset-ms", bpo::value<uint32_t>()->default_value(config::default_produce_block_offset_ms),
           "The minimum time to reserve at the end of a production round for blocks to propagate to the next block producer.")
+         ("enable-block-time-strategy", bpo::value<bool>()->default_value(true),
+          "Enable block time strategy.")
          ("max-block-cpu-usage-threshold-us", bpo::value<uint32_t>()->default_value( 5000 ),
           "Threshold of CPU block production to consider block full; when within threshold of max-block-cpu-usage block can be produced immediately")
          ("max-block-net-usage-threshold-bytes", bpo::value<uint32_t>()->default_value( 1024 ),
@@ -1389,6 +1421,7 @@ void producer_plugin_impl::plugin_initialize(const boost::program_options::varia
                                                subjective_account_max_failures_window_size);
 
    set_produce_block_offset(options.at("produce-block-offset-ms").as<uint32_t>());
+   _enable_block_time_strategy = options.at("enable-block-time-strategy").as<bool>();
 
    _max_block_cpu_usage_threshold_us = options.at("max-block-cpu-usage-threshold-us").as<uint32_t>();
    EOS_ASSERT(_max_block_cpu_usage_threshold_us < config::block_interval_us,
@@ -2168,7 +2201,7 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
 
    // Calculate block deadline for both produced blocks and speculative blocks. Even though speculative blocks are
    // ephemeral, re-start them at block intervals so that speculative transactions execute with current block times.
-   _pending_block_deadline = block_timing_util::calculate_producing_block_deadline(_produce_block_cpu_effort, block_time);
+   _pending_block_deadline = calculate_producing_block_deadline(block_time);
    if (in_speculating_mode()) { // if we are producing, then produce block even if deadline has passed
       // For a speculative block there is no reason to start a block that will immediately be re-started.
       // Normally a block should come in during this time; if not, create a speculative block every block_interval_ms.
@@ -2808,9 +2841,9 @@ void producer_plugin_impl::schedule_production_loop() {
       if (!_producers.empty() && !production_disabled_by_policy()) {
          chain::controller& chain = chain_plug->chain();
          fc_dlog(_log, "Waiting till another block is received and scheduling Speculative/Production Change");
-         auto wake_time = block_timing_util::calculate_producer_wake_up_time(_produce_block_cpu_effort, chain.head().block_num(), calculate_pending_block_time(),
-                                                                             _producers, chain.head_active_producers().producers,
-                                                                             _producer_watermarks);
+         auto wake_time = calculate_producer_wake_up_time(_produce_block_cpu_effort, chain.head().block_num(), calculate_pending_block_time(),
+                                                         _producers, chain.head_active_producers().producers,
+                                                         _producer_watermarks);
          schedule_delayed_production_loop(weak_from_this(), wake_time);
       } else {
          fc_tlog(_log, "Waiting till another block is received");
@@ -2827,9 +2860,9 @@ void producer_plugin_impl::schedule_production_loop() {
       chain::controller& chain = chain_plug->chain();
       fc_dlog(_log, "Speculative Block Created; Scheduling Speculative/Production Change");
       EOS_ASSERT(chain.is_building_block(), missing_pending_block_state, "speculating without pending_block_state");
-      auto wake_time = block_timing_util::calculate_producer_wake_up_time(fc::microseconds{config::block_interval_us}, chain.pending_block_num(), chain.pending_block_timestamp(),
-                                                                          _producers, chain.head_active_producers().producers,
-                                                                          _producer_watermarks);
+      auto wake_time = calculate_producer_wake_up_time(fc::microseconds{config::block_interval_us}, chain.pending_block_num(), chain.pending_block_timestamp(),
+                                                       _producers, chain.head_active_producers().producers,
+                                                       _producer_watermarks);
       if (wake_time && fc::time_point::now() > *wake_time) {
          // if wake time has already passed then use the block deadline instead
          wake_time = _pending_block_deadline;
@@ -2848,7 +2881,7 @@ void producer_plugin_impl::schedule_maybe_produce_block(bool exhausted) {
    assert(in_producing_mode());
    // we succeeded but block may be exhausted
    static const boost::posix_time::ptime epoch(boost::gregorian::date(1970, 1, 1));
-   auto deadline = block_timing_util::calculate_producing_block_deadline(_produce_block_cpu_effort, chain.pending_block_time());
+   auto deadline = calculate_producing_block_deadline(chain.pending_block_time());
 
    if (!exhausted && deadline > fc::time_point::now()) {
       // ship this block off no later than its deadline

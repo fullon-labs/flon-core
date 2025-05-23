@@ -106,14 +106,14 @@ namespace block_timing_util {
       }
    }
 
-   // Return the *next* block start time according to its block time slot.
+   // Return the *next* block time slot.
    // Returns empty optional if no producers are in the active_schedule.
    // block_num is only used for watermark minimum offset.
-   inline std::optional<fc::time_point> calculate_producer_wake_up_time(fc::microseconds cpu_effort, uint32_t block_num,
-                                                                        const chain::block_timestamp_type& ref_block_time,
-                                                                        const std::set<chain::account_name>& producers,
-                                                                        const std::vector<chain::producer_authority>& active_schedule,
-                                                                        const producer_watermarks& prod_watermarks) {
+   inline std::optional<uint32_t> calculate_producer_wake_slot(uint32_t block_num,
+                                                               const chain::block_timestamp_type& ref_block_time,
+                                                               const std::set<chain::account_name>& producers,
+                                                               const std::vector<chain::producer_authority>& active_schedule,
+                                                               const producer_watermarks& prod_watermarks) {
       auto ref_block_slot = ref_block_time.slot;
       // if we have any producers then we should at least set a timer for our next available slot
       uint32_t wake_up_slot = UINT32_MAX;
@@ -129,10 +129,32 @@ namespace block_timing_util {
          wake_up_slot                  = std::min(next_producer_block_slot, wake_up_slot);
       }
       if (wake_up_slot == UINT32_MAX) {
-         return {};
+         return std::nullopt;
+      } else {
+         return wake_up_slot;
       }
+   }
 
+   // Return the *next* block start time according to its block time slot.
+   // Returns empty optional if no producers are in the active_schedule.
+   // block_num is only used for watermark minimum offset.
+   inline std::optional<fc::time_point> calculate_producer_wake_up_time(fc::microseconds cpu_effort, uint32_t wake_up_slot) {
       return production_round_block_start_time(cpu_effort, chain::block_timestamp_type(wake_up_slot));
+   }
+
+   inline std::optional<fc::time_point> calculate_producer_wake_up_time(fc::microseconds cpu_effort, uint32_t block_num,
+                                                                        const chain::block_timestamp_type& ref_block_time,
+                                                                        const std::set<chain::account_name>& producers,
+                                                                        const std::vector<chain::producer_authority>& active_schedule,
+                                                                        const producer_watermarks& prod_watermarks) {
+
+      auto wake_up_slot = calculate_producer_wake_slot(block_num, ref_block_time, producers, active_schedule, prod_watermarks);
+
+      if (wake_up_slot) {
+         return production_round_block_start_time(cpu_effort, chain::block_timestamp_type(*wake_up_slot));
+      } else {
+         return std::nullopt;
+      }
    }
 
 } // namespace block_timing_util
