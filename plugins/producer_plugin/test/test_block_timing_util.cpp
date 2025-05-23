@@ -39,12 +39,15 @@ BOOST_AUTO_TEST_CASE(test_calculate_block_deadline) {
       // In producing mode, the deadline of a block will be ahead of its block_time from 100, 200, 300, ...ms,
       // depending on the its index to the starting block of a production round. These deadlines are referred
       // as optimized deadlines.
-      fc::mock_time_traits::set_now(production_round_1st_block_time - block_interval + fc::milliseconds(10));
+      auto now = production_round_1st_block_time - block_interval + fc::milliseconds(10);
+      fc::mock_time_traits::set_now(now);
+      idump((production_round_1st_block_time)(now)(block_interval - fc::milliseconds(10)));
       for (int i = 0; i < eosio::chain::config::producer_repetitions; ++i) {
          auto block_time        = eosio::chain::block_timestamp_type(production_round_1st_block_slot + i);
          auto expected_deadline = block_time.to_time_point() - fc::milliseconds((i + 1) * 100);
-         BOOST_CHECK_EQUAL(calculate_producing_block_deadline(cpu_effort, block_time),
-                           expected_deadline);
+         auto calc_deadline = calculate_producing_block_deadline(cpu_effort, block_time);
+         idump((i)(fc::milliseconds((i + 1) * 100))(block_time)(calc_deadline)(expected_deadline));
+         BOOST_CHECK_EQUAL(calc_deadline, expected_deadline);
          fc::mock_time_traits::set_now(expected_deadline);
       }
    }
