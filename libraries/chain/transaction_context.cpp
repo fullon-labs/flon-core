@@ -217,7 +217,6 @@ namespace eosio::chain {
                   RES_TRACE("Using account_cpu_limit ${acl} in transaction_context.init()",
                      ("acl", account_cpu_limit)("deadline", _deadline));
                }
-               wdump((bill_to_account)(convertible_gas)(reserved_gas)(billed_cpu_time_us)(gas_limit)(available_gas)(used_gas)(account_cpu_limit)(subjective_cpu_bill_us));
 
                if( subjective_cpu_bill_us > 0) {
                   EOS_ASSERT( account_cpu_limit >= (uint64_t)subjective_cpu_bill_us,
