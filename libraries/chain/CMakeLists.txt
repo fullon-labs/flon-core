@@ -16,7 +16,7 @@ else()
    endif()
 endif()
 
-if("eos-vm-oc" IN_LIST EOSIO_WASM_RUNTIMES)
+if("eos-vm-oc" IN_LIST CHAIN_WASM_RUNTIMES)
    enable_language(ASM)
    set(CHAIN_EOSVMOC_SOURCES webassembly/runtimes/eos-vm-oc/code_cache.cpp
                              webassembly/runtimes/eos-vm-oc/executor.cpp
@@ -50,10 +50,10 @@ if("eos-vm-oc" IN_LIST EOSIO_WASM_RUNTIMES)
    include_directories(SYSTEM ${LLVM_INCLUDE_DIRS})
    add_definitions(${LLVM_DEFINITIONS})
 
-   option(EOSVMOC_ENABLE_DEVELOPER_OPTIONS "enable developer options for EOS VM OC" OFF)
+   option(CHAIN_VMOC_ENABLE_DEVELOPER_OPTIONS "enable developer options for EOS VM OC" OFF)
 endif()
 
-if("eos-vm" IN_LIST EOSIO_WASM_RUNTIMES OR "eos-vm-jit" IN_LIST EOSIO_WASM_RUNTIMES)
+if("eos-vm" IN_LIST CHAIN_WASM_RUNTIMES OR "eos-vm-jit" IN_LIST CHAIN_WASM_RUNTIMES)
    set(CHAIN_EOSVM_SOURCES "webassembly/runtimes/eos-vm.cpp")
    set(CHAIN_EOSVM_LIBRARIES eos-vm)
 endif()
@@ -166,18 +166,18 @@ target_include_directories( eosio_chain
 add_library(eosio_chain_wrap INTERFACE )
 target_link_libraries(eosio_chain_wrap INTERFACE eosio_chain)
 
-if("eos-vm-oc" IN_LIST EOSIO_WASM_RUNTIMES)
+if("eos-vm-oc" IN_LIST CHAIN_WASM_RUNTIMES)
    target_link_libraries(eosio_chain_wrap INTERFACE "-Wl,-wrap=main")
 endif()
 
-foreach(RUNTIME ${EOSIO_WASM_RUNTIMES})
+foreach(RUNTIME ${CHAIN_WASM_RUNTIMES})
    string(TOUPPER "${RUNTIME}" RUNTIMEUC)
    string(REPLACE "-" "_" RUNTIMEUC ${RUNTIMEUC})
    target_compile_definitions(eosio_chain PUBLIC "EOSIO_${RUNTIMEUC}_RUNTIME_ENABLED")
 endforeach()
 
-if(EOSVMOC_ENABLE_DEVELOPER_OPTIONS)
-   message(WARNING "EOS VM OC Developer Options are enabled; these are NOT supported")
+if(CHAIN_VMOC_ENABLE_DEVELOPER_OPTIONS)
+   message(WARNING "Chain VM OC Developer Options are enabled; these are NOT supported")
    target_compile_definitions(eosio_chain PUBLIC EOSIO_EOS_VM_OC_DEVELOPER)
 endif()
 

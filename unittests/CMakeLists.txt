@@ -111,7 +111,7 @@ foreach(TEST_SUITE ${UNIT_TESTS}) # create an independent target for each test s
     if (NOT "" STREQUAL "${SUITE_NAME}") # ignore empty lines
       execute_process(COMMAND sh -c "echo ${SUITE_NAME} | sed -e 's/s$//' | sed -e 's/_test$//'" OUTPUT_VARIABLE TRIMMED_SUITE_NAME OUTPUT_STRIP_TRAILING_WHITESPACE) # trim "_test" or "_tests" from the end of ${SUITE_NAME}
       # to run unit_test with all log from blockchain displayed, put "--verbose" after "--", i.e. "unit_test -- --verbose"
-      foreach(RUNTIME ${EOSIO_WASM_RUNTIMES})
+      foreach(RUNTIME ${CHAIN_WASM_RUNTIMES})
         add_test(NAME ${TRIMMED_SUITE_NAME}_unit_test_${RUNTIME} COMMAND unit_test --run_test=${SUITE_NAME} --report_level=detailed --color_output -- --${RUNTIME})
         # build list of tests to run during coverage testing
         if(ctest_tests)
@@ -126,7 +126,7 @@ set(ctest_tests "'${ctest_tests}' -j8") # surround test list string in apostroph
 
 # The following tests are known to take the longest, bump up their cost (priority) so that they'll run first
 # even on fresh first time test runs before ctest auto-detects costs
-foreach(RUNTIME ${EOSIO_WASM_RUNTIMES})
+foreach(RUNTIME ${CHAIN_WASM_RUNTIMES})
    set_tests_properties(api_part1_unit_test_${RUNTIME} PROPERTIES COST 5000)
    set_tests_properties(api_part2_unit_test_${RUNTIME} PROPERTIES COST 5000)
    set_tests_properties(api_part3_unit_test_${RUNTIME} PROPERTIES COST 5000)
@@ -147,7 +147,7 @@ endforeach()
 
 ### COVERAGE TESTING ###
 if(ENABLE_COVERAGE_TESTING)
-  set(Coverage_NAME ${PROJECT_NAME}_ut_coverage)
+  set(Coverage_NAME chain_ut_coverage)
   # check for dependencies
   if(NOT LCOV_PATH)
     message(FATAL_ERROR "lcov not found! Aborting...")

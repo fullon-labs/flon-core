@@ -51,7 +51,7 @@ set(CPACK_DEBIAN_PACKAGE_CONFLICTS "eosio, mandel, leap")
 set(CPACK_RPM_PACKAGE_CONFLICTS "eosio, mandel, leap")
 
 set(CPACK_COMPONENTS_ALL "base")
-if(ENABLE_FULLON_DEV_DEB)
+if(ENABLE_PROJECT_DEV_DEB)
    list(APPEND CPACK_COMPONENTS_ALL "dev")
 endif()
 

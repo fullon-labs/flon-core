@@ -11,6 +11,8 @@ using mvo = fc::mutable_variant_object;
 
 BOOST_AUTO_TEST_SUITE(eosvmoc_limits_tests)
 
+static const name token_name = config::token_account_name;
+
 // common routine to verify wasm_execution_error is raised when a resource
 // limit specified in eosvmoc_config is reached
 void limit_violated_test(const eosvmoc::config& eosvmoc_config) {

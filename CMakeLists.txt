@@ -52,25 +52,25 @@ set(ENABLE_MULTIVERSION_PROTOCOL_TEST FALSE CACHE BOOL "Enable node multiversion
 option(ENABLE_OC "Enable eosvm-oc on supported platforms" ON)
 
 # WASM runtimes to enable. Each runtime in this list will have:
-#  * definition flon_<RUNTIME>_RUNTIME_ENABLED defined in public libchain interface
+#  * definition PROJECT_<RUNTIME>_RUNTIME_ENABLED defined in public libchain interface
 #  * ctest entries with --runtime
 if(ENABLE_OC AND CMAKE_SIZEOF_VOID_P EQUAL 8 AND NOT WIN32)
    if("${CMAKE_SYSTEM_NAME}" STREQUAL "Linux" AND "${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "x86_64")
-      list(APPEND flon_WASM_RUNTIMES eos-vm-oc)
+      list(APPEND CHAIN_WASM_RUNTIMES eos-vm-oc)
       # EOS VM OC requires LLVM, but move the check up here to a central location so that the ProjectTester.cmakes
       # can be created with the exact version found
       find_package(LLVM REQUIRED CONFIG)
       if(LLVM_VERSION_MAJOR VERSION_LESS 7 OR LLVM_VERSION_MAJOR VERSION_GREATER_EQUAL 16)
-	      message(FATAL_ERROR "fullon requires an LLVM version 7 through 15")
+	      message(FATAL_ERROR "${PROJECT_NAME} requires an LLVM version 7 through 15")
       endif()
    endif()
 endif()
 
 if(CMAKE_SIZEOF_VOID_P EQUAL 8 AND NOT WIN32)
    if(CMAKE_SYSTEM_PROCESSOR STREQUAL x86_64 OR CMAKE_SYSTEM_PROCESSOR STREQUAL amd64)
-      list(APPEND EOSIO_WASM_RUNTIMES eos-vm eos-vm-jit)
+      list(APPEND CHAIN_WASM_RUNTIMES eos-vm eos-vm-jit)
    else()
-      list(APPEND EOSIO_WASM_RUNTIMES eos-vm)
+      list(APPEND CHAIN_WASM_RUNTIMES eos-vm)
    endif()
 endif()
 
@@ -89,12 +89,12 @@ endif()
 
 if( APPLE AND UNIX )
 # Apple Specific Options Here
-    message( STATUS "Configuring fullon on macOS" )
+    message( STATUS "Configuring ${PROJECT_NAME} on macOS" )
     set( CMAKE_C_FLAGS   "${CMAKE_C_FLAGS}   -Wall -Wno-deprecated-declarations" )
     set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wno-deprecated-declarations" )
 else()
     # Linux Specific Options Here
-    message( STATUS "Configuring fullon on Linux" )
+    message( STATUS "Configuring ${PROJECT_NAME} on Linux" )
     set( CMAKE_C_FLAGS   "${CMAKE_C_FLAGS}   -Wall" )
     set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall" )
     if ( FULL_STATIC_BUILD )
@@ -118,13 +118,13 @@ if(ENABLE_WEXTRA)
 endif()
 
 
-option(FLON_ENABLE_DEVELOPER_OPTIONS "enable developer options for fullon" OFF)
+option(PROJECT_ENABLE_DEVELOPER_OPTIONS "enable developer options for ${PROJECT_NAME}" OFF)
 
 # based on http://www.delorie.com/gnu/docs/gdb/gdb_70.html
 # uncomment this line to tell GDB about macros (slows compile times)
 # set( CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -gdwarf-2 -g3" )
 
-set(ENABLE_COVERAGE_TESTING FALSE CACHE BOOL "Build fullon for code coverage analysis")
+set(ENABLE_COVERAGE_TESTING FALSE CACHE BOOL "Build ${PROJECT_NAME} for code coverage analysis")
 
 if(ENABLE_COVERAGE_TESTING)
   SET(CMAKE_C_FLAGS   "--coverage ${CMAKE_C_FLAGS}")
@@ -168,7 +168,7 @@ message( STATUS "Using '${SYSTEM_ROOT_KEY}' as public key for '${SYSTEM_ACCOUNT_
 option(ENABLE_TCMALLOC "use tcmalloc (requires gperftools)" OFF)
 if( ENABLE_TCMALLOC )
     find_package( Gperftools REQUIRED )
-    message( STATUS "Compiling fullon with TCMalloc")
+    message( STATUS "Compiling ${PROJECT_NAME} with TCMalloc")
     #if doing this by the book, simply link_libraries( ${GPERFTOOLS_TCMALLOC} ) here. That will
     #give the performance benefits of tcmalloc but since it won't be linked last
     #the heap profiler & checker may not be accurate. This here is rather undocumented behavior
@@ -177,7 +177,7 @@ if( ENABLE_TCMALLOC )
     set(CMAKE_CXX_STANDARD_LIBRARIES "${CMAKE_CXX_STANDARD_LIBRARIES} ${GPERFTOOLS_TCMALLOC}")
 endif()
 
-# fullon includes a bundled BoringSSL which conflicts with OpenSSL. Make sure any other bundled libraries (such as boost)
+# project includes a bundled BoringSSL which conflicts with OpenSSL. Make sure any other bundled libraries (such as boost)
 # do not attempt to use an external OpenSSL in any manner
 set(CMAKE_DISABLE_FIND_PACKAGE_OpenSSL On)
 
@@ -209,63 +209,46 @@ else()
   message(STATUS "Tests will not be built. To build tests, set BUILD_TESTS to ON.")
 endif()
 
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/flon.version.in ${CMAKE_CURRENT_BINARY_DIR}/flon.version.hpp)
-install(FILES ${CMAKE_CURRENT_BINARY_DIR}/flon.version.hpp DESTINATION ${CMAKE_INSTALL_FULL_INCLUDEDIR} COMPONENT dev EXCLUDE_FROM_ALL)
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/project.version.in ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}.version.hpp)
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}.version.hpp DESTINATION ${CMAKE_INSTALL_FULL_INCLUDEDIR} COMPONENT dev EXCLUDE_FROM_ALL)
 
-set(EOS_ROOT_DIR "${CMAKE_BINARY_DIR}/lib")
-# legacy flon CMake files
-# configure_file(${CMAKE_SOURCE_DIR}/CMakeModules/flon-config.cmake.in ${CMAKE_BINARY_DIR}/lib/cmake/flon/flon-config.cmake @ONLY)
-# configure_file(${CMAKE_SOURCE_DIR}/CMakeModules/FlonTesterBuild.cmake.in ${CMAKE_BINARY_DIR}/lib/cmake/flon/flonTester.cmake @ONLY)
-# configure_file(${CMAKE_SOURCE_DIR}/CMakeModules/FlonCheckVersion.cmake ${CMAKE_BINARY_DIR}/lib/cmake/flon/FlonCheckVersion.cmake COPYONLY)
-# legacy leap CMake files
-# configure_file(${CMAKE_SOURCE_DIR}/CMakeModules/leap-config.cmake.in ${CMAKE_BINARY_DIR}/lib/cmake/leap/leap-config.cmake @ONLY)
-# configure_file(${CMAKE_SOURCE_DIR}/CMakeModules/FlonTesterBuild.cmake.in ${CMAKE_BINARY_DIR}/lib/cmake/leap/flonTester.cmake @ONLY)
-# configure_file(${CMAKE_SOURCE_DIR}/CMakeModules/FlonCheckVersion.cmake ${CMAKE_BINARY_DIR}/lib/cmake/leap/FlonCheckVersion.cmake COPYONLY)
-# ${PROJECT_NAME} CMake files
-configure_file(${CMAKE_SOURCE_DIR}/CMakeModules/project-config.cmake.in ${CMAKE_BINARY_DIR}/lib/cmake/${PROJECT_NAME}/${PROJECT_NAME}-config.cmake @ONLY)
-configure_file(${CMAKE_SOURCE_DIR}/CMakeModules/FlonTesterBuild.cmake.in ${CMAKE_BINARY_DIR}/lib/cmake/${PROJECT_NAME}/flonTester.cmake @ONLY)
-configure_file(${CMAKE_SOURCE_DIR}/CMakeModules/FlonCheckVersion.cmake ${CMAKE_BINARY_DIR}/lib/cmake/${PROJECT_NAME}/FlonCheckVersion.cmake COPYONLY)
+set(PROJECT_LIB_ROOT_DIR "${CMAKE_BINARY_DIR}/lib")
+configure_file(${CMAKE_SOURCE_DIR}/CMakeModules/ChainCore-config.cmake.in ${CMAKE_BINARY_DIR}/lib/cmake/${PROJECT_NAME}/${PROJECT_NAME}-config.cmake @ONLY)
+configure_file(${CMAKE_SOURCE_DIR}/CMakeModules/ChainCoreTesterBuild.cmake.in ${CMAKE_BINARY_DIR}/lib/cmake/${PROJECT_NAME}/ChainCoreTester.cmake @ONLY)
+configure_file(${CMAKE_SOURCE_DIR}/CMakeModules/ChainCoreCheckVersion.cmake ${CMAKE_BINARY_DIR}/lib/cmake/${PROJECT_NAME}/ChainCoreCheckVersion.cmake COPYONLY)
 
-set(EOS_ROOT_DIR "${CMAKE_INSTALL_FULL_LIBDIR}")
-# configure_file(${CMAKE_SOURCE_DIR}/CMakeModules/flonTester.cmake.in ${CMAKE_BINARY_DIR}/modules/flonTester.cmake @ONLY)
-# # legacy flon CMake files
-# configure_file(${CMAKE_SOURCE_DIR}/CMakeModules/flon-config.cmake.in ${CMAKE_BINARY_DIR}/modules/flon-config.cmake @ONLY)
-# install(FILES ${CMAKE_BINARY_DIR}/modules/flon-config.cmake DESTINATION ${CMAKE_INSTALL_FULL_LIBDIR}/cmake/flon COMPONENT dev EXCLUDE_FROM_ALL)
-# install(FILES ${CMAKE_BINARY_DIR}/modules/flonTester.cmake DESTINATION ${CMAKE_INSTALL_FULL_LIBDIR}/cmake/flon COMPONENT dev EXCLUDE_FROM_ALL)
-# install(FILES ${CMAKE_SOURCE_DIR}/CMakeModules/FlonCheckVersion.cmake DESTINATION ${CMAKE_INSTALL_FULL_LIBDIR}/cmake/flon COMPONENT dev EXCLUDE_FROM_ALL)
-# # legacy leap CMake files
-# configure_file(${CMAKE_SOURCE_DIR}/CMakeModules/leap-config.cmake.in ${CMAKE_BINARY_DIR}/modules/leap-config.cmake @ONLY)
-# install(FILES ${CMAKE_BINARY_DIR}/modules/leap-config.cmake DESTINATION ${CMAKE_INSTALL_FULL_LIBDIR}/cmake/leap COMPONENT dev EXCLUDE_FROM_ALL)
-# install(FILES ${CMAKE_BINARY_DIR}/modules/flonTester.cmake DESTINATION ${CMAKE_INSTALL_FULL_LIBDIR}/cmake/leap COMPONENT dev EXCLUDE_FROM_ALL)
-# install(FILES ${CMAKE_SOURCE_DIR}/CMakeModules/FlonCheckVersion.cmake DESTINATION ${CMAKE_INSTALL_FULL_LIBDIR}/cmake/leap COMPONENT dev EXCLUDE_FROM_ALL)
-# fullon CMake files
-configure_file(${CMAKE_SOURCE_DIR}/CMakeModules/project-config.cmake.in ${CMAKE_BINARY_DIR}/modules/${PROJECT_NAME}-config.cmake @ONLY)
-install(FILES ${CMAKE_BINARY_DIR}/modules/${PROJECT_NAME}-config.cmake DESTINATION ${CMAKE_INSTALL_FULL_LIBDIR}/cmake/${PROJECT_NAME} COMPONENT dev EXCLUDE_FROM_ALL)
-install(FILES ${CMAKE_BINARY_DIR}/modules/flonTester.cmake DESTINATION ${CMAKE_INSTALL_FULL_LIBDIR}/cmake/${PROJECT_NAME} COMPONENT dev EXCLUDE_FROM_ALL)
-install(FILES ${CMAKE_SOURCE_DIR}/CMakeModules/FlonCheckVersion.cmake DESTINATION ${CMAKE_INSTALL_FULL_LIBDIR}/cmake/${PROJECT_NAME} COMPONENT dev EXCLUDE_FROM_ALL)
+set(PROJECT_LIB_ROOT_DIR "${CMAKE_INSTALL_FULL_LIBDIR}")
+configure_file(${CMAKE_SOURCE_DIR}/CMakeModules/ChainCore-config.cmake.in ${CMAKE_BINARY_DIR}/modules/ChainCore-config.cmake @ONLY)
+configure_file(${CMAKE_SOURCE_DIR}/CMakeModules/ChainCoreTesterBuild.cmake.in ${CMAKE_BINARY_DIR}/modules/ChainCoreTester.cmake @ONLY)
+configure_file(${CMAKE_SOURCE_DIR}/CMakeModules/ChainCoreCheckVersion.cmake ${CMAKE_BINARY_DIR}/modules/ChainCoreCheckVersion.cmake COPYONLY)
 
-configure_file(LICENSE                                                     licenses/fullon/LICENSE           COPYONLY)
-configure_file(libraries/softfloat/COPYING.txt                             licenses/fullon/LICENSE.softfloat COPYONLY)
-configure_file(libraries/wasm-jit/LICENSE                                  licenses/fullon/LICENSE.wavm      COPYONLY)
-configure_file(libraries/libfc/secp256k1/secp256k1/COPYING                 licenses/fullon/LICENSE.secp256k1 COPYONLY)
-configure_file(libraries/libfc/include/fc/crypto/webauthn_json/license.txt licenses/fullon/LICENSE.rapidjson COPYONLY)
-configure_file(libraries/eos-vm/LICENSE                                    licenses/fullon/LICENSE.eos-vm    COPYONLY)
-configure_file(libraries/prometheus/prometheus-cpp/LICENSE                 licenses/fullon/LICENSE.prom      COPYONLY)
-configure_file(programs/client/LICENSE.CLI11                                licenses/fullon/LICENSE.CLI11     COPYONLY)
-configure_file(libraries/libfc/libraries/bls12-381/LICENSE                 licenses/fullon/LICENSE.bls12-381 COPYONLY)
-configure_file(libraries/libfc/libraries/boringssl/boringssl/src/LICENSE   licenses/fullon/LICENSE.boringssl COPYONLY)
+# Install the project config files
+install(FILES ${CMAKE_BINARY_DIR}/modules/ChainCore-config.cmake DESTINATION ${CMAKE_INSTALL_FULL_LIBDIR}/cmake/${PROJECT_NAME} COMPONENT dev EXCLUDE_FROM_ALL)
+install(FILES ${CMAKE_BINARY_DIR}/modules/ChainCoreTester.cmake DESTINATION ${CMAKE_INSTALL_FULL_LIBDIR}/cmake/${PROJECT_NAME} COMPONENT dev EXCLUDE_FROM_ALL)
+install(FILES ${CMAKE_SOURCE_DIR}/modules/ChainCoreCheckVersion.cmake DESTINATION ${CMAKE_INSTALL_FULL_LIBDIR}/cmake/${PROJECT_NAME} COMPONENT dev EXCLUDE_FROM_ALL)
 
-install(DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/licenses/fullon" DESTINATION "${CMAKE_INSTALL_FULL_DATAROOTDIR}/licenses/" COMPONENT base)
+configure_file(LICENSE                                                     licenses/${PROJECT_NAME}/LICENSE           COPYONLY)
+configure_file(libraries/softfloat/COPYING.txt                             licenses/${PROJECT_NAME}/LICENSE.softfloat COPYONLY)
+configure_file(libraries/wasm-jit/LICENSE                                  licenses/${PROJECT_NAME}/LICENSE.wavm      COPYONLY)
+configure_file(libraries/libfc/secp256k1/secp256k1/COPYING                 licenses/${PROJECT_NAME}/LICENSE.secp256k1 COPYONLY)
+configure_file(libraries/libfc/include/fc/crypto/webauthn_json/license.txt licenses/${PROJECT_NAME}/LICENSE.rapidjson COPYONLY)
+configure_file(libraries/eos-vm/LICENSE                                    licenses/${PROJECT_NAME}/LICENSE.eos-vm    COPYONLY)
+configure_file(libraries/prometheus/prometheus-cpp/LICENSE                 licenses/${PROJECT_NAME}/LICENSE.prom      COPYONLY)
+configure_file(programs/client/LICENSE.CLI11                                licenses/${PROJECT_NAME}/LICENSE.CLI11     COPYONLY)
+configure_file(libraries/libfc/libraries/bls12-381/LICENSE                 licenses/${PROJECT_NAME}/LICENSE.bls12-381 COPYONLY)
+configure_file(libraries/libfc/libraries/boringssl/boringssl/src/LICENSE   licenses/${PROJECT_NAME}/LICENSE.boringssl COPYONLY)
 
-install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/libraries/testing/contracts DESTINATION ${CMAKE_INSTALL_FULL_DATAROOTDIR}/fullon_testing/libraries/testing COMPONENT dev EXCLUDE_FROM_ALL
+install(DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/licenses/${PROJECT_NAME}" DESTINATION "${CMAKE_INSTALL_FULL_DATAROOTDIR}/licenses/" COMPONENT base)
+
+install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/libraries/testing/contracts DESTINATION ${CMAKE_INSTALL_FULL_DATAROOTDIR}/${PROJECT_NAME}_testing/libraries/testing COMPONENT dev EXCLUDE_FROM_ALL
         PATTERN "CMakeFiles" EXCLUDE
         PATTERN "*.cmake" EXCLUDE
         PATTERN "Makefile" EXCLUDE)
-install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/unittests/contracts DESTINATION ${CMAKE_INSTALL_FULL_DATAROOTDIR}/fullon_testing/unittests COMPONENT dev EXCLUDE_FROM_ALL
+install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/unittests/contracts DESTINATION ${CMAKE_INSTALL_FULL_DATAROOTDIR}/${PROJECT_NAME}_testing/unittests COMPONENT dev EXCLUDE_FROM_ALL
         PATTERN "CMakeFiles" EXCLUDE
         PATTERN "*.cmake" EXCLUDE
         PATTERN "Makefile" EXCLUDE)
-install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/tests/TestHarness DESTINATION ${CMAKE_INSTALL_FULL_DATAROOTDIR}/fullon_testing/tests COMPONENT dev EXCLUDE_FROM_ALL
+install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/tests/TestHarness DESTINATION ${CMAKE_INSTALL_FULL_DATAROOTDIR}/${PROJECT_NAME}_testing/tests COMPONENT dev EXCLUDE_FROM_ALL
         FILES_MATCHING
         PATTERN "*.py"
         PATTERN "*.json"
@@ -280,12 +263,12 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.21)
 
    add_custom_target(link_target ALL
       COMMAND ${CMAKE_COMMAND} -E make_directory lib/python3/dist-packages
-      COMMAND ${CMAKE_COMMAND} -E create_symlink ../../../share/fullon_testing/tests/TestHarness lib/python3/dist-packages/TestHarness
-      COMMAND ${CMAKE_COMMAND} -E make_directory share/fullon_testing
-      COMMAND ${CMAKE_COMMAND} -E create_symlink ../../bin share/fullon_testing/bin)
+      COMMAND ${CMAKE_COMMAND} -E create_symlink ../../../share/${PROJECT_NAME}_testing/tests/TestHarness lib/python3/dist-packages/TestHarness
+      COMMAND ${CMAKE_COMMAND} -E make_directory share/${PROJECT_NAME}_testing
+      COMMAND ${CMAKE_COMMAND} -E create_symlink ../../bin share/${PROJECT_NAME}_testing/bin)
 
    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/lib/python3/dist-packages/TestHarness DESTINATION ${CMAKE_INSTALL_FULL_LIBDIR}/python3/dist-packages COMPONENT dev EXCLUDE_FROM_ALL)
-   install(FILES ${CMAKE_CURRENT_BINARY_DIR}/share/fullon_testing/bin DESTINATION ${CMAKE_INSTALL_FULL_DATAROOTDIR}/fullon_testing COMPONENT dev EXCLUDE_FROM_ALL)
+   install(FILES ${CMAKE_CURRENT_BINARY_DIR}/share/${PROJECT_NAME}_testing/bin DESTINATION ${CMAKE_INSTALL_FULL_DATAROOTDIR}/${PROJECT_NAME}_testing COMPONENT dev EXCLUDE_FROM_ALL)
 else()
    # The following install(SCRIPT ...) steps are necessary for `make dev-install` to work on cmake versions < 3.21.
    install(SCRIPT ${CMAKE_CURRENT_BINARY_DIR}/scripts/install_testharness_symlinks.cmake COMPONENT dev EXCLUDE_FROM_ALL)
@@ -303,7 +286,7 @@ install(FILES ${CMAKE_BINARY_DIR}/programs/client/bash-completion/completions/${
 
 # Add the boost submodule we used to build to our install package, so headers can be found for libtester
 install(DIRECTORY "${CMAKE_SOURCE_DIR}/libraries/boost/"
-        DESTINATION ${CMAKE_INSTALL_FULL_DATAROOTDIR}/fullon_boost
+        DESTINATION ${CMAKE_INSTALL_FULL_DATAROOTDIR}/${PROJECT_NAME}_boost
         COMPONENT dev EXCLUDE_FROM_ALL
         PATTERN ".git/*" EXCLUDE
         PATTERN "example/*" EXCLUDE
@@ -322,7 +305,7 @@ add_custom_target(dev-install
 
 include(doxygen)
 
-option(ENABLE_FULLON_DEV_DEB "Enable building the fullon-dev .deb package" OFF)
+option(ENABLE_PROJECT_DEV_DEB "Enable building the ${PROJECT_NAME}-dev .deb package" OFF)
 
 include(package.cmake)
 include(CPack)

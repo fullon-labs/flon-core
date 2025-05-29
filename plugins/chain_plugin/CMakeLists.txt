@@ -7,8 +7,8 @@ add_library( chain_plugin
              tracked_votes.cpp
              ${HEADERS} )
 
-if(FLON_ENABLE_DEVELOPER_OPTIONS)
-    message(WARNING "FLON Developer Options are enabled; these are NOT supported")
+if(PROJECT_ENABLE_DEVELOPER_OPTIONS)
+    message(WARNING "PROJECT Developer Options are enabled; these are NOT supported")
     target_compile_definitions(chain_plugin PUBLIC EOSIO_DEVELOPER)
 endif()
 

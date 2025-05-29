@@ -102,8 +102,8 @@ else()
   set(UNSHARE "")
 endif()
 
-option(FULLON_ENABLE_RELEASE_BUILD_TEST "Enables a test that verifies node was compiled with compiler options typical for a release build" On)
-if(FULLON_ENABLE_RELEASE_BUILD_TEST)
+option(ENABLE_RELEASE_BUILD_TEST "Enables a test that verifies node was compiled with compiler options typical for a release build" On)
+if(ENABLE_RELEASE_BUILD_TEST)
   add_test(NAME release-build-test COMMAND tests/release-build.sh WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 endif()
 
