@@ -138,7 +138,7 @@ target_link_libraries(Chain_Tester INTERFACE
 target_include_directories(Chain_Tester INTERFACE
                         @CMAKE_SOURCE_DIR@/libraries/testing/include )
 
-macro(add_contract_test_executable test_name)
+macro(add_chain_core_test_executable test_name)
    add_executable( ${test_name} ${ARGN} )
    target_link_libraries( ${test_name}
        Chain_Tester
@@ -146,8 +146,8 @@ macro(add_contract_test_executable test_name)
 
 endmacro()
 
-macro(add_contract_test test_name)
-   add_contract_test_executable( ${test_name} ${ARGN} )
+macro(add_chain_core_test test_name)
+   add_chain_core_test_executable( ${test_name} ${ARGN} )
    #This will generate a test with the default runtime
    add_test(NAME ${test_name} COMMAND ${test_name} --report_level=detailed --color_output)
    #Manually run unit_test for all supported runtimes

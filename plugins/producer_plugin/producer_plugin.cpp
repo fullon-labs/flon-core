@@ -318,6 +318,10 @@ struct block_time_tracker {
       clear_time_point = last_time_point = fc::time_point::now();
    }
 
+   fc::time_point get_last_time_point() const {
+      return last_time_point;
+   }
+
  private:
    void add_success_time(bool is_transient) {
       assert(!paused);
@@ -2605,8 +2609,8 @@ producer_plugin_impl::handle_push_result(const transaction_metadata_ptr&        
          }
       }
    } else {
-      fc_tlog(_log, "Subjective bill for success ${a}: ${b} elapsed ${t}us, time ${r}us",
-              ("a", first_auth)("b", sub_bill)("t", trace->elapsed)("r", end - start));
+      fc_tlog(_log, "Subjective bill for success ${a}: ${b} elapsed ${t}us, time ${r}us, tracking_time ${track}us",
+              ("a", first_auth)("b", sub_bill)("t", trace->elapsed)("r", end - start)("track", end - _time_tracker.get_last_time_point()));
       log_trx_results(trx, trace);
       // if producing then trx is in objective cpu account billing
       if (!disable_subjective_enforcement && !in_producing_mode()) {
