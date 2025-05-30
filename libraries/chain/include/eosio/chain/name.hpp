@@ -128,7 +128,7 @@ namespace eosio::chain {
       return name( string_to_uint64_t( str ) );
    }
 
-   #define NAME(s) string_to_name(STR(s))
+   #define NAME(s) string_to_name(s)
 
    inline namespace literals {
 #if defined(__clang__)

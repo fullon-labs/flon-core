@@ -157,12 +157,6 @@ if ("${SYSTEM_ROOT_KEY}" STREQUAL "")
    set(SYSTEM_ROOT_KEY "${PUBLIC_KEY_LEGACY_PREFIX}6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV")
 endif()
 
-message(STATUS "using CHAIN_CONFIG_DEFINITIONS=${CHAIN_CONFIG_DEFINITIONS}")
-add_compile_definitions( ${CHAIN_CONFIG_DEFINITIONS} )
-set(CHAIN_CONFIG_DEFINITIONS_FILE  "${CMAKE_BINARY_DIR}/chain_config_definitions.txt")
-file(GENERATE OUTPUT "${CHAIN_CONFIG_DEFINITIONS_FILE}" CONTENT "${CHAIN_CONFIG_DEFINITIONS}")
-message("writing chain config definitions to file: ${CHAIN_CONFIG_DEFINITIONS_FILE}")
-
 message( STATUS "Using '${SYSTEM_ROOT_KEY}' as public key for '${SYSTEM_ACCOUNT_NAME}' account" )
 
 option(ENABLE_TCMALLOC "use tcmalloc (requires gperftools)" OFF)

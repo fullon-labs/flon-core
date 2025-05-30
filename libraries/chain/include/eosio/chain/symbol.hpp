@@ -4,6 +4,7 @@
 #include <eosio/chain/types.hpp>
 #include <string>
 #include <functional>
+#include <eosio/chain/chain_config_defines.hpp>
 
 #ifndef STRX
 #define STRX(x) #x
@@ -53,13 +54,11 @@ namespace eosio::chain {
          return len > 0;
       }
 
-
-   #define CORE_SYMBOL_NAME_STR STR(CORE_SYMBOL_NAME)
-   static_assert(is_symbol_valid(CORE_SYMBOL_PRECISION, CORE_SYMBOL_NAME_STR),
-               "Invalid symbol: " STR(CORE_SYMBOL_PRECISION) "," CORE_SYMBOL_NAME_STR);
+   static_assert(is_symbol_valid(CORE_SYMBOL_PRECISION, CORE_SYMBOL_NAME),
+               "Invalid symbol: " STR(CORE_SYMBOL_PRECISION) "," CORE_SYMBOL_NAME);
 
    #define SY(P,X) ::eosio::chain::string_to_symbol_c(P,#X)
-   #define CORE_SYMBOL  ::eosio::chain::string_to_symbol_c(CORE_SYMBOL_PRECISION, CORE_SYMBOL_NAME_STR)
+   #define CORE_SYMBOL  ::eosio::chain::string_to_symbol_c(CORE_SYMBOL_PRECISION, CORE_SYMBOL_NAME)
 
 
       static uint64_t string_to_symbol(uint8_t precision, const char* str) {

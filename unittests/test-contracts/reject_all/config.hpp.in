@@ -1,0 +1,3 @@
+#pragma one
+
+#define SYSTEM_ACCOUNT_NAME "${SYSTEM_ACCOUNT_NAME}"

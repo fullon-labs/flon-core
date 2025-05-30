@@ -1,15 +1,9 @@
 #include <eosio/eosio.hpp>
+#include "config.hpp"
 
 using namespace eosio;
 
-#define TO_STRING(x) #x
-#define TO_NAME(x) eosio::name{TO_STRING(x)}
-
-#ifdef SYSTEM_ACCOUNT_NAME
-   static const name system_account_name = TO_NAME(SYSTEM_ACCOUNT_NAME);
-#else
-#error "SYSTEM_ACCOUNT_NAME not defined"
-#endif
+static const name system_account_name = eosio::name(SYSTEM_ACCOUNT_NAME);
 
 extern "C" {
    void apply( uint64_t receiver, uint64_t first_receiver, uint64_t action ) {

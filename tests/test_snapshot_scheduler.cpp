@@ -70,7 +70,7 @@ BOOST_AUTO_TEST_CASE(snapshot_scheduler_test) {
                fc::logger::get(DEFAULT_LOGGER).set_log_level(fc::log_level::debug);
                std::vector<const char*> argv =
                      {"test", "--data-dir", temp.c_str(), "--config-dir", temp.c_str(),
-                      "-p", SYSTEM_ACCOUNT_NAME_STR, "-e"};
+                      "-p", SYSTEM_ACCOUNT_NAME, "-e"};
                app->initialize<chain_plugin, producer_plugin>(argv.size(), (char**) &argv[0]);
                app->startup();
 
@@ -210,7 +210,7 @@ BOOST_AUTO_TEST_CASE(snapshot_scheduler_old_json) {
          fc::logger::get(DEFAULT_LOGGER).set_log_level(fc::log_level::debug);
          std::vector<const char*> argv =
                {"test", "--data-dir", temp.c_str(), "--config-dir", temp.c_str(),
-                "-p", SYSTEM_ACCOUNT_NAME_STR, "-e"};
+                "-p", SYSTEM_ACCOUNT_NAME, "-e"};
          app->initialize<chain_plugin, producer_plugin>(argv.size(), (char**) &argv[0]);
          app->startup();
 

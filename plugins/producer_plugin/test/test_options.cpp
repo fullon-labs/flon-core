@@ -37,7 +37,7 @@ BOOST_AUTO_TEST_CASE(state_dir) {
              "--data-dir",   temp_dir_str.c_str(),
              "--state-dir",  custom_state_dir_str.c_str(),
              "--config-dir", temp_dir_str.c_str(),
-             "-p", SYSTEM_ACCOUNT_NAME_STR,
+             "-p", SYSTEM_ACCOUNT_NAME,
               "-e" };
          app->initialize<chain_plugin, producer_plugin>( argv.size(), (char**) &argv[0] );
          app->startup();

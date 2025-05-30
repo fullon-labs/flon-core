@@ -4,14 +4,6 @@
 #include <eosio/singleton.hpp>
 #include <eosio/asset.hpp>
 
-#define TO_STRING(x) #x
-
-#ifdef SYSTEM_ACCOUNT_PREFIX
-   static const eosio::name token_account_name = eosio::name{TO_STRING(SYSTEM_ACCOUNT_PREFIX ) ".token"};
-#else
-#error "SYSTEM_ACCOUNT_PREFIX not defined"
-#endif
-
 // Extacted from token contract:
 namespace eosio {
    class [[eosio::contract]] token : public eosio::contract {

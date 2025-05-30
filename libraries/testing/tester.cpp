@@ -19,7 +19,7 @@ namespace bio = boost::iostreams;
 static const eosio::chain::symbol core_symbol = eosio::chain::symbol(CORE_SYMBOL);
 
 eosio::chain::asset core_from_string(const std::string& s) {
-   auto a = eosio::chain::asset::from_string(s + " " CORE_SYMBOL_NAME_STR );
+   auto a = eosio::chain::asset::from_string(s + " " CORE_SYMBOL_NAME );
    if (a.get_symbol().decimals() == core_symbol.decimals() ) {
       return a;
    } else {

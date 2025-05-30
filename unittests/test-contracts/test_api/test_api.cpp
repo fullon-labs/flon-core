@@ -12,17 +12,11 @@
 #include "test_print.cpp"
 #include "test_transaction.cpp"
 #include "test_types.cpp"
+#include "config.hpp"
 
 name global_receiver;
 
-#define TO_STRING(x) #x
-#define TO_NAME(x) eosio::name(TO_STRING(x))
-
-#ifdef SYSTEM_ACCOUNT_NAME
-   static const name system_account_name = TO_NAME(SYSTEM_ACCOUNT_NAME);
-#else
-#error "SYSTEM_ACCOUNT_NAME not defined"
-#endif
+static const name system_account_name = eosio::name(SYSTEM_ACCOUNT_NAME);
 
 extern "C" {
    void apply( uint64_t receiver, uint64_t code, uint64_t action ) {

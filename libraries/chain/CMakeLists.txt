@@ -1,8 +1,10 @@
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/genesis_state_root_key.cpp.in ${CMAKE_CURRENT_BINARY_DIR}/genesis_state_root_key.cpp)
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/include/eosio/chain/chain_config_defines.hpp.in ${CMAKE_CURRENT_BINARY_DIR}/include/eosio/chain/chain_config_defines.hpp @ONLY)
 
 file(GLOB HEADERS "include/eosio/chain/*.hpp"
                   "include/eosio/chain/webassembly/*.hpp"
-                  "include/eosio/chain/finality/*.hpp" )
+                  "include/eosio/chain/finality/*.hpp"
+                  "${CMAKE_CURRENT_BINARY_DIR}/include/eosio/chain/*.hpp" )
 
 if((APPLE AND UNIX) OR (${CMAKE_SYSTEM_NAME} STREQUAL "FreeBSD"))
    set(PLATFORM_TIMER_IMPL platform_timer_kqueue.cpp)
