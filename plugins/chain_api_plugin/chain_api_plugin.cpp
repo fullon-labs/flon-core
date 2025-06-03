@@ -74,7 +74,7 @@ parse_params<chain_apis::read_only::get_transaction_id_params, http_params_types
                else {
                   EOS_THROW(chain::invalid_http_request, "Transaction contains invalid or empty action");
                }
-            } 
+            }
          }
          else {
             EOS_THROW(chain::invalid_http_request, "Transaction actions are missing or invalid");
@@ -148,6 +148,8 @@ void chain_api_plugin::plugin_startup() {
       CHAIN_RO_CALL(get_producers, 200, http_params_types::params_required),
       CHAIN_RO_CALL(get_producer_schedule, 200, http_params_types::no_params),
       CHAIN_RO_CALL(get_scheduled_transactions, 200, http_params_types::params_required),
+      CHAIN_RO_CALL(abi_json_to_bin, 200, http_params_types::params_required),
+      CHAIN_RO_CALL(abi_bin_to_json, 200, http_params_types::params_required),
       CHAIN_RO_CALL(get_required_keys, 200, http_params_types::params_required),
       CHAIN_RO_CALL(get_transaction_id, 200, http_params_types::params_required),
       // transaction related APIs will be posted to read_write queue after keys are recovered, they are safe to run in parallel until they post to the read_write queue

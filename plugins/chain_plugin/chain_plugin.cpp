@@ -2576,6 +2576,49 @@ read_only::get_account_return_t read_only::get_account( const get_account_params
    } EOS_RETHROW_EXCEPTIONS(chain::account_query_exception, "unable to retrieve account info")
 }
 
+static fc::variant action_abi_to_variant( const abi_def& abi, type_name action_type ) {
+   fc::variant v;
+   auto it = std::find_if(abi.structs.begin(), abi.structs.end(), [&](auto& x){return x.name == action_type;});
+   if( it != abi.structs.end() )
+      to_variant( it->fields,  v );
+   return v;
+};
+
+read_only::abi_json_to_bin_result read_only::abi_json_to_bin( const read_only::abi_json_to_bin_params& params, const fc::time_point& )const try {
+   abi_json_to_bin_result result;
+   const auto code_account = db.db().find<account_object,by_name>( params.code );
+   EOS_ASSERT(code_account != nullptr, contract_query_exception, "Contract can't be found ${contract}", ("contract", params.code));
+
+   abi_def abi;
+   if( abi_serializer::to_abi(code_account->abi, abi) ) {
+      abi_serializer abis( abi, abi_serializer::create_yield_function( abi_serializer_max_time ) );
+      auto action_type = abis.get_action_type(params.action);
+      EOS_ASSERT(!action_type.empty(), action_validate_exception, "Unknown action ${action} in contract ${contract}", ("action", params.action)("contract", params.code));
+      try {
+         result.binargs = abis.variant_to_binary( action_type, params.args, abi_serializer::create_yield_function( abi_serializer_max_time ), shorten_abi_errors );
+      } EOS_RETHROW_EXCEPTIONS(chain::invalid_action_args_exception,
+                                "'${args}' is invalid args for action '${action}' code '${code}'. expected '${proto}'",
+                                ("args", params.args)("action", params.action)("code", params.code)("proto", action_abi_to_variant(abi, action_type)))
+   } else {
+      EOS_ASSERT(false, abi_not_found_exception, "No ABI found for ${contract}", ("contract", params.code));
+   }
+   return result;
+} FC_RETHROW_EXCEPTIONS( warn, "code: ${code}, action: ${action}, args: ${args}",
+                         ("code", params.code)( "action", params.action )( "args", params.args ))
+
+read_only::abi_bin_to_json_result read_only::abi_bin_to_json( const read_only::abi_bin_to_json_params& params, const fc::time_point& )const {
+   abi_bin_to_json_result result;
+   const auto& code_account = db.db().get<account_object,by_name>( params.code );
+   abi_def abi;
+   if( abi_serializer::to_abi(code_account.abi, abi) ) {
+      abi_serializer abis( abi, abi_serializer::create_yield_function( abi_serializer_max_time ) );
+      result.args = abis.binary_to_variant( abis.get_action_type( params.action ), params.binargs, abi_serializer::create_yield_function( abi_serializer_max_time ), shorten_abi_errors );
+   } else {
+      EOS_ASSERT(false, abi_not_found_exception, "No ABI found for ${contract}", ("contract", params.code));
+   }
+   return result;
+}
+
 read_only::get_required_keys_result read_only::get_required_keys( const get_required_keys_params& params, const fc::time_point& )const {
    transaction pretty_input;
    auto resolver = caching_resolver(make_resolver(db, abi_serializer_max_time, throw_on_yield::yes));
