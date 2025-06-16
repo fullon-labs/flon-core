@@ -605,6 +605,10 @@ class apply_context {
       bool is_applying_block() const { return trx_context.explicit_billed_cpu_time; }
       bool should_use_eos_vm_oc()const;
 
+public:
+      uint64_t init_action_data_to_json(const name& contract_name, const name& action_name, fc::datastream<const char*>& action_data, uint64_t &json_size);
+      void final_action_data_to_json(const uint64_t convertor_id, char* json_buf, uint64_t json_size);
+
    /// Fields:
    public:
 
@@ -640,6 +644,9 @@ class apply_context {
       flat_set<account_delta>             _account_ram_deltas; ///< flat_set of account_delta so json is an array of objects
 
       //bytes                               _cached_trx;
+
+      flat_map<uint64_t, std::string>     _action_data_to_jsons;
+      uint64_t                            _last_action_data_to_json_id = 0;
 };
 
 using apply_handler = std::function<void(apply_context&)>;

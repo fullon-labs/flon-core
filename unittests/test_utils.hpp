@@ -164,6 +164,7 @@ void activate_protocol_features_set_bios_contract(appbase::scoped_app& app, chai
             #endif//ENABLE_DEFERRED_TRANSACTION
             // savanna
             feature_digests.push_back(*pfm.get_builtin_digest(builtin_protocol_feature_t::savanna));
+            feature_digests.push_back(*pfm.get_builtin_digest(builtin_protocol_feature_t::action_data_to_json));
 
             for (const auto feature_digest : feature_digests) {
                chain_plug->chain().preactivate_feature( feature_digest, false );

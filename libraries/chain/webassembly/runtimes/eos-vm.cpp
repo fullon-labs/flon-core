@@ -474,6 +474,8 @@ REGISTER_LEGACY_CF_HOST_FUNCTION(read_action_data);
 REGISTER_CF_HOST_FUNCTION(action_data_size);
 REGISTER_CF_HOST_FUNCTION(current_receiver);
 REGISTER_HOST_FUNCTION(set_action_return_value);
+REGISTER_LEGACY_CF_HOST_FUNCTION(init_action_data_to_json);
+REGISTER_LEGACY_CF_HOST_FUNCTION(final_action_data_to_json);
 
 // console api
 REGISTER_LEGACY_CF_HOST_FUNCTION(prints);

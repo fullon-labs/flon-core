@@ -328,6 +328,14 @@ namespace eosio { namespace chain {
       FC_DECLARE_DERIVED_EXCEPTION( action_return_value_exception, action_validate_exception,
                                     3050014, "action return value size too big" )
 
+      // Reserved 3050015 - 3050099 for future use
+      FC_DECLARE_DERIVED_EXCEPTION( action_data_to_json_too_big, action_validate_exception,
+                                    3050100, "The converted json string of action data exceeds maximum size limit" )
+      FC_DECLARE_DERIVED_EXCEPTION( action_data_to_json_not_found, action_validate_exception,
+                                    3050101, "The json convertor of action data not found" )
+      FC_DECLARE_DERIVED_EXCEPTION( action_data_to_json_mismatch, action_validate_exception,
+                                    3050102, "The json convertor of action data mismatch" )
+
    FC_DECLARE_DERIVED_EXCEPTION( database_exception, chain_exception,
                                  3060000, "Database exception" )
 

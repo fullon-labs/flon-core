@@ -1450,6 +1450,7 @@ namespace eosio::testing {
       #endif//ENABLE_DEFERRED_TRANSACTION
       // savanna
       feature_digests.push_back(*pfm.get_builtin_digest(builtin_protocol_feature_t::savanna));
+      feature_digests.push_back(*pfm.get_builtin_digest(builtin_protocol_feature_t::action_data_to_json));
 
       preactivate_protocol_features( feature_digests );
    }

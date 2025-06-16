@@ -11,10 +11,13 @@
 #include <eosio/chain/global_property_object.hpp>
 #include <eosio/chain/deep_mind.hpp>
 #include <boost/container/flat_set.hpp>
+#include <fc/io/json.hpp>
 
 using boost::container::flat_set;
 
 namespace eosio::chain {
+
+   constexpr unsigned maximum_action_data_json_size = wasm_constraints::maximum_linear_memory;
 
 static inline void print_debug(account_name receiver, const action_trace& ar) {
    if (!ar.console.empty()) {
@@ -1106,5 +1109,54 @@ bool apply_context::should_use_eos_vm_oc()const {
           || trx_context.is_read_only();
 }
 
+uint64_t apply_context::init_action_data_to_json(const name& contract_name, const name& action_name, fc::datastream<const char*>& action_data, uint64_t &json_size) {
+
+   const auto& code_account = db.get<account_object, by_name>( name(contract_name) );
+   abi_def abi;
+   if( !abi_serializer::to_abi(code_account.abi, abi) ) {
+      EOS_ASSERT(false, abi_not_found_exception, "No ABI found for ${contract}", ("contract", contract_name));
+   }
+   auto depth_yield = abi_serializer::create_depth_yield_function();
+   auto yield = [this, &depth_yield](size_t recursion_depth) {
+      depth_yield(recursion_depth);
+      trx_context.checktime();
+   };
+   abi_serializer abis( abi, yield );
+   auto v = abis.binary_to_variant( abis.get_action_type( name(action_name) ), action_data, yield, true );
+
+   const auto json_yield = [&](size_t s) {
+      EOS_ASSERT( s <= maximum_action_data_json_size,
+               action_data_to_json_too_big,
+               "The converted json exceeds the output buffer size ${s}  ", ("s", maximum_action_data_json_size));
+      trx_context.checktime();
+   };
+
+   auto json = fc::json::to_string( v, json_yield, fc::json::output_formatting::stringify_large_ints_and_doubles );
+   json_size = json.size();
+   _last_action_data_to_json_id++;
+   auto ret = _action_data_to_jsons.emplace(std::piecewise_construct,
+      std::forward_as_tuple(_last_action_data_to_json_id),
+      std::forward_as_tuple(std::move(json))
+   );   
+   EOS_ASSERT( ret.second,
+               action_validate_exception,
+               "The new convertor id ${id} of action data to json duplicated", ("id", _last_action_data_to_json_id));
+   return _last_action_data_to_json_id;
+}
+
+void apply_context::final_action_data_to_json(const uint64_t convertor_id, char* json_buf, uint64_t json_size) {
+
+   auto itr = _action_data_to_jsons.find(convertor_id);
+   EOS_ASSERT( itr != _action_data_to_jsons.end(),
+         action_data_to_json_not_found,
+         "The json convertor ${id} of action data not found", ("id", convertor_id));
+   EOS_ASSERT( itr->second.size() != json_size,
+         action_data_to_json_mismatch,
+         "The json buffer size ${bs} mismatch with the actual size ${sz}", ("bs", json_size)("sz", itr->second.size()));
+
+   memcpy( json_buf, itr->second.data(), json_size );
+
+   _action_data_to_jsons.erase(itr);
+}
 
 } /// eosio::chain
