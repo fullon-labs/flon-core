@@ -606,7 +606,7 @@ class apply_context {
       bool should_use_eos_vm_oc()const;
 
 public:
-      uint64_t init_action_data_to_json(const name& contract_name, const name& action_name, fc::datastream<const char*>& action_data, uint64_t &json_size);
+      uint64_t init_action_data_to_json(const name& contract_name, const name& action_name, fc::datastream<const char*>& action_data, uint32_t &json_size);
       void final_action_data_to_json(const uint64_t convertor_id, char* json_buf, uint64_t json_size);
 
    /// Fields:

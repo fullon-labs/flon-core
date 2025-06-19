@@ -1109,7 +1109,7 @@ bool apply_context::should_use_eos_vm_oc()const {
           || trx_context.is_read_only();
 }
 
-uint64_t apply_context::init_action_data_to_json(const name& contract_name, const name& action_name, fc::datastream<const char*>& action_data, uint64_t &json_size) {
+uint64_t apply_context::init_action_data_to_json(const name& contract_name, const name& action_name, fc::datastream<const char*>& action_data, uint32_t &json_size) {
 
    const auto& code_account = db.get<account_object, by_name>( name(contract_name) );
    abi_def abi;
@@ -1137,7 +1137,7 @@ uint64_t apply_context::init_action_data_to_json(const name& contract_name, cons
    auto ret = _action_data_to_jsons.emplace(std::piecewise_construct,
       std::forward_as_tuple(_last_action_data_to_json_id),
       std::forward_as_tuple(std::move(json))
-   );   
+   );
    EOS_ASSERT( ret.second,
                action_validate_exception,
                "The new convertor id ${id} of action data to json duplicated", ("id", _last_action_data_to_json_id));
@@ -1150,7 +1150,7 @@ void apply_context::final_action_data_to_json(const uint64_t convertor_id, char*
    EOS_ASSERT( itr != _action_data_to_jsons.end(),
          action_data_to_json_not_found,
          "The json convertor ${id} of action data not found", ("id", convertor_id));
-   EOS_ASSERT( itr->second.size() != json_size,
+   EOS_ASSERT( itr->second.size() == json_size,
          action_data_to_json_mismatch,
          "The json buffer size ${bs} mismatch with the actual size ${sz}", ("bs", json_size)("sz", itr->second.size()));
 

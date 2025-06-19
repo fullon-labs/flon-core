@@ -683,23 +683,24 @@ namespace webassembly {
          void set_action_return_value(span<const char> packed_blob);
 
          /**
-          * Initialize conversation from action data to JSON compact format.
+          * Initialize conversation from action data to compact format JSON.
           *
           * @ingroup action
           * @param contract_name - the contract name.
           * @param action_name - the action name.
           * @param action_data - the action data.
+          * @param json_size - the output json size.
           *
           * @return the initialized convertor id. Used by final_action_data_to_json()
           */
-         uint64_t init_action_data_to_json(uint64_t contract_name, uint64_t action_name, legacy_span<const char> action_data, legacy_ptr<uint64_t> json_size);
+         uint64_t init_action_data_to_json(uint64_t contract_name, uint64_t action_name, legacy_span<const char> action_data, legacy_ptr<uint32_t> json_size);
 
          /**
-          * Finalize the conversation from action data to JSON compact format.
+          * Finalize the conversation from action data to compact format JSON.
           *
           * @ingroup action
           * @param convertor_id - convertor id that created by init_action_data_to_json().
-          * @param json_output - the converted json compact format string. the size must be equal to json_size got by init_action_data_to_json()
+          * @param json_output - the output of compact format json string. the size must be equal to json_size got by init_action_data_to_json()
           *
           */
          void final_action_data_to_json(const uint64_t convertor_id, legacy_span<char> json_output);

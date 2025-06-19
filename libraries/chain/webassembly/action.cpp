@@ -31,10 +31,10 @@ namespace eosio { namespace chain { namespace webassembly {
    }
 
 
-   uint64_t interface::init_action_data_to_json(uint64_t contract_name, uint64_t action_name, legacy_span<const char> action_data, legacy_ptr<uint64_t> json_size) {
+   uint64_t interface::init_action_data_to_json(uint64_t contract_name, uint64_t action_name, legacy_span<const char> action_data, legacy_ptr<uint32_t> json_size) {
       EOS_ASSERT( context.control.is_builtin_activated( builtin_protocol_feature_t::action_data_to_json ),
                   protocol_feature_exception,
-                  "The action_data_to_json protocol feature not activated, the init_action_data_to_json() interface not supported");   
+                  "The action_data_to_json protocol feature not activated, the init_action_data_to_json() interface not supported");
 
       fc::datastream<const char*> ds( action_data.data(), action_data.size() );
       return context.init_action_data_to_json(name(contract_name), name(action_name), ds, *json_size);
@@ -43,8 +43,8 @@ namespace eosio { namespace chain { namespace webassembly {
    void interface::final_action_data_to_json(const uint64_t convertor_id, legacy_span<char> json_output) {
       EOS_ASSERT( context.control.is_builtin_activated( builtin_protocol_feature_t::action_data_to_json ),
                   protocol_feature_exception,
-                  "The action_data_to_json protocol feature not activated, the init_action_data_to_json() interface not supported");   
-                  
+                  "The action_data_to_json protocol feature not activated, the init_action_data_to_json() interface not supported");
+
       context.final_action_data_to_json(convertor_id, json_output.data(), json_output.size());
    }
 

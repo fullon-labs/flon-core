@@ -1,0 +1,6 @@
+if( EOSIO_COMPILE_TEST_CONTRACTS )
+   add_contract( action_data_to_json_test action_data_to_json_test action_data_to_json_test.cpp )
+else()
+   configure_file( ${CMAKE_CURRENT_SOURCE_DIR}/action_data_to_json_test.wasm ${CMAKE_CURRENT_BINARY_DIR}/action_data_to_json_test.wasm COPYONLY )
+   configure_file( ${CMAKE_CURRENT_SOURCE_DIR}/action_data_to_json_test.abi  ${CMAKE_CURRENT_BINARY_DIR}/action_data_to_json_test.abi  COPYONLY )
+endif()

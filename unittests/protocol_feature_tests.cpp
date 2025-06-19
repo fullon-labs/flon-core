@@ -1815,6 +1815,43 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(set_action_return_value_test, T, testers) { try {
    c.produce_block();
 } FC_LOG_AND_RETHROW() }
 
+BOOST_AUTO_TEST_CASE_TEMPLATE(action_data_to_json_test, T, testers) { try {
+   T c( setup_policy::preactivate_feature_and_new_bios );
+
+   const auto& pfm = c.control->get_protocol_feature_manager();
+   const auto& d = pfm.get_builtin_digest(builtin_protocol_feature_t::action_data_to_json);
+   BOOST_REQUIRE(d);
+
+   const auto& acct = account_name("actionjson");
+   c.create_accounts( {acct} );
+   c.produce_block();
+
+   BOOST_CHECK_EXCEPTION(  c.set_code( acct, test_contracts::action_data_to_json_test_wasm() ),
+                           wasm_exception,
+                           fc_exception_message_is( "env.init_action_data_to_json unresolveable" ) );
+
+   c.preactivate_protocol_features( {*d} );
+   c.produce_block();
+
+   // ensure it now resolves
+   c.set_code( acct, test_contracts::action_data_to_json_test_wasm() );
+   c.set_abi( acct, test_contracts::action_data_to_json_test_abi() );
+
+   // ensure it can be called
+   auto perm = permission_level{acct, permission_name("active")};
+   newaccount d1 = { acct, "d1"_n, authority{perm}, authority{perm} };
+   auto expected_json = fc::json::to_string(fc::variant(d1), fc::time_point::maximum());
+
+   auto trx = c.push_action( acct, "actionjson"_n, acct, fc::mutable_variant_object()
+                     ("contract_name", config::system_account_name)
+                     ("action_name", "newaccount"_n)
+                     ("action_data", fc::raw::pack(d1))
+                     ("expected_json", expected_json) );
+
+   BOOST_REQUIRE( !trx->except && !trx->error_code && !trx->except_ptr);
+   c.produce_block();
+} FC_LOG_AND_RETHROW() }
+
 static const char import_get_parameters_packed_wast[] = R"=====(
 (module
  (import "env" "get_parameters_packed" (func $get_parameters_packed (param i32 i32 i32 i32)(result i32)))

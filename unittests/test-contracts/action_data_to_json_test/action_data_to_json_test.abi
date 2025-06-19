@@ -1,0 +1,40 @@
+{
+    "____comment": "This file was generated with eosio-abigen. DO NOT EDIT ",
+    "version": "flon::abi/1.2",
+    "types": [],
+    "structs": [
+        {
+            "name": "actionjson",
+            "base": "",
+            "fields": [
+                {
+                    "name": "contract_name",
+                    "type": "name"
+                },
+                {
+                    "name": "action_name",
+                    "type": "name"
+                },
+                {
+                    "name": "action_data",
+                    "type": "bytes"
+                },
+                {
+                    "name": "expected_json",
+                    "type": "string"
+                }
+            ]
+        }
+    ],
+    "actions": [
+        {
+            "name": "actionjson",
+            "type": "actionjson",
+            "ricardian_contract": ""
+        }
+    ],
+    "tables": [],
+    "ricardian_clauses": [],
+    "variants": [],
+    "action_results": []
+}
