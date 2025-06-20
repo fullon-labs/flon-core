@@ -282,6 +282,7 @@ namespace eosio::chain {
          const block_signing_authority& pending_block_signing_authority()const;
          std::optional<block_id_type>   pending_producer_block_id()const;
          uint32_t                       pending_block_num()const;
+         size_t                         pending_trx_size()const;
 
          // returns producer_authority_schedule for a next block built from head with
          // `next_block_timestamp`

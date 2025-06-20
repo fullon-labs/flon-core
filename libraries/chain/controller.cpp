@@ -228,6 +228,10 @@ struct completed_block {
       assert(0);
       static block_signing_authority bsa; return bsa; // just so it builds
    }
+
+   size_t pending_trx_size() const {
+      return bsp.trx_size();
+   }
 };
 
 struct assembled_block {
@@ -247,6 +251,10 @@ struct assembled_block {
       const deque<transaction_receipt>& get_trx_receipts() const {
          return unsigned_block->transactions;
       }
+
+      size_t pending_trx_size() const {
+         return unsigned_block->transactions.size();
+      }
    };
 
    // --------------------------------------------------------------------------------
@@ -264,6 +272,10 @@ struct assembled_block {
 
       const deque<transaction_receipt>& get_trx_receipts() const {
          return trx_receipts;
+      }
+
+      size_t pending_trx_size() const {
+         return trx_receipts.size();
       }
    };
 
@@ -378,6 +390,10 @@ struct assembled_block {
                                       return ab.active_producer_authority.authority;
                                    }},
                         v);
+   }
+
+   size_t pending_trx_size() const {
+      return std::visit([](const auto& ab)->size_t { return ab.pending_trx_size(); }, v);
    }
 
    completed_block complete_block(const protocol_feature_set& pfs, validator_t validator,
@@ -647,6 +663,10 @@ struct building_block {
       return std::visit([](auto& bb) -> deque<transaction_receipt>& { return bb.pending_trx_receipts; }, v);
    }
 
+   size_t pending_trx_size() const {
+      return std::visit([](auto& bb) -> size_t { return bb.pending_trx_receipts.size(); }, v);
+   }
+
    building_block_common::checksum_or_digests& trx_mroot_or_receipt_digests() {
       return std::visit(
          [](auto& bb) -> building_block_common::checksum_or_digests& { return bb.trx_mroot_or_receipt_digests; }, v);
@@ -893,6 +913,10 @@ struct pending_state {
 
    uint32_t block_num() const {
       return std::visit([](const auto& stage) { return stage.block_num(); }, _block_stage);
+   }
+
+   uint32_t pending_trx_size() const {
+      return std::visit([](const auto& stage) { return stage.pending_trx_size(); }, _block_stage);
    }
 
    account_name producer() const {
@@ -5518,6 +5542,11 @@ account_name controller::pending_block_producer()const {
 const block_signing_authority& controller::pending_block_signing_authority() const {
    EOS_ASSERT( my->pending, block_validate_exception, "no pending block" );
    return my->pending->pending_block_signing_authority();
+}
+
+size_t controller::pending_trx_size()const {
+   EOS_ASSERT( my->pending, block_validate_exception, "no pending block" );
+   return my->pending->pending_trx_size();
 }
 
 std::optional<block_id_type> controller::pending_producer_block_id()const {

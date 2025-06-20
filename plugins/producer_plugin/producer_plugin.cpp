@@ -568,7 +568,7 @@ public:
 
    void     schedule_production_loop();
    void     schedule_maybe_produce_block(bool exhausted);
-   void     produce_block();
+   bool     produce_block();
    bool     maybe_produce_block();
    bool     block_is_exhausted() const;
    bool     remove_expired_trxs(const fc::time_point& deadline);
@@ -720,6 +720,7 @@ public:
    bool                                              _disable_subjective_api_billing              = true;
    fc::time_point                                    _irreversible_block_time;
    bool                                              _is_savanna_active                           = false;
+   uint64_t                                          _idle_block_interval_ms                      = 0;
 
    std::vector<chain::digest_type> _protocol_features_to_activate;
    bool                            _protocol_features_signaled = false; // to mark whether it has been signaled in start_block
@@ -838,6 +839,12 @@ public:
    fc::microseconds get_produce_block_offset() const {
       return fc::milliseconds( ( (config::block_interval_us - _produce_block_cpu_effort.count()) * config::producer_repetitions / 1000 ) );
    }
+
+   uint64_t calc_block_time_duration_ms(const chain::block_timestamp_type& begin, const chain::block_timestamp_type& end) const {
+      assert(begin < end);
+      return ( (end.slot - begin.slot) * config::block_interval_us ) / 1000;
+   }
+
 
    fc::time_point calculate_producing_block_deadline(chain::block_timestamp_type block_time) {
       if (_enable_block_time_strategy) {
@@ -1352,6 +1359,8 @@ void producer_plugin::set_program_options(
           "Time in microseconds the write window lasts.")
          ("read-only-read-window-time-us", bpo::value<uint32_t>()->default_value(my->_ro_read_window_time_us.count()),
           "Time in microseconds the read window lasts.")
+         ("idle-block-interval-ms", bpo::value<uint32_t>()->default_value(0),
+          "The interval time of idle blocks (without transactions). The default is 0 and the idle block function is disabled.")
          ;
    config_file_options.add(producer_options);
 }
@@ -1426,6 +1435,8 @@ void producer_plugin_impl::plugin_initialize(const boost::program_options::varia
 
    set_produce_block_offset(options.at("produce-block-offset-ms").as<uint32_t>());
    _enable_block_time_strategy = options.at("enable-block-time-strategy").as<bool>();
+
+   _idle_block_interval_ms = options.at("idle-block-interval-ms").as<uint32_t>();
 
    _max_block_cpu_usage_threshold_us = options.at("max-block-cpu-usage-threshold-us").as<uint32_t>();
    EOS_ASSERT(_max_block_cpu_usage_threshold_us < config::block_interval_us,
@@ -2936,14 +2947,20 @@ void producer_plugin_impl::schedule_delayed_production_loop(const std::weak_ptr<
 
 bool producer_plugin_impl::maybe_produce_block() {
    auto reschedule = fc::make_scoped_exit([this] { schedule_production_loop(); });
-
+   bool is_idle_block = false;
    try {
-      produce_block();
-      return true;
+      if ( produce_block() ) {
+         return true;
+      }
+      is_idle_block = true;
    }
    LOG_AND_DROP();
 
-   fc_dlog(_log, "Aborting block due to produce_block error");
+   if (is_idle_block) {
+      fc_dlog(_log, "Aborting block due to idle block");
+   } else {
+      fc_dlog(_log, "Aborting block due to produce_block error");
+   }
    abort_block();
    reschedule.cancel();
 
@@ -2969,7 +2986,7 @@ static auto maybe_make_debug_time_logger() -> std::optional<decltype(make_debug_
 }
 
 
-void producer_plugin_impl::produce_block() {
+bool producer_plugin_impl::produce_block() {
    auto start = fc::time_point::now();
    _time_tracker.add_idle_time(start);
 
@@ -2977,6 +2994,18 @@ void producer_plugin_impl::produce_block() {
    chain::controller& chain = chain_plug->chain();
    EOS_ASSERT(chain.is_building_block(), missing_pending_block_state,
               "pending_block_state does not exist but it should, another plugin may have corrupted it");
+
+   const auto& head_block_time = chain.head().block_time();
+   const auto& pending_block_time = chain.pending_block_timestamp();
+      // abort the pending idle block
+   if (_idle_block_interval_ms > 0 && chain.pending_trx_size() == 0 &&
+       calc_block_time_duration_ms(head_block_time, pending_block_time) < _idle_block_interval_ms)
+   {
+      fc_dlog(_log, "Producing idle block #${num}, block_time=${bt}",
+                     ("num", chain.head().block_num() + 1)
+                     ("bt", pending_block_time));
+      return false;
+   }
 
    auto auth = chain.pending_block_signing_authority();
    std::vector<std::reference_wrapper<const signature_provider_type>> relevant_providers;
@@ -3036,6 +3065,7 @@ void producer_plugin_impl::produce_block() {
       _time_tracker.report(new_b->block_num(), new_b->producer);
    }
    _time_tracker.clear();
+   return true;
 }
 
 void producer_plugin::received_block(uint32_t block_num) {
