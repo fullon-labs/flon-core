@@ -3280,6 +3280,10 @@ const std::set<account_name>& producer_plugin::producer_accounts() const {
    return my->_producers;
 }
 
+const std::map<chain::public_key_type, signature_provider_plugin::signature_provider_type>& producer_plugin::get_signature_providers() const {
+   return my->_signature_providers;
+}
+
 void producer_plugin::register_update_produced_block_metrics(std::function<void(producer_plugin::produced_block_metrics)>&& fun) {
    my->_update_produced_block_metrics = std::move(fun);
 }

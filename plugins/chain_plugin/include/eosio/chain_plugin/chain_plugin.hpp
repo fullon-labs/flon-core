@@ -1038,6 +1038,7 @@ public:
 
    const controller::config& chain_config() const;
 
+   std::optional<chain_apis::trx_retry_db>& get_trx_retry_db() const;
 private:
 
    unique_ptr<class chain_plugin_impl> my;

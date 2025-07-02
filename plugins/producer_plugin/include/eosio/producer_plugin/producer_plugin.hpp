@@ -148,6 +148,8 @@ public:
 
    const std::set<account_name>& producer_accounts() const;
 
+   const std::map<chain::public_key_type, signature_provider_plugin::signature_provider_type>& get_signature_providers() const;
+
    static void set_test_mode(bool m) { test_mode_ = m; }
 
    struct speculative_block_metrics {

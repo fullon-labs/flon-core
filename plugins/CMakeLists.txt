@@ -18,4 +18,4 @@ add_subdirectory(test_control_api_plugin)
 add_subdirectory(prometheus_plugin)
 add_subdirectory(history_plugin)
 add_subdirectory(history_api_plugin)
-
+add_subdirectory(sign_transaction_plugin)

@@ -2718,4 +2718,8 @@ const controller::config& chain_plugin::chain_config() const {
    return *my->chain_config;
 }
 
+std::optional<chain_apis::trx_retry_db>& chain_plugin::get_trx_retry_db() const {
+   return my->_trx_retry_db;
+}
+
 } // namespace eosio
