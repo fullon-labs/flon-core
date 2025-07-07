@@ -7,7 +7,7 @@
 #include <fc/variant.hpp>
 #include <cstdlib>
 
-namespace eosio { namespace sign_transaction {
+namespace eosio {
 
 using namespace eosio;
 using namespace eosio::chain;
@@ -17,6 +17,8 @@ using vm_type = wasm_interface::vm_type;
 using fc::flat_map;
 
 using eosio::chain_apis::trx_retry_db;
+
+static auto _sign_transaction_plugin = application::register_plugin<sign_transaction_plugin>();
 
 class sign_transaction_plugin_impl {
 public:
@@ -82,29 +84,16 @@ void sign_transaction_plugin::plugin_shutdown() {
    my->plugin_shutdown();
 }
 
-chain_apis::read_write::read_write(sign_transaction_plugin_impl& my,
-                                   controller& chain,
-                                   std::optional<trx_retry_db>& trx_retry,
-                                   const fc::microseconds& abi_serializer_max_time,
-                                   const fc::microseconds& http_max_response_time,
-                                   bool api_accept_transactions)
-: my(my)
-, chain(chain)
-, trx_retry(trx_retry)
-, abi_serializer_max_time(abi_serializer_max_time)
-, http_max_response_time(http_max_response_time)
-, api_accept_transactions(api_accept_transactions)
-{
+sign_transaction::chain_apis::read_write sign_transaction_plugin::get_read_write_api(const fc::microseconds& http_max_response_time) {
+   return sign_transaction::chain_apis::read_write(
+      *my, chain(),
+      my->chain_plug->get_trx_retry_db(),
+      get_abi_serializer_max_time(),
+      http_max_response_time,
+      api_accept_transactions()
+   );
 }
 
-void chain_apis::read_write::validate() const {
-   EOS_ASSERT( api_accept_transactions, missing_chain_api_plugin_exception,
-               "Not allowed, node has api-accept-transactions = false" );
-}
-
-chain_apis::read_write sign_transaction_plugin::get_read_write_api(const fc::microseconds& http_max_response_time) {
-   return chain_apis::read_write(*my, chain(), my->chain_plug->get_trx_retry_db(), get_abi_serializer_max_time(), http_max_response_time, api_accept_transactions());
-}
 
 controller& sign_transaction_plugin::chain() { return my->chain_plug->chain(); }
 const controller& sign_transaction_plugin::chain() const { return my->chain_plug->chain(); }
@@ -131,7 +120,28 @@ void sign_transaction_plugin_impl::log_guard_exception(const chain::guard_except
    dlog("Details: ${details}", ("details", e.to_detail_string()));
 }
 
+namespace sign_transaction {
 namespace chain_apis {
+
+read_write::read_write(sign_transaction_plugin_impl& my,
+                                   controller& chain,
+                                   std::optional<trx_retry_db>& trx_retry,
+                                   const fc::microseconds& abi_serializer_max_time,
+                                   const fc::microseconds& http_max_response_time,
+                                   bool api_accept_transactions)
+: my(my)
+, chain(chain)
+, trx_retry(trx_retry)
+, abi_serializer_max_time(abi_serializer_max_time)
+, http_max_response_time(http_max_response_time)
+, api_accept_transactions(api_accept_transactions)
+{
+}
+
+void read_write::validate() const {
+   EOS_ASSERT( api_accept_transactions, missing_chain_api_plugin_exception,
+               "Not allowed, node has api-accept-transactions = false" );
+}
 
 void read_write::push_transaction(const read_write::push_transaction_params& params, next_function<read_write::push_transaction_results> next) {
    try {
@@ -155,9 +165,8 @@ void read_write::push_transaction(const read_write::push_transaction_params& par
             new_strx.signatures.push_back(sig);
          }
 
-         pretty_input = std::make_shared<packed_transaction>(new_strx);
+         pretty_input = std::make_shared<packed_transaction>(std::move(new_strx));
       }
-
 
       app().get_method<incoming::methods::transaction_async>()(pretty_input, true, transaction_metadata::trx_type::input, false,
             [this, next](const next_function_variant<transaction_trace_ptr>& result) -> void {
@@ -386,5 +395,6 @@ void read_write::send_transaction2(read_write::send_transaction2_params params, 
 }
 
 } // namespace chain_apis
+} // namespace sign_transaction
 
-}} // namespace eosio::sign_transaction
+} // namespace eosio::sign_transaction

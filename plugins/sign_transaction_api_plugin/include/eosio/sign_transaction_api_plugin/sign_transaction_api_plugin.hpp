@@ -9,7 +9,6 @@ namespace eosio {
    using eosio::chain::controller;
    using std::unique_ptr;
    using namespace appbase;
-   using sign_transaction::sign_transaction_plugin;
 
    class sign_transaction_api_plugin : public plugin<sign_transaction_api_plugin> {
       public:

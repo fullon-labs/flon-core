@@ -20,7 +20,7 @@ namespace fc { class variant; }
 
 namespace eosio { namespace chain { class abi_resolver; } }
 
-namespace eosio { namespace sign_transaction {
+namespace eosio {
 
    using chain::controller;
    using std::unique_ptr;
@@ -46,6 +46,8 @@ namespace eosio { namespace sign_transaction {
    using signature_provider_type = signature_provider_plugin::signature_provider_type;
 
    class sign_transaction_plugin_impl;
+
+namespace sign_transaction {
 
 namespace chain_apis {
 
@@ -103,6 +105,7 @@ public:
 };
 
 } // namespace chain_apis
+} // namespace sign_transaction
 
 class sign_transaction_plugin : public plugin<sign_transaction_plugin> {
 public:
@@ -117,10 +120,9 @@ public:
    void plugin_initialize(const variables_map& options);
    void plugin_startup();
    void plugin_shutdown();
-   void handle_sighup() override;
+   // void handle_sighup() override;
 
-   chain_apis::read_write get_read_write_api(const fc::microseconds& http_max_response_time);
-   // chain_apis::read_only get_read_only_api(const fc::microseconds& http_max_response_time) const;
+   sign_transaction::chain_apis::read_write get_read_write_api(const fc::microseconds& http_max_response_time);
 
    bool accept_block( const chain::signed_block_ptr& block, const chain::block_id_type& id, const std::optional<chain::block_handle>& obt );
    void accept_transaction(const chain::packed_transaction_ptr& trx, chain::plugin_interface::next_function<chain::transaction_trace_ptr> next);
@@ -136,23 +138,10 @@ public:
    // set true by other plugins if any plugin allows transactions
    bool accept_transactions() const;
    void enable_accept_transactions();
-   // true if vote processing is enabled
-   bool accept_votes() const;
-
-   static void handle_guard_exception(const chain::guard_exception& e);
-
-   // return variant of trace for logging, trace is modified to minimize log output
-   fc::variant get_log_trx_trace(const chain::transaction_trace_ptr& trx_trace) const;
-   // return variant of trx for logging, trace is modified to minimize log output
-   fc::variant get_log_trx(const transaction& trx) const;
 
 private:
 
    unique_ptr<class sign_transaction_plugin_impl> my;
 };
 
-}} // namespace eosio::sign_transaction
-
-
-// FC_REFLECT( eosio::chain_apis::read_write::push_transaction_results, (transaction_id)(processed) )
-// FC_REFLECT( eosio::chain_apis::read_write::send_transaction2_params, (return_failure_trace)(retry_trx)(retry_trx_num_blocks)(transaction) )
+} // namespace eosio::sign_transaction
