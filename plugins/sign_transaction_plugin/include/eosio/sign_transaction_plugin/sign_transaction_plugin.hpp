@@ -60,7 +60,7 @@ protected:
 };
 
 class read_write : public api_base {
-
+public:
    sign_transaction_plugin_impl& my;
    controller& chain;
    std::optional<trx_retry_db>& trx_retry;

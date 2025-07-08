@@ -143,33 +143,13 @@ void read_write::validate() const {
                "Not allowed, node has api-accept-transactions = false" );
 }
 
-void read_write::push_transaction(const read_write::push_transaction_params& params, next_function<read_write::push_transaction_results> next) {
-   try {
-      auto pretty_input = std::make_shared<packed_transaction>();
-      auto resolver = caching_resolver(make_resolver(chain, abi_serializer_max_time, throw_on_yield::yes));
-      try {
-         abi_serializer::from_variant(params, *pretty_input, resolver, abi_serializer_max_time);
-      } EOS_RETHROW_EXCEPTIONS(chain::packed_transaction_type_exception, "Invalid packed transaction")
 
-      const signed_transaction& strx = pretty_input->get_signed_transaction();
-      auto required_keys_set = chain.get_authorization_manager().get_required_keys( strx, my.provider_keys, fc::seconds( strx.delay_sec ));
-      if (required_keys_set.size() > 0) {
-         const auto& chain_id = chain.get_chain_id();
-         auto digest = strx.sig_digest(chain_id, strx.context_free_data);
-         signed_transaction new_strx(strx);
 
-         for (const auto& pk : required_keys_set) {
-            auto itr = my.signature_providers->find( pk );
-            EOS_ASSERT( itr != my.signature_providers->end(), producer_priv_key_not_found, "Private key not found ${k}", ("k", pk));
-            auto sig = itr->second(digest);
-            new_strx.signatures.push_back(sig);
-         }
+static void call_push_transaction(read_write& rw, packed_transaction_ptr trx, next_function<read_write::push_transaction_results> next) {
+   // try {
 
-         pretty_input = std::make_shared<packed_transaction>(std::move(new_strx));
-      }
-
-      app().get_method<incoming::methods::transaction_async>()(pretty_input, true, transaction_metadata::trx_type::input, false,
-            [this, next](const next_function_variant<transaction_trace_ptr>& result) -> void {
+      app().get_method<incoming::methods::transaction_async>()(trx, true, transaction_metadata::trx_type::input, false,
+            [&rw, next](const next_function_variant<transaction_trace_ptr>& result) -> void {
          if (std::holds_alternative<fc::exception_ptr>(result)) {
             next(std::get<fc::exception_ptr>(result));
          } else {
@@ -178,8 +158,8 @@ void read_write::push_transaction(const read_write::push_transaction_params& par
             try {
                fc::variant output;
                try {
-                  auto resolver = get_serializers_cache(chain, trx_trace_ptr, abi_serializer_max_time);
-                  abi_serializer::to_variant(*trx_trace_ptr, output, resolver, abi_serializer_max_time);
+                  auto resolver = get_serializers_cache(rw.chain, trx_trace_ptr, rw.abi_serializer_max_time);
+                  abi_serializer::to_variant(*trx_trace_ptr, output, resolver, rw.abi_serializer_max_time);
 
                   // Create map of (closest_unnotified_ancestor_action_ordinal, global_sequence) with action trace
                   std::map< std::pair<uint32_t, uint64_t>, fc::mutable_variant_object > act_traces_map;
@@ -236,6 +216,49 @@ void read_write::push_transaction(const read_write::push_transaction_params& par
             } CATCH_AND_CALL(next);
          }
       });
+}
+
+void read_write::push_transaction(const read_write::push_transaction_params& params, next_function<read_write::push_transaction_results> next) {
+   try {
+      auto pretty_input = std::make_shared<packed_transaction>();
+      auto resolver = caching_resolver(make_resolver(chain, abi_serializer_max_time, throw_on_yield::yes));
+      try {
+         abi_serializer::from_variant(params, *pretty_input, resolver, abi_serializer_max_time);
+      } EOS_RETHROW_EXCEPTIONS(chain::packed_transaction_type_exception, "Invalid packed transaction")
+
+      const signed_transaction& strx = pretty_input->get_signed_transaction();
+      auto required_keys_set = chain.get_authorization_manager().get_required_keys( strx, my.provider_keys, fc::seconds( strx.delay_sec ));
+      if (required_keys_set.size() > 0) {
+         // If the transaction has required keys, we need to sign it with the private keys
+         // provided by the producer plugin. This is done asynchronously to avoid blocking the main thread.
+         boost::asio::post(
+               my.chain_plug->chain().get_thread_pool(), // use chain thread pool for key recovery
+               [this, trx{std::move(pretty_input)}, required_keys_set{std::move(required_keys_set)}, next{next}]() mutable {
+
+            try {
+               signed_transaction new_strx(trx->get_signed_transaction());
+               const auto& chain_id = chain.get_chain_id();
+               auto digest = new_strx.sig_digest(chain_id, new_strx.context_free_data);
+
+               for (const auto& pk : required_keys_set) {
+                  auto itr = my.signature_providers->find( pk );
+                  EOS_ASSERT( itr != my.signature_providers->end(), producer_priv_key_not_found, "Private key not found ${k}", ("k", pk));
+                  auto sig = itr->second(digest);
+                  new_strx.signatures.push_back(sig);
+               }
+
+               auto new_trx = std::make_shared<packed_transaction>(std::move(new_strx));
+               call_push_transaction(*this, std::move(new_trx), next);
+            } catch ( boost::interprocess::bad_alloc& ) {
+               handle_db_exhaustion();
+            } catch ( const std::bad_alloc& ) {
+               handle_bad_alloc();
+            } CATCH_AND_CALL(next);
+         });
+      } else {
+         call_push_transaction(*this, std::move(pretty_input), next);
+      }
+
    } catch ( boost::interprocess::bad_alloc& ) {
       handle_db_exhaustion();
    } catch ( const std::bad_alloc& ) {
@@ -281,6 +304,67 @@ void read_write::push_transactions(const read_write::push_transactions_params& p
    } CATCH_AND_CALL(next);
 }
 
+
+// called from read-exclusive thread for read-only
+template<class API, class Result>
+void post_send_transaction(API &api, packed_transaction_ptr ptrx, next_function<Result> next,
+      chain::transaction_metadata::trx_type trx_type, bool return_failure_trace,
+      bool retry, std::optional<uint16_t> retry_num_blocks)
+{
+   app().get_method<incoming::methods::transaction_async>()(ptrx, true, trx_type, return_failure_trace,
+         [&api, ptrx, next, retry, retry_num_blocks](const next_function_variant<transaction_trace_ptr>& result) -> void {
+         if( std::holds_alternative<fc::exception_ptr>( result ) ) {
+            next( std::get<fc::exception_ptr>( result ) );
+         } else {
+            try {
+               auto trx_trace_ptr = std::get<transaction_trace_ptr>( result );
+               bool retried = false;
+               if constexpr (std::is_same_v<API, read_write>) {
+                  if( retry && api.trx_retry.has_value() && !trx_trace_ptr->except) {
+                     // will be ack'ed via next later
+                     api.trx_retry->track_transaction( ptrx, retry_num_blocks,
+                           [ptrx, next](const next_function_variant<std::unique_ptr<fc::variant>>& result ) {
+                              if( std::holds_alternative<fc::exception_ptr>( result ) ) {
+                                 next( std::get<fc::exception_ptr>( result ) );
+                              } else {
+                                 fc::variant& output = *std::get<std::unique_ptr<fc::variant>>( result );
+                                 next( Result{ptrx->id(), std::move( output )} );
+                              }
+                           } );
+                     retried = true;
+                  }
+               }
+               else {
+                  (void)retry; // ref variable to avoid compilation warning
+                  (void)retry_num_blocks; // ref variable to avoid compilation warning
+               }
+               if (!retried) {
+                  // we are still on main thread here. The lambda passed to `next()` below will be executed on the http thread pool
+                  using return_type = t_or_exception<Result>;
+                  next([&api,
+                        trx_trace_ptr,
+                        resolver = get_serializers_cache(api.chain, trx_trace_ptr, api.abi_serializer_max_time)]() mutable {
+                     try {
+                        fc::variant output;
+                        try {
+                           abi_serializer::to_variant(*trx_trace_ptr, output, resolver, api.abi_serializer_max_time);
+                        } catch( abi_exception& ) {
+                           output = *trx_trace_ptr;
+                        }
+                        const transaction_id_type& id = trx_trace_ptr->id;
+                        return return_type(Result{id, std::move( output )});
+                     } CATCH_AND_RETURN(return_type);
+                  });
+               }
+            } catch ( boost::interprocess::bad_alloc& ) {
+               chain_apis::api_base::handle_db_exhaustion();
+            } catch ( const std::bad_alloc& ) {
+               chain_apis::api_base::handle_bad_alloc();
+            } CATCH_AND_CALL(next);
+         }
+      });
+}
+
 // called from read-exclusive thread for read-only
 template<class API, class Result>
 void api_base::send_transaction_gen(API &api, send_transaction_params_t params, next_function<Result> next) {
@@ -307,68 +391,37 @@ void api_base::send_transaction_gen(API &api, send_transaction_params_t params, 
       const signed_transaction& strx = ptrx->get_signed_transaction();
       auto required_keys_set = api.chain.get_authorization_manager().get_required_keys( strx, api.my.provider_keys, fc::seconds( strx.delay_sec ));
       if (required_keys_set.size() > 0) {
-         const auto& chain_id = api.chain.get_chain_id();
-         auto digest = strx.sig_digest(chain_id, strx.context_free_data);
-         signed_transaction new_strx(strx);
 
-         for (const auto& pk : required_keys_set) {
-            auto itr = api.my.signature_providers->find( pk );
-            EOS_ASSERT( itr != api.my.signature_providers->end(), producer_priv_key_not_found, "Private key not found ${k}", ("k", pk));
-            auto sig = itr->second(digest);
-            new_strx.signatures.push_back(sig);
-         }
+         // If the transaction has required keys, we need to sign it with the private keys
+         // provided by the producer plugin. This is done asynchronously to avoid blocking the main thread.
+         boost::asio::post(
+               api.my.chain_plug->chain().get_thread_pool(), // use chain thread pool for key recovery
+               [&api, ptrx{std::move(ptrx)}, required_keys_set{std::move(required_keys_set)}, next{next},
+                  trx_type{params.trx_type}, return_failure_trace{params.return_failure_trace}, retry{retry}, retry_num_blocks{retry_num_blocks}]() {
 
-         ptrx = std::make_shared<packed_transaction>(new_strx);
-      }
+            try {
+               const auto& chain_id = api.chain.get_chain_id();
+               signed_transaction new_strx(ptrx->get_signed_transaction());
+               auto digest = new_strx.sig_digest(chain_id, new_strx.context_free_data);
 
-      app().get_method<incoming::methods::transaction_async>()(ptrx, true, params.trx_type, params.return_failure_trace,
-            [&api, ptrx, next, retry, retry_num_blocks](const next_function_variant<transaction_trace_ptr>& result) -> void {
-            if( std::holds_alternative<fc::exception_ptr>( result ) ) {
-               next( std::get<fc::exception_ptr>( result ) );
-            } else {
-               try {
-                  auto trx_trace_ptr = std::get<transaction_trace_ptr>( result );
-                  bool retried = false;
-                  if constexpr (std::is_same_v<API, read_write>) {
-                     if( retry && api.trx_retry.has_value() && !trx_trace_ptr->except) {
-                        // will be ack'ed via next later
-                        api.trx_retry->track_transaction( ptrx, retry_num_blocks,
-                             [ptrx, next](const next_function_variant<std::unique_ptr<fc::variant>>& result ) {
-                                if( std::holds_alternative<fc::exception_ptr>( result ) ) {
-                                   next( std::get<fc::exception_ptr>( result ) );
-                                } else {
-                                   fc::variant& output = *std::get<std::unique_ptr<fc::variant>>( result );
-                                   next( Result{ptrx->id(), std::move( output )} );
-                                }
-                             } );
-                        retried = true;
-                     }
-                  }
-                  else {
-                     (void)retry; // ref variable to avoid compilation warning
-                     (void)retry_num_blocks; // ref variable to avoid compilation warning
-                  }
-                  if (!retried) {
-                     // we are still on main thread here. The lambda passed to `next()` below will be executed on the http thread pool
-                     using return_type = t_or_exception<Result>;
-                     next([&api,
-                           trx_trace_ptr,
-                           resolver = get_serializers_cache(api.chain, trx_trace_ptr, api.abi_serializer_max_time)]() mutable {
-                        try {
-                           fc::variant output;
-                           try {
-                              abi_serializer::to_variant(*trx_trace_ptr, output, resolver, api.abi_serializer_max_time);
-                           } catch( abi_exception& ) {
-                              output = *trx_trace_ptr;
-                           }
-                           const transaction_id_type& id = trx_trace_ptr->id;
-                           return return_type(Result{id, std::move( output )});
-                        } CATCH_AND_RETURN(return_type);
-                     });
-                  }
-               } CATCH_AND_CALL( next );
-            }
+               for (const auto& pk : required_keys_set) {
+                  auto itr = api.my.signature_providers->find( pk );
+                  EOS_ASSERT( itr != api.my.signature_providers->end(), producer_priv_key_not_found, "Private key not found ${k}", ("k", pk));
+                  auto sig = itr->second(digest);
+                  new_strx.signatures.push_back(sig);
+               }
+
+               auto new_ptrx = std::make_shared<packed_transaction>(new_strx);
+               post_send_transaction(api, std::move(new_ptrx), next, trx_type, return_failure_trace, retry, retry_num_blocks);
+            } catch ( boost::interprocess::bad_alloc& ) {
+               chain_apis::api_base::handle_db_exhaustion();
+            } catch ( const std::bad_alloc& ) {
+               chain_apis::api_base::handle_bad_alloc();
+            } CATCH_AND_CALL(next);
          });
+      } else {
+         post_send_transaction(api, std::move(ptrx), next, params.trx_type, params.return_failure_trace, retry, retry_num_blocks);
+      }
    } catch ( boost::interprocess::bad_alloc& ) {
       handle_db_exhaustion();
    } catch ( const std::bad_alloc& ) {
