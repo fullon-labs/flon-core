@@ -720,7 +720,6 @@ public:
    bool                                              _disable_subjective_api_billing              = true;
    fc::time_point                                    _irreversible_block_time;
    bool                                              _is_savanna_active                           = false;
-   uint64_t                                          _idle_block_interval_ms                      = 0;
 
    std::vector<chain::digest_type> _protocol_features_to_activate;
    bool                            _protocol_features_signaled = false; // to mark whether it has been signaled in start_block
@@ -1359,8 +1358,6 @@ void producer_plugin::set_program_options(
           "Time in microseconds the write window lasts.")
          ("read-only-read-window-time-us", bpo::value<uint32_t>()->default_value(my->_ro_read_window_time_us.count()),
           "Time in microseconds the read window lasts.")
-         ("idle-block-interval-ms", bpo::value<uint32_t>()->default_value(0),
-          "The interval time of idle blocks (without transactions). The default is 0 and the idle block function is disabled.")
          ;
    config_file_options.add(producer_options);
 }
@@ -1435,8 +1432,6 @@ void producer_plugin_impl::plugin_initialize(const boost::program_options::varia
 
    set_produce_block_offset(options.at("produce-block-offset-ms").as<uint32_t>());
    _enable_block_time_strategy = options.at("enable-block-time-strategy").as<bool>();
-
-   _idle_block_interval_ms = options.at("idle-block-interval-ms").as<uint32_t>();
 
    _max_block_cpu_usage_threshold_us = options.at("max-block-cpu-usage-threshold-us").as<uint32_t>();
    EOS_ASSERT(_max_block_cpu_usage_threshold_us < config::block_interval_us,
@@ -2951,8 +2946,9 @@ bool producer_plugin_impl::maybe_produce_block() {
    try {
       if ( produce_block() ) {
          return true;
+      } else {
+         is_idle_block = true;
       }
-      is_idle_block = true;
    }
    LOG_AND_DROP();
 
@@ -2997,14 +2993,17 @@ bool producer_plugin_impl::produce_block() {
 
    const auto& head_block_time = chain.head().block_time();
    const auto& pending_block_time = chain.pending_block_timestamp();
+
       // abort the pending idle block
-   if (_idle_block_interval_ms > 0 && chain.pending_trx_size() == 0 &&
-       calc_block_time_duration_ms(head_block_time, pending_block_time) < _idle_block_interval_ms)
-   {
-      fc_dlog(_log, "Producing idle block #${num}, block_time=${bt}",
-                     ("num", chain.head().block_num() + 1)
-                     ("bt", pending_block_time));
-      return false;
+   if (chain.pending_trx_size() == 0) {
+      auto idle_block_interval_ms = chain.get_idle_block_interval_ms();
+      if (calc_block_time_duration_ms(head_block_time, pending_block_time) < idle_block_interval_ms)
+      {
+         fc_ilog(_log, "Producing an idle block #${num} and drop it, block_time=${bt}",
+                        ("num", chain.head().block_num() + 1)
+                        ("bt", pending_block_time));
+         return false;
+      }
    }
 
    auto auth = chain.pending_block_signing_authority();

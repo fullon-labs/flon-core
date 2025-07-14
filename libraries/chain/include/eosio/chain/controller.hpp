@@ -431,6 +431,8 @@ namespace eosio::chain {
          void enable_deep_mind( deep_mind_handler* logger );
          uint32_t earliest_available_block_num() const;
 
+         uint64_t get_idle_block_interval_ms() const;
+
 #if defined(EOSIO_EOS_VM_RUNTIME_ENABLED) || defined(EOSIO_EOS_VM_JIT_RUNTIME_ENABLED)
          vm::wasm_allocator&  get_wasm_allocator();
 #endif

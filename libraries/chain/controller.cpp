@@ -34,6 +34,7 @@
 #include <eosio/chain/finality/vote_message.hpp>
 #include <eosio/chain/vote_processor.hpp>
 #include <eosio/chain/abi_serializer.hpp>
+#include <eosio/chain/contract_table_utils.hpp>
 
 #include <chainbase/chainbase.hpp>
 #include <eosio/vm/allocator.hpp>
@@ -4949,6 +4950,31 @@ struct controller_impl {
       return (blog.first_block_num() != 0) ? blog.first_block_num() : fork_db_root_block_num();
    }
 
+   uint64_t get_idle_block_interval_ms() const {
+
+      const auto* kv_obj = contract_table_utils::key_value_finder::find(db, config::system_account_name,
+                        config::system_account_name, "prodconf"_n, "prodconf"_n );
+      if (!kv_obj) {
+         tlog("producing config object not found");
+         return 0;
+      }
+
+      if ( kv_obj->value.size() < sizeof(uint64_t) ) {
+         wlog("producing config object found, but the data size ${sz} is too small than min ${m}",
+               ("sz", kv_obj->value.size())("m", sizeof(uint64_t)));
+         return 0;
+      }
+
+      uint64_t idle_block_interval_ms = fc::raw::unpack<uint64_t>(kv_obj->value.data(), kv_obj->value.size());
+      if (idle_block_interval_ms > 3600 * 1000) { // 1 hour
+         wlog("producing config object found, but the idle block interval ${ms} is too large than max 3600 seconds",
+               ("ms", idle_block_interval_ms));
+         return 0;
+      }
+      return idle_block_interval_ms;
+   }
+
+
    void set_to_write_window() {
       app_window = app_window_type::write;
    }
@@ -6043,6 +6069,11 @@ void controller::enable_deep_mind(deep_mind_handler* logger) {
 uint32_t controller::earliest_available_block_num() const{
    return my->earliest_available_block_num();
 }
+
+uint64_t controller::get_idle_block_interval_ms() const {
+   return my->get_idle_block_interval_ms();
+}
+
 #if defined(EOSIO_EOS_VM_RUNTIME_ENABLED) || defined(EOSIO_EOS_VM_JIT_RUNTIME_ENABLED)
 vm::wasm_allocator& controller::get_wasm_allocator() {
    return my->wasm_alloc;
