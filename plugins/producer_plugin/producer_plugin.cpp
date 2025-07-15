@@ -2999,9 +2999,10 @@ bool producer_plugin_impl::produce_block() {
       auto idle_block_interval_ms = chain.get_idle_block_interval_ms();
       if (calc_block_time_duration_ms(head_block_time, pending_block_time) < idle_block_interval_ms)
       {
-         fc_ilog(_log, "Producing an idle block #${num} and drop it, block_time=${bt}",
+         fc_ilog(_log, "Producing an idle block #${num} and drop it, block_time=${bt}, idle_block_interval_ms=${ms}",
                         ("num", chain.head().block_num() + 1)
-                        ("bt", pending_block_time));
+                        ("bt", pending_block_time)
+                        ("ms", idle_block_interval_ms));
          return false;
       }
    }
