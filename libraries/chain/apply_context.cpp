@@ -1131,7 +1131,7 @@ uint64_t apply_context::init_action_data_to_json(const name& contract_name, cons
       trx_context.checktime();
    };
 
-   auto json = fc::json::to_string( v, json_yield, fc::json::output_formatting::stringify_large_ints_and_doubles );
+   auto json = fc::json::to_string( v, json_yield, fc::json::output_formatting::legacy_generator );
    json_size = json.size();
    _last_action_data_to_json_id++;
    auto ret = _action_data_to_jsons.emplace(std::piecewise_construct,
