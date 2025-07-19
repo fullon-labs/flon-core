@@ -1815,6 +1815,42 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(set_action_return_value_test, T, testers) { try {
    c.produce_block();
 } FC_LOG_AND_RETHROW() }
 
+
+static const char all_base_types_json[] = "{\"all_base_types_value\":{"
+      "\"bool_value\":1,"
+      "\"int8_value\":-1,"
+      "\"uint8_value\":255,"
+      "\"int16_value\":-1,"
+      "\"uint16_value\":65535,"
+      "\"int32_value\":-1,"
+      "\"uint32_value\":4294967295,"
+      "\"int64_value\":-1,"
+      "\"uint64_value\":1,"
+      "\"int128_value\":\"-170141183460469231731687303715884105727\"," // -(2^127 - 1)
+      "\"uint128_value\":\"340282366920938463463374607431768211455\"," // 2^128 - 1
+      "\"varint32_value\":-1,"
+      "\"varuint32_value\":4294967295,"
+      "\"float32_value\":-1.00000000000000000,"
+      "\"float64_value\":-1.00000000000000000,"
+      "\"float128_value\":\"0xffffffffffffffffffffffffffffffff\","
+      "\"time_point_value\":\"1970-01-01T00:00:00.000\"," // epoch time
+      "\"time_point_sec_value\":\"1970-01-01T00:00:00\"," // epoch time in seconds
+      "\"block_timestamp_type_value\":\"2000-01-01T00:00:00.000\"," // epoch time
+      "\"name_value\":\"alice\"," // name in string format
+      "\"bytes_value\":\"68656c6c6f\"," // "hello" in hex
+      "\"string_value\":\"hello\","
+      "\"checksum160_value\":\"123456789abcdef01234567890abcdef70123456\"," // checksum160 in hex
+      "\"checksum256_value\":\"0987654321abcdef0987654321ffff1234567890abcdef001234567890abcdef\"," // checksum256 in hex
+      "\"checksum512_value\":\"0987654321abcdef0987654321ffff1234567890abcdef001234567890abcdef0987654321abcdef0987654321ffff1234567890abcdef001234567890abcdef\"," // checksum512 in hex
+      "\"public_key_value\":\"PUB_WA_8PPYTWYNkRqrveNAoX7PJWDtSqDUp3c29QGBfr6MD9EaLocaPBmsk5QAHWq4vEQt2\","
+      "\"signature_value\":\"SIG_K1_Kg2UKjXTX48gw2wWH4zmsZmWu3yarcfC21Bd9JPj7QoDURqiAacCHmtExPk3syPb2tFLsp1R4ttXLXgr7FYgDvKPC5RCkx\","
+      "\"symbol_value\":\"4,SYS\","
+      "\"symbol_code_value\":\"SYS\","
+      "\"asset_value\":\"0.1 SYS\","
+      "\"extended_asset_value\":{\"quantity\":\"1000 SYS\",\"contract\":\"sys.token\"}}}";
+
+   // void testallbase(all_base_types all_base_types_value);
+
 BOOST_AUTO_TEST_CASE_TEMPLATE(action_data_to_json_test, T, testers) { try {
    T c( setup_policy::preactivate_feature_and_new_bios );
 
@@ -1850,6 +1886,35 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(action_data_to_json_test, T, testers) { try {
 
    BOOST_REQUIRE( !trx->except && !trx->error_code && !trx->except_ptr);
    c.produce_block();
+
+   auto abi = c.control->get_account(acct).get_abi();
+   eosio::chain::abi_serializer abis(abi, abi_serializer::create_yield_function( c.abi_serializer_max_time ));
+
+   string action_type_name = abis.get_action_type("testallbase"_n);
+   wdump((action_type_name));
+
+   auto all_types_var = fc::json::from_string( all_base_types_json, fc::json::parse_type::relaxed_parser );
+   wdump((all_types_var));
+   auto data = abis.variant_to_binary(action_type_name, all_types_var, c.abi_serializer_max_time);
+   idump((data));
+
+   auto all_types_var2 = abis.binary_to_variant(action_type_name, data, c.abi_serializer_max_time);
+   idump((all_types_var2));
+
+   auto all_base_types_json2 = fc::json::to_string( all_types_var2, fc::time_point::maximum(),
+                                       fc::json::output_formatting::legacy_generator );
+
+   BOOST_REQUIRE_EQUAL( all_base_types_json2, string(all_base_types_json) );
+
+   auto trx2 = c.push_action( acct, "actionjson"_n, acct, fc::mutable_variant_object()
+                     ("contract_name", acct)
+                     ("action_name", "testallbase"_n)
+                     ("action_data", data)
+                     ("expected_json", string(all_base_types_json)) );
+
+   BOOST_REQUIRE( !trx2->except && !trx2->error_code && !trx2->except_ptr);
+   c.produce_block();
+
 } FC_LOG_AND_RETHROW() }
 
 static const char import_get_parameters_packed_wast[] = R"=====(

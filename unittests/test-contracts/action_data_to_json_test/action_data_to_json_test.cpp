@@ -12,3 +12,7 @@ void action_data_to_json_test::actionjson(const eosio::name& contract_name,
    check(result == expected_json, "action data to json conversion failed, expected: " + expected_json + ", got: " + result);
 }
 
+void action_data_to_json_test::testallbase(all_base_types all_base_types_value)
+{
+   // do nothing, this action is just for testing purposes
+}
