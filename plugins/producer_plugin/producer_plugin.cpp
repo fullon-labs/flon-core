@@ -2114,7 +2114,7 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
 
    auto irreversible_block_age = get_irreversible_block_age();
 
-   bool not_producing_when_time = false;
+   // bool not_producing_when_time = false;
    // If the next block production opportunity is in the present or future, we're synced.
    if (!_production_enabled) {
       _pending_block_mode = pending_block_mode::speculating;
@@ -2124,17 +2124,17 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
       fc_elog(_log, "Not producing block because I don't have any private keys relevant to authority: ${authority}, block ${t}",
               ("authority", scheduled_producer.authority)("t", block_time));
       _pending_block_mode = pending_block_mode::speculating;
-      not_producing_when_time = true;
+      // not_producing_when_time = true;
    } else if (_pause_production) {
       fc_wlog(_log, "Not producing block because production is explicitly paused, block ${t}", ("t", block_time));
       _pending_block_mode = pending_block_mode::speculating;
-      not_producing_when_time = true;
+      // not_producing_when_time = true;
    } else if (_max_irreversible_block_age_us.count() >= 0 && irreversible_block_age >= _max_irreversible_block_age_us) {
       fc_elog(_log, "Not producing block because the irreversible block is too old [age:${age}s, max:${max}s], block ${t}",
               ("age", irreversible_block_age.count() / 1'000'000)("max", _max_irreversible_block_age_us.count() / 1'000'000)
               ("t", block_time));
       _pending_block_mode = pending_block_mode::speculating;
-      not_producing_when_time = true;
+      // not_producing_when_time = true;
    } else if (const auto status = _implicit_pause_vote_tracker.check_pause_status(now); status.should_pause()) {
       // "Not producing block because no recent" log message looked for in production_pause_vote_timeout.py
       using pause_reason_t = production_pause_vote_tracker::pause_status::pause_reason;
@@ -2158,25 +2158,25 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
                  ("ov", status.other_vote.latest_vote)("oct", *status.other_vote.earliest_conflict_block));
       }
       _pending_block_mode = pending_block_mode::speculating;
-      not_producing_when_time = true;
+      // not_producing_when_time = true;
    } else if (_max_reversible_blocks > 0 && head_block_num - head.irreversible_blocknum() > _max_reversible_blocks) {
       fc_elog(_log, "Not producing block because max-reversible-blocks ${m} reached, head ${h}, lib ${l}, block ${t}",
               ("m", _max_reversible_blocks)("h", head_block_num)("l", head.irreversible_blocknum())("t", block_time));
       _pending_block_mode = pending_block_mode::speculating;
-      not_producing_when_time = true;
+      // not_producing_when_time = true;
    }
 
    // !not_producing_when_time to avoid tight spin because of error or paused production
-   if (in_speculating_mode() && !not_producing_when_time) {
-      static fc::time_point last_start_block_time = fc::time_point::maximum(); // always start with speculative block
-      // Determine if we are syncing: if we have recently started an old block then assume we are syncing
-      if (last_start_block_time < now + fc::microseconds(config::block_interval_us)) {
-         auto head_block_age = now - chain.head().block_time();
-         if (head_block_age > fc::seconds(5))
-            return start_block_result::waiting_for_block; // if syncing no need to create a block just to immediately abort it
-      }
-      last_start_block_time = now;
-   }
+   // if (in_speculating_mode() && !not_producing_when_time) {
+   //    static fc::time_point last_start_block_time = fc::time_point::maximum(); // always start with speculative block
+   //    // Determine if we are syncing: if we have recently started an old block then assume we are syncing
+   //    if (last_start_block_time < now + fc::microseconds(config::block_interval_us)) {
+   //       auto head_block_age = now - chain.head().block_time();
+   //       if (head_block_age > fc::seconds(5))
+   //          return start_block_result::waiting_for_block; // if syncing no need to create a block just to immediately abort it
+   //    }
+   //    last_start_block_time = now;
+   // }
 
    if (in_producing_mode()) {
       // determine if our watermark excludes us from producing at this point
