@@ -422,7 +422,8 @@ fc::variant push_transaction( signed_transaction& trx, const std::vector<public_
    auto info = get_info();
 
    if (trx.signatures.size() == 0) { // #5445 can't change txn content if already signed
-      trx.expiration = fc::time_point_sec{info.head_block_time + tx_expiration};
+      fc::time_point now = fc::time_point::now();
+      trx.expiration = fc::time_point_sec{ (now > info.head_block_time ? now : info.head_block_time) + tx_expiration};
 
       // Set tapos, default to last irreversible block if it's not specified by the user
       block_id_type ref_block_id = info.last_irreversible_block_id;
