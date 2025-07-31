@@ -21,7 +21,8 @@ if [[ ${INSTALL_DEPENDENT_LIBS} == true ]]; then
         llvm-11-dev \
         python3-numpy \
         file \
-        zlib1g-dev
+        zlib1g-dev \
+        librocksdb-dev
 fi
 export CPU_CORES=${CPU_CORES:-$(nproc)}
 export BUILD_DIR=${BUILD_DIR:-"build"}
