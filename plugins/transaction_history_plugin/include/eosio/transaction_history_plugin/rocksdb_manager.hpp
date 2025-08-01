@@ -31,6 +31,20 @@ public:
    bool open(const std::string& db_path);
 
    /**
+    * @brief Open database at specified path with compression settings
+    * @param db_path Path to database directory
+    * @param enable_compression Whether to enable compression
+    * @return true if successful, false otherwise
+    */
+   bool open(const std::string& db_path, bool enable_compression);
+
+   /**
+    * @brief Get database compression information
+    * @return Information about compression usage in the database
+    */
+   std::string get_compression_info() const;
+
+   /**
     * @brief Close the database
     */
    void close();

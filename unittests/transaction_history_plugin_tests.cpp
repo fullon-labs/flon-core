@@ -200,7 +200,7 @@ BOOST_AUTO_TEST_CASE(rollback_manager_edge_cases) {
    manager.cleanup_old_rollback_points(0);
 
    // Test getting rollback point after cleanup
-   auto latest = manager.get_latest_rollback_point();
+   manager.get_latest_rollback_point();
    // May not have a value after cleanup - this is expected behavior
 
    db->close();

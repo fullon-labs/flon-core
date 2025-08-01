@@ -99,19 +99,24 @@ void transaction_history_plugin::plugin_initialize(const variables_map& options)
       EOS_ASSERT(!my->db_path_.empty(), eosio::chain::plugin_exception,
                  "transaction-history-dir cannot be empty");
 
-      ilog("Transaction history monitoring: max trace size: ${trace_size} bytes, max retained blocks: ${blocks}, max actions per tx: ${actions}",
+      ilog("Transaction history monitoring: max trace size: ${trace_size} bytes, max retained blocks: ${blocks}, max actions per tx: ${actions}, compression: ${compression}",
            ("trace_size", transaction_history_plugin_impl::MAX_TRACE_SIZE)
            ("blocks", transaction_history_plugin_impl::MAX_RETAINED_BLOCKS)
-           ("actions", transaction_history_plugin_impl::MAX_ACTIONS_PER_TX));
+           ("actions", transaction_history_plugin_impl::MAX_ACTIONS_PER_TX)
+           ("compression", my->compression_enabled_ ? "enabled" : "disabled"));
 
       // Initialize components
       my->db_ = std::make_shared<rocksdb_manager>();
       my->worker_ = std::make_unique<async_worker>();
       my->rollback_mgr_ = std::make_unique<rollback_manager>(my->db_);
 
-      if (!my->db_->open(my->db_path_)) {
+      if (!my->db_->open(my->db_path_, my->compression_enabled_)) {
          throw std::runtime_error("Failed to open transaction history database at: " + my->db_path_);
       }
+
+      // Log compression information
+      std::string compression_info = my->db_->get_compression_info();
+      ilog("Database compression status: ${info}", ("info", compression_info));
 
       ilog("Transaction history plugin initialized with database at: ${path}",
            ("path", my->db_path_));

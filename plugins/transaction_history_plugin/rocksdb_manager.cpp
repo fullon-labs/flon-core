@@ -12,7 +12,6 @@ rocksdb_manager::rocksdb_manager() : is_open_(false) {
    options_.write_buffer_size = 64 * 1024 * 1024;  // 64MB
    options_.max_write_buffer_number = 3;
    options_.target_file_size_base = 64 * 1024 * 1024;  // 64MB
-   options_.compression = rocksdb::kLZ4Compression;
    options_.max_background_jobs = 4;
    options_.IncreaseParallelism(std::thread::hardware_concurrency());
 }
@@ -22,11 +21,24 @@ rocksdb_manager::~rocksdb_manager() {
 }
 
 bool rocksdb_manager::open(const std::string& db_path) {
+   return open(db_path, true); // Default to compression enabled
+}
+
+bool rocksdb_manager::open(const std::string& db_path, bool enable_compression) {
    if (is_open_) {
       return true;
    }
 
    db_path_ = db_path;
+
+   // Configure compression based on parameter
+   if (enable_compression) {
+      options_.compression = rocksdb::kLZ4Compression;
+      ilog("RocksDB compression enabled (LZ4)");
+   } else {
+      options_.compression = rocksdb::kNoCompression;
+      ilog("RocksDB compression disabled");
+   }
 
    // Create directory if it doesn't exist
    try {
@@ -37,6 +49,9 @@ bool rocksdb_manager::open(const std::string& db_path) {
       return false;
    }
 
+   // Check if database already exists to warn about compression changes
+   bool db_exists = std::filesystem::exists(db_path + "/CURRENT");
+
    rocksdb::DB* raw_db;
    rocksdb::Status status = rocksdb::DB::Open(options_, db_path, &raw_db);
    if (!status.ok()) {
@@ -46,6 +61,34 @@ bool rocksdb_manager::open(const std::string& db_path) {
 
    db_.reset(raw_db);
    is_open_ = true;
+
+   // Store compression setting in a special key for future reference
+   std::string compression_key = "_internal_compression_enabled";
+   std::string current_setting = enable_compression ? "true" : "false";
+
+   if (db_exists) {
+      // Check previous compression setting
+      std::string previous_setting;
+      rocksdb::Status read_status = db_->Get(rocksdb::ReadOptions(), compression_key, &previous_setting);
+
+      if (read_status.ok() && previous_setting != current_setting) {
+         if (enable_compression && previous_setting == "false") {
+            wlog("Transaction history database was previously created without compression, "
+                 "but compression is now enabled. New data will be compressed, "
+                 "but existing data remains uncompressed.");
+         } else if (!enable_compression && previous_setting == "true") {
+            wlog("Transaction history database was previously created with compression, "
+                 "but compression is now disabled. Existing compressed data can still be read, "
+                 "but new data will not be compressed.");
+         }
+      }
+   }
+
+   // Update the compression setting record
+   rocksdb::Status write_status = db_->Put(rocksdb::WriteOptions(), compression_key, current_setting);
+   if (!write_status.ok()) {
+      wlog("Failed to record compression setting: ${error}", ("error", write_status.ToString()));
+   }
 
    ilog("RocksDB opened successfully at: ${path}", ("path", db_path));
    return true;
@@ -83,6 +126,31 @@ bool rocksdb_manager::get(const std::string& key, std::string& value) {
       return false;
    }
    return true;
+}
+
+std::string rocksdb_manager::get_compression_info() const {
+   if (!db_) {
+      return "Database not open";
+   }
+
+   std::string compression_setting;
+   std::string compression_key = "_internal_compression_enabled";
+   rocksdb::Status status = db_->Get(rocksdb::ReadOptions(), compression_key, &compression_setting);
+
+   std::string current_compression = (options_.compression == rocksdb::kLZ4Compression) ? "LZ4" : "None";
+
+   if (status.ok()) {
+      bool was_compressed = (compression_setting == "true");
+      std::string previous_compression = was_compressed ? "LZ4" : "None";
+
+      if (current_compression != previous_compression) {
+         return "Current: " + current_compression + ", Previous: " + previous_compression + " (Mixed mode)";
+      } else {
+         return "Consistent: " + current_compression;
+      }
+   } else {
+      return "Current: " + current_compression + " (No history available)";
+   }
 }
 
 bool rocksdb_manager::remove(const std::string& key) {
