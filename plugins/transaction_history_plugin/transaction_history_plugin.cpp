@@ -26,11 +26,13 @@ public:
    boost::signals2::scoped_connection applied_transaction_connection_;
 
    std::string db_path_;
-   uint32_t max_retained_blocks_ = 1000;
-   uint32_t max_trace_size_ = 10 * 1024 * 1024; // 10MB
-   uint32_t max_actions_per_tx_ = 1000;
    bool compression_enabled_ = true;
    bool filter_on_star = true;
+
+   // Constants for monitoring and limits
+   static constexpr uint32_t MAX_RETAINED_BLOCKS = 1000;
+   static constexpr uint32_t MAX_TRACE_SIZE = 10 * 1024 * 1024; // 10MB
+   static constexpr uint32_t MAX_ACTIONS_PER_TX = 1000;
 
    // Statistics for monitoring
    std::atomic<uint64_t> transactions_processed_{0};
@@ -38,7 +40,13 @@ public:
    std::atomic<uint64_t> total_processing_time_us_{0};
    fc::time_point startup_time_;
 
+   // For monitoring and warnings
+   std::atomic<uint32_t> last_warning_block_{0};
+   const uint32_t warning_interval_ = 10000; // Warn every 10000 blocks
+   const uint32_t max_safe_pending_blocks_ = 5000; // Warn if pending blocks exceed this
+
    void applied_transaction(const eosio::chain::transaction_trace_ptr& trace);
+   void check_data_size_warnings(uint32_t current_block_num, uint32_t lib_block_num);
 
    std::string make_transaction_key(const eosio::chain::transaction_id_type& id) const;
    std::string make_account_action_key(const eosio::chain::name& account, uint64_t seq) const;
@@ -55,12 +63,6 @@ void transaction_history_plugin::set_program_options(options_description& cli, o
    cfg.add_options()
       ("transaction-history-dir", bpo::value<std::string>()->default_value("transaction_history"),
        "The location of the transaction history database")
-      ("transaction-history-max-retained-blocks", bpo::value<uint32_t>()->default_value(1000),
-       "The maximum number of blocks to retain in transaction history")
-      ("transaction-history-max-trace-size", bpo::value<uint32_t>()->default_value(10485760),
-       "Maximum size in bytes for a single transaction trace (default: 10MB)")
-      ("transaction-history-max-actions-per-tx", bpo::value<uint32_t>()->default_value(1000),
-       "Maximum number of actions to index per transaction")
       ("transaction-history-compression", bpo::value<bool>()->default_value(true),
        "Enable compression for stored transaction data")
       ("transaction-history-filter-on", bpo::value<std::vector<std::string>>()->composing(),
@@ -75,14 +77,7 @@ void transaction_history_plugin::plugin_initialize(const variables_map& options)
       EOS_ASSERT(my->chain_plug, eosio::chain::missing_chain_plugin_exception, "");
 
       my->db_path_ = options.at("transaction-history-dir").as<std::string>();
-      my->max_retained_blocks_ = options.at("transaction-history-max-retained-blocks").as<uint32_t>();
 
-      if (options.count("transaction-history-max-trace-size")) {
-         my->max_trace_size_ = options.at("transaction-history-max-trace-size").as<uint32_t>();
-      }
-      if (options.count("transaction-history-max-actions-per-tx")) {
-         my->max_actions_per_tx_ = options.at("transaction-history-max-actions-per-tx").as<uint32_t>();
-      }
       if (options.count("transaction-history-compression")) {
          my->compression_enabled_ = options.at("transaction-history-compression").as<bool>();
       }
@@ -90,10 +85,11 @@ void transaction_history_plugin::plugin_initialize(const variables_map& options)
       // Validate configuration parameters
       EOS_ASSERT(!my->db_path_.empty(), eosio::chain::plugin_exception,
                  "transaction-history-dir cannot be empty");
-      EOS_ASSERT(my->max_retained_blocks_ > 0, eosio::chain::plugin_exception,
-                 "transaction-history-max-retained-blocks must be greater than 0");
-      EOS_ASSERT(my->max_retained_blocks_ <= 100000, eosio::chain::plugin_exception,
-                 "transaction-history-max-retained-blocks cannot exceed 100000 for memory safety");
+
+      ilog("Transaction history monitoring: max trace size: ${trace_size} bytes, max retained blocks: ${blocks}, max actions per tx: ${actions}",
+           ("trace_size", transaction_history_plugin_impl::MAX_TRACE_SIZE)
+           ("blocks", transaction_history_plugin_impl::MAX_RETAINED_BLOCKS)
+           ("actions", transaction_history_plugin_impl::MAX_ACTIONS_PER_TX));
 
       // Initialize components
       my->db_ = std::make_shared<rocksdb_manager>();
@@ -104,8 +100,8 @@ void transaction_history_plugin::plugin_initialize(const variables_map& options)
          throw std::runtime_error("Failed to open transaction history database at: " + my->db_path_);
       }
 
-      ilog("Transaction history plugin initialized with database at: ${path}, max_retained_blocks: ${blocks}",
-           ("path", my->db_path_)("blocks", my->max_retained_blocks_));
+      ilog("Transaction history plugin initialized with database at: ${path}",
+           ("path", my->db_path_));
 
    } FC_LOG_AND_RETHROW()
 }
@@ -184,9 +180,14 @@ void transaction_history_plugin_impl::applied_transaction(const eosio::chain::tr
          result.block_num = chain_plug->chain().head().block_num();
          result.last_irreversible_block = chain_plug->chain().last_irreversible_block_num();
 
-         // Convert action traces to variants with size limit check
+         // Check for data size warnings periodically
+         if (result.block_num > last_warning_block_ + warning_interval_) {
+            last_warning_block_ = result.block_num;
+            check_data_size_warnings(result.block_num, result.last_irreversible_block);
+         }
+
+         // Convert action traces to variants with size monitoring
          size_t total_size = 0;
-         const size_t max_trace_size = max_trace_size_; // Use configurable limit
 
          for (const auto& action_trace : trace->action_traces) {
             fc::variant action_var;
@@ -195,13 +196,13 @@ void transaction_history_plugin_impl::applied_transaction(const eosio::chain::tr
             size_t action_size = fc::raw::pack_size(action_var);
             total_size += action_size;
 
-            if (total_size > max_trace_size) {
-               wlog("Transaction ${id} trace size ${size} bytes exceeds limit, truncating",
-                    ("id", trace->id)("size", total_size));
-               break;
-            }
-
             result.traces.push_back(action_var);
+         }
+
+         // Warn if transaction trace size exceeds configured limit
+         if (total_size > MAX_TRACE_SIZE) {
+            wlog("Transaction ${id} trace size ${size} bytes exceeds limit ${limit}, but storing anyway",
+                 ("id", trace->id)("size", total_size)("limit", MAX_TRACE_SIZE));
          }
 
          // Store transaction data with error checking
@@ -210,10 +211,10 @@ void transaction_history_plugin_impl::applied_transaction(const eosio::chain::tr
             return;
          }
 
-         // Create account-level indexes for action queries
+         // Create account-level indexes for action queries with limit
          size_t indexed_actions = 0;
          for (const auto& action_trace : trace->action_traces) {
-            if (action_trace.receipt && indexed_actions < max_actions_per_tx_) { // Use configurable limit
+            if (action_trace.receipt && indexed_actions < MAX_ACTIONS_PER_TX) {
                std::string account_key = make_account_action_key(
                   action_trace.receipt->receiver,
                   action_trace.receipt->global_sequence
@@ -235,6 +236,12 @@ void transaction_history_plugin_impl::applied_transaction(const eosio::chain::tr
             }
          }
 
+         // Warn if too many actions were skipped in indexing
+         if (trace->action_traces.size() > MAX_ACTIONS_PER_TX) {
+            wlog("Transaction ${id} has ${total} actions, only indexed first ${indexed} actions",
+                 ("id", trace->id)("total", trace->action_traces.size())("indexed", MAX_ACTIONS_PER_TX));
+         }
+
          auto processing_time = fc::time_point::now() - start_time;
          transactions_processed_++;
          total_processing_time_us_ += processing_time.count();
@@ -253,6 +260,37 @@ void transaction_history_plugin_impl::applied_transaction(const eosio::chain::tr
          elog("Unknown error processing transaction ${id}", ("id", trace->id));
       }
    });
+}
+
+void transaction_history_plugin_impl::check_data_size_warnings(uint32_t current_block_num, uint32_t lib_block_num) {
+   // Calculate pending (reversible) blocks
+   uint32_t pending_blocks = current_block_num > lib_block_num ? current_block_num - lib_block_num : 0;
+
+   // Warn if there are too many pending blocks (could indicate slow finality)
+   if (pending_blocks > max_safe_pending_blocks_) {
+      wlog("Transaction history warning: ${pending} pending blocks (head: ${head}, LIB: ${lib}). "
+           "Consider checking network finality. Storage usage may be high.",
+           ("pending", pending_blocks)("head", current_block_num)("lib", lib_block_num));
+   }
+
+   // Warn about max_retained_blocks setting if it's too low
+   if (MAX_RETAINED_BLOCKS < pending_blocks + 1000) {
+      wlog("Transaction history warning: max-retained-blocks (${max}) is close to pending blocks (${pending}). "
+           "This setting is only used for documentation and warnings, not for data cleanup.",
+           ("max", MAX_RETAINED_BLOCKS)("pending", pending_blocks));
+   }
+
+   // Optional: Check rollback manager status
+   if (rollback_mgr_) {
+      auto latest_rollback = rollback_mgr_->get_latest_rollback_point();
+      if (latest_rollback.has_value()) {
+         uint32_t rollback_age = current_block_num > *latest_rollback ? current_block_num - *latest_rollback : 0;
+         if (rollback_age > 1000) {
+            dlog("Transaction history info: Latest rollback point is ${age} blocks old (block ${rollback})",
+                 ("age", rollback_age)("rollback", *latest_rollback));
+         }
+      }
+   }
 }
 
 std::string transaction_history_plugin_impl::make_transaction_key(const transaction_id_type& id) const {
