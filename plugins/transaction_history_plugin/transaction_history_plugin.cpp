@@ -10,6 +10,7 @@
 
 #include <boost/signals2/connection.hpp>
 #include <boost/program_options.hpp>
+#include <filesystem>
 
 namespace eosio {
 namespace bpo = boost::program_options;
@@ -61,8 +62,8 @@ transaction_history_plugin::~transaction_history_plugin() {
 
 void transaction_history_plugin::set_program_options(options_description& cli, options_description& cfg) {
    cfg.add_options()
-      ("transaction-history-dir", bpo::value<std::string>()->default_value("transaction_history"),
-       "The location of the transaction history database")
+      ("transaction-history-dir", bpo::value<std::filesystem::path>()->default_value("transaction_history"),
+       "The location of the transaction history database (absolute path or relative to application data dir)")
       ("transaction-history-compression", bpo::value<bool>()->default_value(true),
        "Enable compression for stored transaction data")
       ("transaction-history-filter-on", bpo::value<std::vector<std::string>>()->composing(),
@@ -76,7 +77,19 @@ void transaction_history_plugin::plugin_initialize(const variables_map& options)
       my->chain_plug = appbase::app().find_plugin<eosio::chain_plugin>();
       EOS_ASSERT(my->chain_plug, eosio::chain::missing_chain_plugin_exception, "");
 
-      my->db_path_ = options.at("transaction-history-dir").as<std::string>();
+      // Handle transaction-history-dir with proper path logic
+      auto dir_option = options.at("transaction-history-dir").as<std::filesystem::path>();
+      std::filesystem::path transaction_history_dir;
+      if (dir_option.is_relative())
+         transaction_history_dir = appbase::app().data_dir() / dir_option;
+      else
+         transaction_history_dir = dir_option;
+
+      // Create directories if they don't exist
+      std::filesystem::create_directories(transaction_history_dir);
+
+      // Store the absolute path as string for use in other components
+      my->db_path_ = transaction_history_dir.string();
 
       if (options.count("transaction-history-compression")) {
          my->compression_enabled_ = options.at("transaction-history-compression").as<bool>();

@@ -48,7 +48,7 @@ parse_params<transaction_history_apis::read_only::get_actions_params, http_param
 
 template<>
 transaction_history_apis::read_only::get_transaction_count_params
-parse_params<transaction_history_apis::read_only::get_transaction_count_params, http_params_types::params_optional>(const std::string& body) {
+parse_params<transaction_history_apis::read_only::get_transaction_count_params, http_params_types::possible_no_params>(const std::string& body) {
    if (body.empty()) {
       return transaction_history_apis::read_only::get_transaction_count_params{};
    }
@@ -96,7 +96,7 @@ parse_params<transaction_history_apis::read_only::get_controlled_accounts_params
      auto result = api_handle.call_name( std::move(params) );
 
 #define INVOKE_R_R_OPTIONAL(api_handle, call_name, in_param) \
-     auto params = parse_params<in_param, http_params_types::params_optional>(body);\
+     auto params = parse_params<in_param, http_params_types::possible_no_params>(body);\
      auto result = api_handle.call_name( std::move(params) );
 
 #define CALL_WITH_400(api_name, api_handle, call_name, INVOKE, http_response_code) \

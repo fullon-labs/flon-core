@@ -128,10 +128,10 @@ public:
    transaction_history_plugin();
    virtual ~transaction_history_plugin();
 
-   virtual void set_program_options(options_description& cli, options_description& cfg);
-   virtual void plugin_initialize(const variables_map& options);
-   virtual void plugin_startup();
-   virtual void plugin_shutdown();
+   virtual void set_program_options(options_description& cli, options_description& cfg) override;
+   void plugin_initialize(const variables_map& options);
+   void plugin_startup();
+   void plugin_shutdown();
 
    transaction_history_apis::read_only get_read_only_api() const {
       return transaction_history_apis::read_only(transaction_history_const_ptr(my));
