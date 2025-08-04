@@ -64,6 +64,7 @@ message(STATUS "RocksDB libraries: ${ROCKSDB_LIBRARIES}")
 
 target_link_libraries( transaction_history_plugin
                       chain_plugin
+                      http_plugin
                       appbase
                       fc
                       ${ROCKSDB_LIBRARIES}

@@ -91,6 +91,36 @@ parse_params<transaction_history_apis::read_only::get_controlled_accounts_params
    }
 }
 
+template<>
+transaction_history_apis::read_only::get_database_stats_params
+parse_params<transaction_history_apis::read_only::get_database_stats_params, http_params_types::possible_no_params>(const std::string& body) {
+   if (body.empty()) {
+      return transaction_history_apis::read_only::get_database_stats_params{};
+   }
+
+   try {
+      auto v = fc::json::from_string(body).as<transaction_history_apis::read_only::get_database_stats_params>();
+      return v;
+   } catch(...) {
+      EOS_THROW(chain::invalid_http_request, "Invalid get_database_stats parameters");
+   }
+}
+
+template<>
+transaction_history_apis::read_only::get_performance_metrics_params
+parse_params<transaction_history_apis::read_only::get_performance_metrics_params, http_params_types::possible_no_params>(const std::string& body) {
+   if (body.empty()) {
+      return transaction_history_apis::read_only::get_performance_metrics_params{};
+   }
+
+   try {
+      auto v = fc::json::from_string(body).as<transaction_history_apis::read_only::get_performance_metrics_params>();
+      return v;
+   } catch(...) {
+      EOS_THROW(chain::invalid_http_request, "Invalid get_performance_metrics parameters");
+   }
+}
+
 #define INVOKE_R_R(api_handle, call_name, in_param) \
      auto params = parse_params<in_param, http_params_types::params_required>(body);\
      auto result = api_handle.call_name( std::move(params) );
@@ -132,6 +162,12 @@ void transaction_history_api_plugin::plugin_startup() {
 
       CALL_WITH_400(transaction_history, history_mgr, get_controlled_accounts,
          INVOKE_R_R(history_mgr, get_controlled_accounts, transaction_history_apis::read_only::get_controlled_accounts_params), 200),
+
+      CALL_WITH_400(transaction_history, history_mgr, get_database_stats,
+         INVOKE_R_R_OPTIONAL(history_mgr, get_database_stats, transaction_history_apis::read_only::get_database_stats_params), 200),
+
+      CALL_WITH_400(transaction_history, history_mgr, get_performance_metrics,
+         INVOKE_R_R_OPTIONAL(history_mgr, get_performance_metrics, transaction_history_apis::read_only::get_performance_metrics_params), 200),
 
    }, appbase::exec_queue::read_only);
 
