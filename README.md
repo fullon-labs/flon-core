@@ -152,7 +152,10 @@ cmake -DCMAKE_C_COMPILER=gcc-10 -DCMAKE_CXX_COMPILER=g++-10 -DCMAKE_BUILD_TYPE=R
 ## on Ubuntu 22, the default gcc version is 11, using the default compiler is fine
 cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=/usr/lib/llvm-11 ..
 
-make -j "$(nproc)" package
+## on Mac macOS 13.0 (22A380)
+cmake -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+
+make -j $nproc package
 ```
 
 Now you can optionally [test](#step-4---test) your build, or [install](#step-5---install) the `*.deb` binary packages, which will be in the root of your build directory.
