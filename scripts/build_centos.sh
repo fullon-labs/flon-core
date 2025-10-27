@@ -13,7 +13,7 @@ ARCH=$( uname )
 # fi
 
 sudo dnf groupinstall -y "Development Tools"
-sudo dnf install -y cmake git libcurl libcurl-devel gmp gmp-devel llvm llvm-devel python3-numpy file zlib-devel
+sudo dnf install -y cmake git libcurl libcurl-devel gmp gmp-devel llvm llvm-devel python3-numpy file zlib-devel librocksdb-dev
 export CPU_CORES=${CPU_CORES:-$(nproc)}
 export BUILD_DIR=${BUILD_DIR:-"build"}
 mkdir -p ${BUILD_DIR}

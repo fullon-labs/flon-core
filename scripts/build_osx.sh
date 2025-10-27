@@ -25,7 +25,7 @@ fi
 INSTALL_DEPENDENT_LIBS=${INSTALL_DEPENDENT_LIBS:-true}
 if [[ ${INSTALL_DEPENDENT_LIBS} == true ]]; then
   brew update
-  for pkg in cmake boost llvm python@3 pkg-config git; do
+  for pkg in cmake boost llvm python@3 pkg-config git rocksdb; do
     if ! brew list --versions "$pkg" >/dev/null 2>&1; then
       echo "Installing $pkg ..."
       brew install "$pkg"
