@@ -1,0 +1,263 @@
+# Transaction History Plugin
+
+## Overview
+
+The `transaction_history_plugin` is a high-performance transaction history recording plugin designed to replace the deprecated `history_plugin`. This plugin provides the following key features:
+
+- **RocksDB Storage**: Uses RocksDB as the storage engine for optimal performance and reliability
+- **Asynchronous Processing**: All database operations are performed in separate worker threads to avoid blocking the main chain processing
+- **Rollback Support**: Implements checkpoint-based rollback mechanism to maintain consistency with chain state
+- **Snapshot Recovery**: Supports rebuilding historical data when starting from a snapshot
+
+## Architecture
+
+### Components
+
+1. **rocksdb_manager**: Manages RocksDB database operations including read/write operations, batch operations, and checkpoint management.
+
+2. **async_worker**: Provides asynchronous task execution using a thread pool to process database operations without blocking the main chain.
+
+3. **rollback_manager**: Handles rollback operations by managing checkpoints and coordinating with the RocksDB checkpoint mechanism.
+
+4. **transaction_history_plugin**: Main plugin class that connects to chain signals and coordinates transaction history recording.
+
+### Data Flow
+
+```
+Chain Events → Plugin → Async Worker → RocksDB Storage
+     ↓              ↓         ↓              ↓
+Transaction    Queue Tasks  Execute     Store Data
+   Traces      in Thread    in Worker   with Keys
+              Pool         Threads
+```
+
+## Configuration Options
+
+### transaction-history-dir
+- **Type**: string
+- **Default**: "transaction_history"
+- **Description**: The directory path where the RocksDB database will be stored
+
+### transaction-history-max-retained-blocks
+- **Type**: uint32
+- **Default**: 1000
+- **Description**: Maximum number of blocks to retain rollback points for
+
+### transaction-history-max-trace-size
+- **Type**: uint32
+- **Default**: 10485760 (10MB)
+- **Description**: Maximum size in bytes for a single transaction trace
+
+### transaction-history-max-actions-per-tx
+- **Type**: uint32
+- **Default**: 1000
+- **Description**: Maximum number of actions to index per transaction
+
+### transaction-history-compression
+- **Type**: bool
+- **Default**: true
+- **Description**: Enable compression for stored transaction data
+
+### transaction-history-filter-on
+- **Type**: string array
+- **Description**: Track actions matching the pattern `account:action:actor`. Actor may be blank to include all actors.
+
+### transaction-history-filter-out
+- **Type**: string array
+- **Description**: Exclude actions matching the pattern `account:action:actor`. Actor may be blank to exclude all actors.
+
+## API Endpoints
+
+The `transaction_history_api_plugin` provides the following REST API endpoints:
+
+### GET /v1/transaction_history/get_transaction
+Retrieves detailed information about a specific transaction.
+
+**Parameters:**
+```json
+{
+  "id": "transaction_id_here",
+  "block_num_hint": 12345 // optional
+}
+```
+
+**Response:**
+```json
+{
+  "id": "transaction_id",
+  "trx": { /* transaction object */ },
+  "block_time": "2023-07-31T12:00:00.000",
+  "block_num": 12345,
+  "last_irreversible_block": 12340,
+  "traces": [ /* action traces */ ]
+}
+```
+
+### GET /v1/transaction_history/get_actions
+Retrieves action history for a specific account.
+
+**Parameters:**
+```json
+{
+  "account_name": "accountname",
+  "pos": -1,     // optional, position to start from
+  "offset": -20  // optional, number of actions to retrieve
+}
+```
+
+### GET /v1/transaction_history/get_transaction_count
+Gets the count of transactions within a block range.
+
+**Parameters:**
+```json
+{
+  "start_block": 1000, // optional
+  "end_block": 2000    // optional
+}
+```
+
+### GET /v1/transaction_history/get_key_accounts
+Gets accounts associated with a public key.
+
+**Parameters:**
+```json
+{
+  "public_key": "EOS..."
+}
+```
+
+### GET /v1/transaction_history/get_controlled_accounts
+Gets accounts controlled by a specific account.
+
+**Parameters:**
+```json
+{
+  "controlling_account": "accountname"
+}
+```
+
+## Performance Considerations
+
+### Asynchronous Processing
+- All database write operations are performed asynchronously in dedicated worker threads
+- The main chain processing thread is never blocked by database operations
+- Worker thread pool size is automatically determined based on available CPU cores
+
+### Storage Optimization
+- RocksDB is configured with optimized settings for write-heavy workloads
+- Uses LZ4 compression to reduce storage space
+- Implements batch writes for improved performance
+
+### Memory Management
+- Uses efficient key-value storage patterns
+- Implements proper cleanup of old rollback points
+- Manages memory usage through RocksDB's built-in mechanisms
+
+## Rollback Mechanism
+
+The plugin implements a robust rollback mechanism using RocksDB checkpoints:
+
+1. **Checkpoint Creation**: For each accepted block, a checkpoint is created asynchronously
+2. **Rollback Execution**: When a rollback is needed, the database is restored from the appropriate checkpoint
+3. **Cleanup**: Old checkpoints are automatically cleaned up to prevent excessive disk usage
+
+## Snapshot Recovery
+
+When starting from a snapshot, the plugin can rebuild historical data by:
+
+1. Detecting the starting block number from the snapshot
+2. Processing all subsequent blocks to rebuild transaction history
+3. Creating appropriate indexes for efficient querying
+
+## Building and Installation
+
+### Dependencies
+- RocksDB 6.0+ (librocksdb-dev)
+- Boost libraries
+- CMake 3.16+
+- pkg-config
+
+### Quick Install Dependencies
+```bash
+# Run the automated dependency installer
+./install_deps.sh
+
+# Or install manually:
+# Ubuntu/Debian
+sudo apt-get update
+sudo apt-get install librocksdb-dev pkg-config
+
+# CentOS/RHEL/Fedora
+sudo dnf install rocksdb-devel pkgconfig  # or yum install
+
+# macOS
+brew install rocksdb pkg-config
+```
+
+### Build Instructions
+```bash
+# From the project root
+mkdir build && cd build
+cmake ..
+make transaction_history_plugin transaction_history_api_plugin
+
+# Or build specific plugin
+make transaction_history_plugin
+```
+
+### Verify RocksDB Installation
+```bash
+# Check if pkg-config can find RocksDB
+pkg-config --exists rocksdb && echo "RocksDB found" || echo "RocksDB not found"
+
+# Check version
+pkg-config --modversion rocksdb
+
+# Check include path
+pkg-config --cflags rocksdb
+
+# Check library path
+pkg-config --libs rocksdb
+```
+
+### Integration
+Add the following to your node configuration:
+```
+plugin = eosio::transaction_history_plugin
+plugin = eosio::transaction_history_api_plugin
+```
+
+## Troubleshooting
+
+### Common Issues
+
+**Database Lock Errors**
+- Ensure only one nodeos instance is accessing the database directory
+- Check file permissions on the database directory
+
+**Performance Issues**
+- Monitor the async worker queue size
+- Adjust `transaction-history-max-retained-blocks` if needed
+- Consider storage I/O performance
+
+**Memory Usage**
+- RocksDB manages its own memory pools
+- Monitor system memory usage during operation
+- Adjust RocksDB configuration if needed
+
+### Logging
+The plugin provides detailed logging at various levels:
+- `info`: Startup/shutdown and major events
+- `debug`: Detailed operation logging
+- `error`: Error conditions and exceptions
+
+## Migration from history_plugin
+
+To migrate from the deprecated `history_plugin`:
+
+1. Stop the node
+2. Remove `history_plugin` and `history_api_plugin` from configuration
+3. Add `transaction_history_plugin` and `transaction_history_api_plugin`
+4. Restart the node (historical data will be rebuilt from the current point)
+
+**Note**: Existing history data from `history_plugin` cannot be directly migrated. The new plugin will start recording from the point of activation.
