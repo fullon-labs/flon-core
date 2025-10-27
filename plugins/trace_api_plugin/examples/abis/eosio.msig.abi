@@ -157,6 +157,24 @@
       ]
     },
     {
+      "name": "old_approvals_info",
+      "base": "",
+      "fields": [
+        {
+          "name": "proposal_name",
+          "type": "name"
+        },
+        {
+          "name": "requested_approvals",
+          "type": "permission_level[]"
+        },
+        {
+          "name": "provided_approvals",
+          "type": "permission_level[]"
+        }
+      ]
+    },
+    {
       "name": "permission_level",
       "base": "",
       "fields": [
@@ -181,10 +199,6 @@
         {
           "name": "packed_transaction",
           "type": "bytes"
-        },
-        {
-          "name" "earliest_exec_time",
-          "type": "time_point?$"
         }
       ]
     },
@@ -315,6 +329,13 @@
       "index_type": "i64",
       "key_names": [],
       "key_types": [],
+      "type": "old_approvals_info"
+    },
+    {
+      "name": "approvals2",
+      "index_type": "i64",
+      "key_names": [],
+      "key_types": [],
       "type": "approvals_info"
     },
     {
@@ -325,7 +346,7 @@
       "type": "invalidation"
     },
     {
-      "name": "proposals",
+      "name": "proposal",
       "index_type": "i64",
       "key_names": [],
       "key_types": [],

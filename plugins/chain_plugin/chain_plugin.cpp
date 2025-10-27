@@ -1305,8 +1305,6 @@ read_only::get_info_results read_only::get_info(const read_only::get_info_params
 
    return {
       itoh(static_cast<uint32_t>(app().version())),
-      app().version_string(),
-      app().full_version_string(),
       db.get_chain_id(),
       block_header::num_from_id(head_id),
       block_header::num_from_id(lib_id),
@@ -1320,8 +1318,10 @@ read_only::get_info_results read_only::get_info(const read_only::get_info_params
       rl_config.net_limit_parameters.max - rl_state.pending_net_usage,
       //std::bitset<64>(db.get_dynamic_global_properties().recent_slots_filled).to_string(),
       //__builtin_popcountll(db.get_dynamic_global_properties().recent_slots_filled) / 64.0,
+      app().version_string(),
       block_header::num_from_id(fhead_id),
       fhead_id,
+      app().full_version_string(),
       rl_state.total_cpu_usage,
       rl_state.total_net_usage,
       rl_state.total_ram_usage,

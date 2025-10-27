@@ -1,15 +1,15 @@
 [submodule "libraries/appbase"]
 	path = libraries/appbase
-	url = https://github.com/fullon-labs/appbase
+	url = https://github.com/fullon-labs/flon-appbase
 [submodule "libraries/chainbase"]
 	path = libraries/chainbase
-	url = https://github.com/fullon-labs/chainbase
+	url = https://github.com/fullon-labs/flon-chainbase
 [submodule "libraries/eos-vm"]
 	path = libraries/eos-vm
-	url = https://github.com/AntelopeIO/eos-vm
+	url = https://github.com/fullon-labs/flon-wasm
 [submodule "libraries/softfloat"]
 	path = libraries/softfloat
-	url = https://github.com/AntelopeIO/berkeley-softfloat-3
+	url = https://github.com/fullon-labs/berkeley-softfloat-3.git
 [submodule "libraries/rapidjson"]
 	path = libraries/rapidjson
 	url = https://github.com/Tencent/rapidjson/
@@ -21,25 +21,25 @@
 	url = https://github.com/bitcoin-core/secp256k1
 [submodule "libraries/prometheus/prometheus-cpp"]
 	path = libraries/prometheus/prometheus-cpp
-	url = https://github.com/jupp0r/prometheus-cpp.git
+	url = https://github.com/fullon-labs/prometheus-cpp.git
 [submodule "libraries/libfc/libraries/bn256"]
 	path = libraries/libfc/libraries/bn256
-	url = https://github.com/AntelopeIO/bn256
+	url = https://github.com/fullon-labs/bn256.git
 [submodule "libraries/cli11/cli11"]
 	path = libraries/cli11/cli11
-	url = https://github.com/AntelopeIO/CLI11.git
+	url = https://github.com/fullon-labs/CLI11.git
 [submodule "libraries/libfc/libraries/bls12-381"]
 	path = libraries/libfc/libraries/bls12-381
-	url = https://github.com/AntelopeIO/bls12-381
+	url = https://github.com/fullon-labs/bls12-381.git
 [submodule "libraries/boost"]
 	path = libraries/boost
 	url = https://github.com/boostorg/boost.git
 [submodule "libraries/libfc/libraries/boringssl/boringssl"]
 	path = libraries/libfc/libraries/boringssl/boringssl
-	url = https://github.com/AntelopeIO/boringssl-build
+	url = https://github.com/fullon-labs/boringssl-build.git
 [submodule "tests/flon_abi"]
 	path = tests/flon_abi
-	url = https://github.com/fullon-labs/flon.abi
+	url = https://github.com/fullon-labs/flon-abi
 [submodule "unittests/system_contracts"]
 	path = unittests/system_contracts
 	url = https://github.com/fullon-labs/flon.contracts.git

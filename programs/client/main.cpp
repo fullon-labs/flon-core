@@ -422,7 +422,8 @@ fc::variant push_transaction( signed_transaction& trx, const std::vector<public_
    auto info = get_info();
 
    if (trx.signatures.size() == 0) { // #5445 can't change txn content if already signed
-      trx.expiration = fc::time_point_sec{info.head_block_time + tx_expiration};
+      fc::time_point now = fc::time_point::now();
+      trx.expiration = fc::time_point_sec{ (now > info.head_block_time ? now : info.head_block_time) + tx_expiration};
 
       // Set tapos, default to last irreversible block if it's not specified by the user
       block_id_type ref_block_id = info.last_irreversible_block_id;
@@ -3501,7 +3502,7 @@ int main( int argc, char** argv ) {
       const auto result1 = call(get_table_func, fc::mutable_variant_object("json", true)
                                  ("code", config::msig_account_name)
                                  ("scope", proposer)
-                                 ("table", "proposals")
+                                 ("table", "proposal")
                                  ("table_key", "")
                                  ("lower_bound", name(proposal_name).to_uint64_t())
                                  ("upper_bound", name(proposal_name).to_uint64_t() + 1)
@@ -3537,7 +3538,7 @@ int main( int argc, char** argv ) {
             const auto& result2 = call(get_table_func, fc::mutable_variant_object("json", true)
                                        ("code", config::msig_account_name)
                                        ("scope", proposer)
-                                       ("table", "approvals")
+                                       ("table", "approvals2")
                                        ("table_key", "")
                                        ("lower_bound", name(proposal_name).to_uint64_t())
                                        ("upper_bound", name(proposal_name).to_uint64_t() + 1)
@@ -3561,6 +3562,36 @@ int main( int argc, char** argv ) {
             for( const auto& pa : approvals_object["provided_approvals"].get_array() ) {
                auto pl = pa["level"].as<permission_level>();
                auto res = all_approvals.emplace( pl, std::make_pair(pa["time"].as<fc::time_point>(), approval_status::approved) );
+               provided_approvers[pl.actor].second.push_back( res.first );
+            }
+         } else {
+            const auto result3 = call(get_table_func, fc::mutable_variant_object("json", true)
+                                       ("code", config::msig_account_name)
+                                       ("scope", proposer)
+                                       ("table", "approvals")
+                                       ("table_key", "")
+                                       ("lower_bound", name(proposal_name).to_uint64_t())
+                                       ("upper_bound", name(proposal_name).to_uint64_t() + 1)
+                                       // Less than ideal upper_bound usage preserved so client can still work with old buggy node versions
+                                       // Change to name(proposal_name).value when client no longer needs to support node versions older than 1.5.0
+                                       ("limit", 1)
+                                 );
+            const auto& rows3 = result3.get_object()["rows"].get_array();
+            if( rows3.empty() || rows3[0].get_object()["proposal_name"] != proposal_name ) {
+               std::cerr << "Proposal not found" << std::endl;
+               return;
+            }
+
+            const auto& approvals_object = rows3[0].get_object();
+
+            for( const auto& ra : approvals_object["requested_approvals"].get_array() ) {
+               auto pl = ra.as<permission_level>();
+               all_approvals.emplace( pl, std::make_pair(fc::time_point{}, approval_status::unapproved) );
+            }
+
+            for( const auto& pa : approvals_object["provided_approvals"].get_array() ) {
+               auto pl = pa.as<permission_level>();
+               auto res = all_approvals.emplace( pl, std::make_pair(fc::time_point{}, approval_status::approved) );
                provided_approvers[pl.actor].second.push_back( res.first );
             }
          }
