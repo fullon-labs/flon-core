@@ -176,7 +176,10 @@ public:
 
    struct get_info_results {
       string                               server_version;
+      std::optional<string>                server_version_string;
+      std::optional<string>                server_full_version_string;
       chain::chain_id_type                 chain_id;
+
       uint32_t                             head_block_num = 0;
       uint32_t                             last_irreversible_block_num = 0;
       chain::block_id_type                 last_irreversible_block_id;
@@ -191,10 +194,8 @@ public:
       uint64_t                             block_net_limit = 0;
       //string                               recent_slots;
       //double                               participation_rate = 0;
-      std::optional<string>                server_version_string;
       std::optional<uint32_t>              fork_db_head_block_num;
       std::optional<chain::block_id_type>  fork_db_head_block_id;
-      std::optional<string>                server_full_version_string;
       std::optional<uint64_t>              total_cpu_usage;
       std::optional<uint64_t>              total_net_usage;
       std::optional<uint64_t>              total_ram_usage;
@@ -1050,10 +1051,11 @@ FC_REFLECT( eosio::chain_apis::linked_action, (account)(action) )
 FC_REFLECT( eosio::chain_apis::permission, (perm_name)(parent)(required_auth)(linked_actions) )
 FC_REFLECT(eosio::chain_apis::empty, )
 FC_REFLECT(eosio::chain_apis::read_only::get_info_results,
-           (server_version)(chain_id)(head_block_num)(last_irreversible_block_num)(last_irreversible_block_id)
+           (server_version)(server_version_string)(server_full_version_string)(chain_id)
+           (head_block_num)(last_irreversible_block_num)(last_irreversible_block_id)
            (head_block_id)(head_block_time)(head_block_producer)
            (virtual_block_cpu_limit)(virtual_block_net_limit)(block_cpu_limit)(block_net_limit)
-           (server_version_string)(fork_db_head_block_num)(fork_db_head_block_id)(server_full_version_string)
+           (fork_db_head_block_num)(fork_db_head_block_id)
            (total_cpu_usage)(total_net_usage)(total_ram_usage)
            (gas_per_cpu_ms)(gas_per_net_kb)(gas_per_ram_kb)
            (earliest_available_block_num)(last_irreversible_block_time))

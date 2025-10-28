@@ -90,9 +90,9 @@ class netUtil:
     def __init__(self):
         self.prometheusMetrics = {
             ('node_info', 'server_version'): 'node Version ID:',
-            ('node_info', 'chain_id'): 'Chain ID:',
             ('node_info', 'server_version_string'): 'node Version:',
             ('node_info', 'server_full_version_string'): 'node Full Version:',
+            ('node_info', 'chain_id'): 'Chain ID:',
             ('node_info', 'earliest_available_block_num'): 'Earliest Available Block:',
             'node_head_block_num': 'Head Block Num:',
             'node_last_irreversible': 'LIB:',
