@@ -2456,7 +2456,7 @@ read_only::get_account_return_t read_only::get_account( const get_account_params
    result.last_code_update = accnt_metadata_obj.last_code_update;
    result.created          = accnt_obj.creation_date;
 
-   if (const auto user = contract_table_utils::system_user_account::create( d, result.account_name) ) {
+   if (const auto user = contract_table_utils::system_creator_account::create( d, result.account_name) ) {
       result.creator = user->creator;
    }
 

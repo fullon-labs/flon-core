@@ -40,19 +40,19 @@ namespace eosio { namespace chain { namespace contract_table_utils {
 
    };
 
-   struct system_user_account;
-   using system_user_account_ptr = std::shared_ptr<system_user_account>;
+   struct system_creator_account;
+   using system_creator_account_ptr = std::shared_ptr<system_creator_account>;
 
    /**
     * user account table in system contract
     * readonly
     */
-   struct system_user_account {
+   struct system_creator_account {
       name                 owner;                     /// the user account name
       name                 creator;                   /// the creator account name
       // ignore the remaining data
 
-      static system_user_account_ptr create(const chainbase::database& db, const account_name& account);
+      static system_creator_account_ptr create(const chainbase::database& db, const account_name& account);
    };
 
    struct core_asset_account;
@@ -90,4 +90,4 @@ namespace eosio { namespace chain { namespace contract_table_utils {
 
 } } }  // namespace eosio::chain::contract_table_utils
 
-FC_REFLECT( eosio::chain::contract_table_utils::system_user_account, (owner)(creator) )
+FC_REFLECT( eosio::chain::contract_table_utils::system_creator_account, (owner)(creator) )

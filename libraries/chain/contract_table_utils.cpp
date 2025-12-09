@@ -2,13 +2,13 @@
 
 namespace eosio { namespace chain { namespace contract_table_utils {
 
-   system_user_account_ptr system_user_account::create(const chainbase::database& db, const account_name& account) {
+   system_creator_account_ptr system_creator_account::create(const chainbase::database& db, const account_name& account) {
       const auto* kv_obj = key_value_finder::find(db, config::system_account_name,
-                              config::system_account_name, "users"_n, account );
+                              config::system_account_name, "creators"_n, account );
       if (!kv_obj) return nullptr;
 
-      return std::make_shared<system_user_account>(
-         fc::raw::unpack<system_user_account>(kv_obj->value.data(), kv_obj->value.size())
+      return std::make_shared<system_creator_account>(
+         fc::raw::unpack<system_creator_account>(kv_obj->value.data(), kv_obj->value.size())
       );
    }
 
