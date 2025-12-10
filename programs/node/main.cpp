@@ -154,9 +154,6 @@ enum return_codes {
 
 int main(int argc, char** argv)
 {
-
-   ilog("${name} started", ("name", node::config::node_executable_name));
-
    try {
       appbase::scoped_app app;
       fc::scoped_exit<std::function<void()>> on_exit = [&]() {
