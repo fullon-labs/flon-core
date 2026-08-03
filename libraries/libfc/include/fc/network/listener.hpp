@@ -258,6 +258,14 @@ void create_listener(Executor& executor, logger& logger, boost::posix_time::time
 
       auto listener = std::make_shared<fc::listener<stream_protocol, Executor, CreateSession>>(
             executor, logger, accept_timeout, address, endpoint, extra_listening_log_info, create_session);
+      // Unix-socket-only APIs may protect signing keys. Do not rely on the
+      // process umask: restrict every HTTP Unix socket to its owner.
+      // The process is currently inside the socket's parent directory; use the
+      // endpoint filename so relative addresses such as ../node.sock cannot
+      // resolve against the parent directory twice.
+      fs::permissions(sock_path.filename(),
+                      fs::perms::owner_read | fs::perms::owner_write,
+                      fs::perm_options::replace);
       listener->log_listening(endpoint, address);
       listener->do_accept();
    }

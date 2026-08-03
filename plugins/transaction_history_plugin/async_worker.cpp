@@ -48,9 +48,10 @@ void async_worker::stop() {
    workers_.clear();
 
    // Clear remaining tasks
-   std::queue<task_type> empty;
+   std::queue<queued_task> empty;
    std::unique_lock<std::mutex> lock(queue_mutex_);
    tasks_.swap(empty);
+   pending_bytes_ = 0;
 }
 
 size_t async_worker::pending_tasks() const {
@@ -58,11 +59,57 @@ size_t async_worker::pending_tasks() const {
    return tasks_.size();
 }
 
+size_t async_worker::pending_bytes() const {
+   std::unique_lock<std::mutex> lock(queue_mutex_);
+   return pending_bytes_;
+}
+
+void async_worker::enqueue(task_type task, size_t retained_bytes) {
+   if (retained_bytes > max_pending_bytes) {
+      throw std::runtime_error("task exceeds async_worker byte budget");
+   }
+
+   {
+      std::unique_lock<std::mutex> lock(queue_mutex_);
+      queue_not_full_.wait(lock, [this, retained_bytes] {
+         return stopping_ ||
+                (tasks_.size() < max_pending_tasks &&
+                 pending_bytes_ <= max_pending_bytes - retained_bytes);
+      });
+      if (stopping_) {
+         throw std::runtime_error("enqueue on stopped async_worker");
+      }
+      tasks_.push(queued_task{std::move(task), retained_bytes});
+      pending_bytes_ += retained_bytes;
+   }
+
+   condition_.notify_one();
+}
+
+bool async_worker::try_enqueue(task_type task, size_t retained_bytes) {
+   if (retained_bytes > max_pending_bytes) {
+      return false;
+   }
+
+   {
+      std::unique_lock<std::mutex> lock(queue_mutex_);
+      if (stopping_ || tasks_.size() >= max_pending_tasks ||
+          pending_bytes_ > max_pending_bytes - retained_bytes) {
+         return false;
+      }
+      tasks_.push(queued_task{std::move(task), retained_bytes});
+      pending_bytes_ += retained_bytes;
+   }
+
+   condition_.notify_one();
+   return true;
+}
+
 void async_worker::worker_thread() {
    dlog("Transaction history worker thread started");
 
    while (true) {
-      task_type task;
+      queued_task queued;
 
       {
          std::unique_lock<std::mutex> lock(queue_mutex_);
@@ -72,13 +119,14 @@ void async_worker::worker_thread() {
             break;
          }
 
-         task = std::move(tasks_.front());
+         queued = std::move(tasks_.front());
          tasks_.pop();
+         pending_bytes_ -= queued.retained_bytes;
          queue_not_full_.notify_one();
       }
 
       try {
-         task();
+         queued.task();
       } catch (const std::exception& e) {
          elog("Exception in transaction history worker thread: ${what}", ("what", e.what()));
       } catch (...) {

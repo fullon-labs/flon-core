@@ -132,6 +132,45 @@ BOOST_AUTO_TEST_CASE(async_worker_task_execution) {
    worker.stop();
 }
 
+BOOST_AUTO_TEST_CASE(async_worker_queue_limits) {
+   async_worker byte_limited_worker;
+   auto future = byte_limited_worker.enqueue_task_with_size(
+      async_worker::max_pending_bytes, [] {});
+   BOOST_CHECK_EQUAL(byte_limited_worker.pending_bytes(), async_worker::max_pending_bytes);
+   BOOST_CHECK_THROW(
+      byte_limited_worker.enqueue_task_with_size(async_worker::max_pending_bytes + 1, [] {}),
+      std::runtime_error);
+   byte_limited_worker.start();
+   future.wait();
+   byte_limited_worker.stop();
+
+   // Reproduce the single-worker self-enqueue case: keep the worker inside one
+   // task, fill the queue from this thread, then let that task try to enqueue.
+   // The nested enqueue must return instead of waiting for itself to make room.
+   async_worker count_limited_worker;
+   std::promise<void> outer_started;
+   auto outer_started_future = outer_started.get_future();
+   std::promise<void> release_outer;
+   auto release_future = release_outer.get_future().share();
+   std::atomic<bool> nested_enqueue_succeeded{true};
+
+   count_limited_worker.start();
+   auto outer_future = count_limited_worker.enqueue_task([&] {
+      outer_started.set_value();
+      release_future.wait();
+      nested_enqueue_succeeded = count_limited_worker.try_enqueue_task([] {});
+   });
+   outer_started_future.wait();
+
+   for (size_t i = 0; i < async_worker::max_pending_tasks; ++i) {
+      BOOST_REQUIRE(count_limited_worker.try_enqueue_task([] {}));
+   }
+   release_outer.set_value();
+   outer_future.get();
+   BOOST_CHECK(!nested_enqueue_succeeded.load());
+   count_limited_worker.stop();
+}
+
 BOOST_AUTO_TEST_CASE(rollback_manager_operations) {
    fc::temp_directory temp_dir;
    auto db = std::make_shared<rocksdb_manager>();
@@ -158,8 +197,14 @@ BOOST_AUTO_TEST_CASE(rollback_manager_operations) {
    BOOST_REQUIRE(latest.has_value());
    BOOST_CHECK_EQUAL(*latest, 300u);
 
+   BOOST_REQUIRE(reloaded_manager.rollback_to_block(200));
+   rollback_manager after_rollback(db);
+   latest = after_rollback.get_latest_rollback_point();
+   BOOST_REQUIRE(latest.has_value());
+   BOOST_CHECK_EQUAL(*latest, 200u);
+
    // Test cleanup
-   reloaded_manager.cleanup_old_rollback_points(1);
+   after_rollback.cleanup_old_rollback_points(1);
 
    db->close();
 }
@@ -171,6 +216,10 @@ BOOST_AUTO_TEST_CASE(rocksdb_manager_checkpoint_rollback_preserves_database) {
    BOOST_REQUIRE(manager.open(database_path.string()));
 
    BOOST_REQUIRE(manager.put("value", "at-checkpoint"));
+   BOOST_REQUIRE(manager.batch_write({
+      {"_internal_last_accepted_block_num", "100"},
+      {"_internal_last_accepted_block_id", "branch-at-checkpoint"}
+   }, {}));
    BOOST_REQUIRE(manager.create_checkpoint(100));
 
    const std::filesystem::path checkpoint_path = manager.get_checkpoint_path(100);
@@ -179,12 +228,15 @@ BOOST_AUTO_TEST_CASE(rocksdb_manager_checkpoint_rollback_preserves_database) {
 
    BOOST_REQUIRE(manager.put("value", "after-checkpoint"));
    BOOST_REQUIRE(manager.put("new-value", "must-disappear"));
+   BOOST_REQUIRE(manager.put("_internal_last_accepted_block_id", "different-branch"));
    BOOST_REQUIRE(manager.rollback_to_block(100));
 
    std::string value;
    BOOST_REQUIRE(manager.get("value", value));
    BOOST_CHECK_EQUAL(value, "at-checkpoint");
    BOOST_CHECK(!manager.get("new-value", value));
+   BOOST_REQUIRE(manager.get("_internal_last_accepted_block_id", value));
+   BOOST_CHECK_EQUAL(value, "branch-at-checkpoint");
    BOOST_CHECK(std::filesystem::exists(checkpoint_path / "CURRENT"));
 
    manager.close();

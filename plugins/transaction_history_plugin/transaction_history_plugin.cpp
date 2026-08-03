@@ -75,6 +75,7 @@ public:
 
    boost::signals2::scoped_connection applied_transaction_connection_;
    boost::signals2::scoped_connection accepted_block_connection_;
+   boost::signals2::scoped_connection block_start_connection_;
 
    struct filter_entry {
       eosio::chain::name receiver;
@@ -111,6 +112,7 @@ public:
    std::atomic<uint64_t> transactions_processed_{0};
    std::atomic<uint64_t> transactions_failed_{0};
    std::atomic<uint64_t> total_processing_time_us_{0};
+   std::atomic<bool> history_healthy_{true};
    fc::time_point startup_time_;
 
    // For monitoring and warnings
@@ -125,9 +127,10 @@ public:
    const uint32_t max_safe_pending_blocks_ = 5000; // Warn if pending blocks exceed this
 
    void applied_transaction(const eosio::chain::transaction_trace_ptr& trace);
+   void ensure_chain_parent(uint32_t parent_block_num, const std::string& parent_block_id);
    void check_data_size_warnings(uint32_t current_block_num, uint32_t lib_block_num);
    bool filter_action(const eosio::chain::action_trace& action_trace) const;
-   uint64_t next_account_sequence(const eosio::chain::name& account);
+   uint64_t load_account_sequence(const eosio::chain::name& account) const;
 
    std::string make_transaction_key(const eosio::chain::transaction_id_type& id) const;
    std::string make_account_action_key(const eosio::chain::name& account, uint64_t seq) const;
@@ -140,6 +143,13 @@ std::string fixed_width_number(uint64_t value, size_t width) {
    std::ostringstream out;
    out << std::setw(width) << std::setfill('0') << value;
    return out.str();
+}
+
+template<typename T>
+std::string object_to_json(const T& object) {
+   fc::variant value;
+   fc::to_variant(object, value);
+   return fc::json::to_string(value, fc::time_point::maximum());
 }
 
 } // namespace
@@ -429,6 +439,18 @@ void transaction_history_plugin::plugin_startup() {
    // taken only after all transaction writes for that block have completed.
    my->worker_->start();
 
+   // block_start is emitted before transactions for the next block. Queueing
+   // the parent check here ensures a fork rollback runs before any replacement
+   // branch transaction reaches RocksDB.
+   my->block_start_connection_ = chain.block_start().connect(
+      [&](uint32_t) {
+         const uint32_t parent_block_num = chain.head().block_num();
+         const std::string parent_block_id = chain.head().id().str();
+         my->worker_->enqueue_task([impl = my.get(), parent_block_num, parent_block_id]() {
+            impl->ensure_chain_parent(parent_block_num, parent_block_id);
+         });
+      });
+
    my->applied_transaction_connection_ = chain.applied_transaction().connect(
       [&](std::tuple<const eosio::chain::transaction_trace_ptr&, const eosio::chain::packed_transaction_ptr&> t) {
          my->applied_transaction(std::get<0>(t));
@@ -437,7 +459,23 @@ void transaction_history_plugin::plugin_startup() {
    my->accepted_block_connection_ = chain.accepted_block().connect(
       [&](const eosio::chain::block_signal_params& event) {
          const uint32_t block_num = std::get<0>(event)->block_num();
-         my->worker_->enqueue_task([impl = my.get(), block_num]() {
+         const std::string block_id = std::get<1>(event).str();
+         my->worker_->enqueue_task([impl = my.get(), block_num, block_id]() {
+            if (!impl->history_healthy_.load()) {
+               return;
+            }
+
+            if (!impl->db_->batch_write({
+                   {"_internal_last_accepted_block_num", std::to_string(block_num)},
+                   {"_internal_last_accepted_block_id", block_id}
+                }, {})) {
+               impl->history_healthy_ = false;
+               elog("Failed to persist accepted block identity at block ${block}; "
+                    "transaction history recording has been disabled",
+                    ("block", block_num));
+               return;
+            }
+
             if (!impl->rollback_mgr_->create_rollback_point(block_num)) {
                wlog("Failed to create transaction history checkpoint at block ${block}",
                     ("block", block_num));
@@ -466,6 +504,7 @@ void transaction_history_plugin::plugin_shutdown() {
         ("failed", my->transactions_failed_.load())("avg_time", avg_processing_time));
 
    // Disconnect from chain signals
+   my->block_start_connection_.disconnect();
    my->applied_transaction_connection_.disconnect();
    my->accepted_block_connection_.disconnect();
 
@@ -486,6 +525,83 @@ void transaction_history_plugin::plugin_shutdown() {
    ilog("Transaction history plugin shutdown complete");
 }
 
+void transaction_history_plugin_impl::ensure_chain_parent(
+   uint32_t parent_block_num, const std::string& parent_block_id) {
+   if (!history_healthy_.load()) {
+      return;
+   }
+
+   std::string stored_num_text;
+   std::string stored_id;
+   if (!db_->get("_internal_last_accepted_block_num", stored_num_text) ||
+       !db_->get("_internal_last_accepted_block_id", stored_id)) {
+      // Existing databases predate block identity tracking. Establish a safe
+      // baseline; subsequent live forks will be detected before transactions.
+      if (!db_->batch_write({
+             {"_internal_last_accepted_block_num", std::to_string(parent_block_num)},
+             {"_internal_last_accepted_block_id", parent_block_id}
+          }, {})) {
+         history_healthy_ = false;
+         elog("Failed to initialize transaction history chain identity; recording disabled");
+      }
+      return;
+   }
+
+   uint32_t stored_num = 0;
+   try {
+      stored_num = std::stoul(stored_num_text);
+   } catch (...) {
+      history_healthy_ = false;
+      elog("Invalid accepted block number in transaction history database; recording disabled");
+      return;
+   }
+
+   if (stored_num == parent_block_num && stored_id == parent_block_id) {
+      return;
+   }
+
+   if (stored_num < parent_block_num) {
+      // The plugin was disabled or the history database was behind while the
+      // chain advanced. Preserve the existing gap and establish a new baseline.
+      wlog("Transaction history gap detected: database accepted block ${db_block}, "
+           "chain parent ${chain_block}; continuing from the current chain",
+           ("db_block", stored_num)("chain_block", parent_block_num));
+      if (!db_->batch_write({
+             {"_internal_last_accepted_block_num", std::to_string(parent_block_num)},
+             {"_internal_last_accepted_block_id", parent_block_id}
+          }, {})) {
+         history_healthy_ = false;
+         elog("Failed to update transaction history chain baseline; recording disabled");
+      }
+      return;
+   }
+
+   wlog("Chain fork detected by transaction history: database block ${db_block}, "
+        "new parent block ${parent_block}; rolling back history before branch transactions",
+        ("db_block", stored_num)("parent_block", parent_block_num));
+
+   if (!rollback_mgr_->rollback_to_block(parent_block_num)) {
+      history_healthy_ = false;
+      elog("No usable transaction history checkpoint for fork parent block ${block}; "
+           "recording disabled to avoid mixing branches",
+           ("block", parent_block_num));
+      return;
+   }
+
+   std::string restored_id;
+   if (!db_->get("_internal_last_accepted_block_id", restored_id) ||
+       restored_id != parent_block_id) {
+      history_healthy_ = false;
+      elog("Transaction history checkpoint at block ${block} belongs to a different branch; "
+           "recording disabled",
+           ("block", parent_block_num));
+      return;
+   }
+
+   std::lock_guard<std::mutex> lock(last_updated_block_mutex_);
+   last_updated_block_ = db_->get_last_block_number();
+}
+
 void transaction_history_plugin_impl::applied_transaction(const eosio::chain::transaction_trace_ptr& trace) {
    if (!trace || !trace->receipt) return;
 
@@ -501,11 +617,32 @@ void transaction_history_plugin_impl::applied_transaction(const eosio::chain::tr
    const fc::time_point_sec block_time(trace->block_time.to_time_point());
    const uint32_t last_irreversible_block = chain_plug->chain().last_irreversible_block_num();
 
+   size_t retained_trace_bytes = 0;
+   try {
+      retained_trace_bytes = fc::raw::pack_size(*trace);
+   } catch (const std::exception& e) {
+      transactions_failed_++;
+      elog("Failed to measure transaction ${id} trace size: ${error}",
+           ("id", trace->id)("error", e.what()));
+      return;
+   }
+
+   if (retained_trace_bytes > MAX_TRACE_SIZE) {
+      transactions_failed_++;
+      wlog("Dropping transaction ${id} history trace of ${size} bytes; limit is ${limit}",
+           ("id", trace->id)("size", retained_trace_bytes)("limit", MAX_TRACE_SIZE));
+      return;
+   }
+
    // Process transaction asynchronously to avoid blocking main chain
-   worker_->enqueue_task([this, trace, block_num, block_time, last_irreversible_block]() {
+   worker_->enqueue_task_with_size(retained_trace_bytes,
+      [this, trace, block_num, block_time, last_irreversible_block]() {
       auto start_time = fc::time_point::now();
 
       try {
+         if (!history_healthy_.load()) {
+            return;
+         }
          std::vector<const eosio::chain::action_trace*> filtered_actions;
          filtered_actions.reserve(trace->action_traces.size());
          for (const auto& action_trace : trace->action_traces) {
@@ -541,7 +678,7 @@ void transaction_history_plugin_impl::applied_transaction(const eosio::chain::tr
             last_health_check_block_ = result.block_num;
 
             // Enhanced health monitoring
-            worker_->enqueue_task([this, block_num = result.block_num]() {
+            if (!worker_->try_enqueue_task([this, block_num = result.block_num]() {
                // Basic health check
                bool health_ok = db_->health_check();
 
@@ -574,7 +711,10 @@ void transaction_history_plugin_impl::applied_transaction(const eosio::chain::tr
                      }
                   }
                }
-            });
+            })) {
+               wlog("Skipped transaction history health check at block ${block}: worker queue is full",
+                    ("block", result.block_num));
+            }
          }
 
          // Periodic database maintenance
@@ -582,7 +722,7 @@ void transaction_history_plugin_impl::applied_transaction(const eosio::chain::tr
             last_maintenance_block_ = result.block_num;
 
             // Run maintenance in background to avoid blocking transaction processing
-            worker_->enqueue_task([this, block_num = result.block_num]() {
+            if (!worker_->try_enqueue_task([this, block_num = result.block_num]() {
                ilog("Starting scheduled database maintenance at block ${block}", ("block", block_num));
 
                bool needs_compaction = false;
@@ -625,7 +765,10 @@ void transaction_history_plugin_impl::applied_transaction(const eosio::chain::tr
                } else {
                   wlog("Scheduled database validation encountered issues");
                }
-            });
+            })) {
+               wlog("Skipped transaction history maintenance at block ${block}: worker queue is full",
+                    ("block", result.block_num));
+            }
          }
 
          // Comprehensive database analysis (less frequent)
@@ -634,7 +777,7 @@ void transaction_history_plugin_impl::applied_transaction(const eosio::chain::tr
             last_analysis_block_ = result.block_num;
 
             // Run comprehensive analysis in background
-            worker_->enqueue_task([this, block_num = result.block_num]() {
+            if (!worker_->try_enqueue_task([this, block_num = result.block_num]() {
                ilog("Starting comprehensive database analysis at block ${block}", ("block", block_num));
 
                try {
@@ -680,7 +823,10 @@ void transaction_history_plugin_impl::applied_transaction(const eosio::chain::tr
                } catch (const std::exception& e) {
                   elog("Error during comprehensive database analysis: ${error}", ("error", e.what()));
                }
-            });
+            })) {
+               wlog("Skipped transaction history analysis at block ${block}: worker queue is full",
+                    ("block", result.block_num));
+            }
          }
 
          // Convert action traces to variants with size monitoring
@@ -702,33 +848,14 @@ void transaction_history_plugin_impl::applied_transaction(const eosio::chain::tr
                  ("id", trace->id)("size", total_size)("limit", MAX_TRACE_SIZE));
          }
 
-         // Store transaction data with error checking
-         if (!db_->put_object(trx_key, result)) {
-            elog("Failed to store transaction ${id}", ("id", trace->id));
-            return;
-         }
-
+         std::vector<std::pair<std::string, std::string>> writes;
+         writes.emplace_back(trx_key, object_to_json(result));
          const std::string block_key = make_block_transaction_key(result.block_num, trace->id);
-         if (!db_->put(block_key, trx_key)) {
-            elog("Failed to store block transaction index for ${id} at block ${block}",
-                 ("id", trace->id)("block", result.block_num));
-            return;
-         }
-
-         // Update last processed block number for database state tracking
-         {
-            std::lock_guard<std::mutex> lock(last_updated_block_mutex_);
-            if (result.block_num > last_updated_block_) {
-               if (db_->update_last_block_number(result.block_num)) {
-                  last_updated_block_ = result.block_num;
-               } else {
-                  wlog("Failed to update last block number to ${block}", ("block", result.block_num));
-               }
-            }
-         }
+         writes.emplace_back(block_key, trx_key);
 
          // Create account-level indexes for action queries with limit
          size_t indexed_actions = 0;
+         std::map<eosio::chain::name, uint64_t> next_sequences;
          for (const auto* action_trace : filtered_actions) {
             if (action_trace->receipt && indexed_actions < MAX_ACTIONS_PER_TX) {
                fc::variant action_variant;
@@ -749,18 +876,46 @@ void transaction_history_plugin_impl::applied_transaction(const eosio::chain::tr
                }
 
                for (const auto& account : indexed_accounts) {
-                  const uint64_t account_sequence = next_account_sequence(account);
+                  auto [sequence_it, inserted] = next_sequences.try_emplace(account, 0);
+                  if (inserted) {
+                     sequence_it->second = load_account_sequence(account);
+                  }
+                  const uint64_t account_sequence = sequence_it->second++;
                   const std::string account_key = make_account_action_key(
                      account, account_sequence);
                   auto action_info = base_action_info;
                   action_info["account_action_seq"] = account_sequence;
-                  if (!db_->put_object(account_key, action_info)) {
-                     wlog("Failed to store account action index for ${account}:${seq}",
-                          ("account", account)("seq", action_trace->receipt->global_sequence));
-                  }
+                  writes.emplace_back(account_key, object_to_json(action_info));
                }
                indexed_actions++;
             }
+         }
+
+         for (const auto& [account, next_sequence] : next_sequences) {
+            writes.emplace_back("_internal_account_sequence:" + account.to_string(),
+                                std::to_string(next_sequence));
+         }
+
+         bool advance_last_block = false;
+         {
+            std::lock_guard<std::mutex> lock(last_updated_block_mutex_);
+            advance_last_block = result.block_num > last_updated_block_;
+         }
+         if (advance_last_block) {
+            writes.emplace_back("_internal_last_block_number", std::to_string(result.block_num));
+         }
+
+         // The transaction record, block index, account indexes, sequence
+         // cursors, and database height must become visible atomically.
+         if (!db_->batch_write(writes, {})) {
+            elog("Failed to atomically store transaction history for ${id} at block ${block}",
+                 ("id", trace->id)("block", result.block_num));
+            return;
+         }
+
+         if (advance_last_block) {
+            std::lock_guard<std::mutex> lock(last_updated_block_mutex_);
+            last_updated_block_ = std::max(last_updated_block_, result.block_num);
          }
 
          // Warn if too many actions were skipped in indexing
@@ -815,23 +970,17 @@ bool transaction_history_plugin_impl::filter_action(const eosio::chain::action_t
    return !matches(filter_out_);
 }
 
-uint64_t transaction_history_plugin_impl::next_account_sequence(const eosio::chain::name& account) {
+uint64_t transaction_history_plugin_impl::load_account_sequence(const eosio::chain::name& account) const {
    const std::string counter_key = "_internal_account_sequence:" + account.to_string();
    std::string stored;
-   uint64_t next = 0;
    if (db_->get(counter_key, stored)) {
       try {
-         next = std::stoull(stored);
+         return std::stoull(stored);
       } catch (...) {
          wlog("Resetting invalid account history sequence for ${account}", ("account", account));
       }
    }
-
-   if (!db_->put(counter_key, std::to_string(next + 1))) {
-      EOS_THROW(eosio::chain::plugin_exception,
-                "Failed to update account history sequence for ${account}", ("account", account));
-   }
-   return next;
+   return 0;
 }
 
 void transaction_history_plugin_impl::check_data_size_warnings(uint32_t current_block_num, uint32_t lib_block_num) {

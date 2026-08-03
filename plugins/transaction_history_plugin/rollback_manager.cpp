@@ -56,6 +56,13 @@ bool rollback_manager::rollback_to_block(uint32_t block_num) {
          return false;
       }
 
+      // The checkpoint is created before its own rollback metadata is written,
+      // so restore that metadata into the reopened database as part of rollback.
+      if (!save_rollback_info(it->second)) {
+         elog("Failed to restore rollback metadata for block ${block}", ("block", block_num));
+         return false;
+      }
+
       // Remove rollback points after the target block
       auto upper = rollback_points_.upper_bound(block_num);
       for (auto cleanup_it = upper; cleanup_it != rollback_points_.end(); ++cleanup_it) {

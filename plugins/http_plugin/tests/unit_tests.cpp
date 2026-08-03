@@ -581,6 +581,10 @@ BOOST_FIXTURE_TEST_CASE(unix_socket_only_api, http_plugin_test_fixture) {
    BOOST_CHECK_EQUAL(http_response_for("127.0.0.1:8892", "/sensitive").status(), http::status::not_found);
    BOOST_CHECK_EQUAL(http_response_for(socket_path, "/sensitive").body(), "\"allowed\"");
 
+   const auto socket_permissions = std::filesystem::status(socket_path).permissions();
+   BOOST_CHECK(socket_permissions ==
+               (std::filesystem::perms::owner_read | std::filesystem::perms::owner_write));
+
    BOOST_CHECK_EQUAL(http_response_for("127.0.0.1:8892", "/v1/node/get_supported_apis").body(),
                      R"({"apis":[]})");
    BOOST_CHECK_EQUAL(http_response_for(socket_path, "/v1/node/get_supported_apis").body(),
