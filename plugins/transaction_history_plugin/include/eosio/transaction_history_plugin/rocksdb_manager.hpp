@@ -11,6 +11,7 @@
 #include <string>
 #include <chrono>
 #include <mutex>
+#include <shared_mutex>
 
 namespace eosio {
 
@@ -23,6 +24,8 @@ namespace eosio {
  */
 class rocksdb_manager {
 public:
+   using database_read_lock = std::shared_lock<std::shared_mutex>;
+
    rocksdb_manager();
    ~rocksdb_manager();
 
@@ -186,12 +189,16 @@ public:
     */
    std::string check_maintenance_needs() const;
 
+   /** Keep the live DB instance stable for a complete API query. */
+   database_read_lock acquire_read_lock() const { return database_read_lock(db_lifecycle_mutex_); }
+
 private:
    std::unique_ptr<rocksdb::DB> db_;
    rocksdb::Options options_;
    std::string db_path_;
    bool is_open_;
    mutable std::mutex stats_cache_mutex_;
+   mutable std::shared_mutex db_lifecycle_mutex_;
    mutable std::string stats_cache_;
    mutable std::chrono::steady_clock::time_point stats_cache_time_;
 

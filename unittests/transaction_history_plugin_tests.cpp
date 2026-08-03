@@ -242,6 +242,65 @@ BOOST_AUTO_TEST_CASE(rocksdb_manager_checkpoint_rollback_preserves_database) {
    manager.close();
 }
 
+BOOST_AUTO_TEST_CASE(rocksdb_manager_recovers_interrupted_rollback_swap) {
+   fc::temp_directory temp_dir;
+   const auto database_path = temp_dir.path() / "history";
+   const auto backup_path = temp_dir.path() / "history.rollback_backup";
+   const auto staging_path = temp_dir.path() / "history.rollback_staging";
+   rocksdb_manager manager;
+   BOOST_REQUIRE(manager.open(database_path.string()));
+   BOOST_REQUIRE(manager.put("value", "checkpoint"));
+   BOOST_REQUIRE(manager.create_checkpoint(10));
+   BOOST_REQUIRE(manager.put("value", "live-before-crash"));
+   const auto checkpoint_path = manager.get_checkpoint_path(10);
+   manager.close();
+
+   // Simulate a crash after live -> backup and before staging -> live.
+   std::filesystem::copy(checkpoint_path, staging_path,
+                         std::filesystem::copy_options::recursive);
+   std::filesystem::rename(database_path, backup_path);
+
+   BOOST_REQUIRE(manager.open(database_path.string()));
+   std::string value;
+   BOOST_REQUIRE(manager.get("value", value));
+   BOOST_CHECK_EQUAL(value, "live-before-crash");
+   BOOST_CHECK(!std::filesystem::exists(backup_path));
+   BOOST_CHECK(!std::filesystem::exists(staging_path));
+   manager.close();
+}
+
+BOOST_AUTO_TEST_CASE(rocksdb_manager_close_waits_for_active_query) {
+   fc::temp_directory temp_dir;
+   rocksdb_manager manager;
+   BOOST_REQUIRE(manager.open((temp_dir.path() / "history").string()));
+
+   auto query_lock = manager.acquire_read_lock();
+   auto close_future = std::async(std::launch::async, [&manager] { manager.close(); });
+   BOOST_CHECK(close_future.wait_for(std::chrono::milliseconds(50)) == std::future_status::timeout);
+   query_lock.unlock();
+   BOOST_CHECK(close_future.wait_for(std::chrono::seconds(2)) == std::future_status::ready);
+}
+
+BOOST_AUTO_TEST_CASE(rocksdb_manager_force_clean_removes_chain_identity_and_checkpoints) {
+   fc::temp_directory temp_dir;
+   const auto database_path = temp_dir.path() / "history";
+   rocksdb_manager manager;
+   BOOST_REQUIRE(manager.open(database_path.string()));
+   BOOST_REQUIRE(manager.put("trx:test", R"({"block_num":1})"));
+   BOOST_REQUIRE(manager.put("_internal_last_accepted_block_num", "1"));
+   BOOST_REQUIRE(manager.put("_internal_last_accepted_block_id", "old-chain"));
+   BOOST_REQUIRE(manager.create_checkpoint(1));
+   const auto checkpoint_root = std::filesystem::path(manager.get_checkpoint_path(1)).parent_path();
+
+   BOOST_REQUIRE(manager.clear_all_data());
+   std::string value;
+   BOOST_CHECK(!manager.get("trx:test", value));
+   BOOST_CHECK(!manager.get("_internal_last_accepted_block_num", value));
+   BOOST_CHECK(!manager.get("_internal_last_accepted_block_id", value));
+   BOOST_CHECK(!std::filesystem::exists(checkpoint_root));
+   manager.close();
+}
+
 BOOST_AUTO_TEST_CASE(transaction_history_key_generation) {
    transaction_id_type test_id;
    name test_account("testaccount");

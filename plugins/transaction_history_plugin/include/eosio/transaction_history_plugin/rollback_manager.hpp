@@ -49,7 +49,8 @@ public:
     * @brief Clean up old rollback points
     * @param keep_blocks Number of recent rollback points to keep
     */
-   void cleanup_old_rollback_points(uint32_t keep_blocks = 1000);
+   void cleanup_old_rollback_points(uint32_t keep_blocks = 1000,
+                                    uint64_t min_free_bytes = 0);
 
    /**
     * @brief Get the most recent rollback point

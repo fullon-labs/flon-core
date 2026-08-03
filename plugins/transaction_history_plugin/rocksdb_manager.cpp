@@ -5,6 +5,10 @@
 #include <filesystem>
 #include <fstream>
 #include <thread>
+#ifndef _WIN32
+#include <fcntl.h>
+#include <unistd.h>
+#endif
 
 namespace eosio {
 
@@ -29,6 +33,20 @@ bool extract_json_block_num(const std::string& value, uint32_t& block_num) {
    }
 }
 
+void sync_directory(const std::filesystem::path& path) {
+#ifndef _WIN32
+   const int fd = ::open(path.c_str(), O_RDONLY | O_DIRECTORY);
+   if (fd >= 0) {
+      if (::fsync(fd) != 0) {
+         wlog("Failed to fsync directory ${path} after rollback rename", ("path", path.string()));
+      }
+      ::close(fd);
+   }
+#else
+   (void)path;
+#endif
+}
+
 } // namespace
 
 rocksdb_manager::rocksdb_manager() : is_open_(false) {
@@ -50,6 +68,7 @@ bool rocksdb_manager::open(const std::string& db_path) {
 }
 
 bool rocksdb_manager::open(const std::string& db_path, bool enable_compression) {
+   std::unique_lock<std::shared_mutex> lifecycle_lock(db_lifecycle_mutex_);
    if (is_open_) {
       return true;
    }
@@ -65,8 +84,35 @@ bool rocksdb_manager::open(const std::string& db_path, bool enable_compression) 
       ilog("RocksDB compression disabled");
    }
 
-   // Create directory if it doesn't exist
+   // Recover an interrupted directory swap before create_if_missing has a
+   // chance to silently create an empty history database.
    try {
+      const auto database_path = std::filesystem::absolute(db_path).lexically_normal();
+      const auto parent = database_path.parent_path();
+      const auto basename = database_path.filename().string();
+      const auto backup_path = parent / (basename + ".rollback_backup");
+      const auto staging_path = parent / (basename + ".rollback_staging");
+      const auto complete = [](const std::filesystem::path& path) {
+         return std::filesystem::is_directory(path) &&
+                std::filesystem::exists(path / "CURRENT");
+      };
+
+      if (!complete(database_path) && complete(backup_path)) {
+         std::error_code ignored;
+         std::filesystem::remove_all(database_path, ignored);
+         std::filesystem::rename(backup_path, database_path);
+         sync_directory(parent);
+         std::filesystem::remove_all(staging_path, ignored);
+         wlog("Recovered transaction history database from interrupted rollback backup at ${path}",
+              ("path", backup_path.string()));
+      } else if (!complete(database_path) && complete(staging_path)) {
+         std::error_code ignored;
+         std::filesystem::remove_all(database_path, ignored);
+         std::filesystem::rename(staging_path, database_path);
+         sync_directory(parent);
+         wlog("Completed interrupted transaction history rollback from staging at ${path}",
+              ("path", staging_path.string()));
+      }
       std::filesystem::create_directories(db_path);
    } catch (const std::exception& e) {
       elog("Failed to create database directory ${path}: ${error}",
@@ -77,8 +123,26 @@ bool rocksdb_manager::open(const std::string& db_path, bool enable_compression) 
    // Check if database already exists to warn about compression changes
    bool db_exists = std::filesystem::exists(db_path + "/CURRENT");
 
-   rocksdb::DB* raw_db;
+   rocksdb::DB* raw_db = nullptr;
    rocksdb::Status status = rocksdb::DB::Open(options_, db_path, &raw_db);
+   if (!status.ok()) {
+      const auto database_path = std::filesystem::absolute(db_path).lexically_normal();
+      const auto backup_path = database_path.parent_path() /
+         (database_path.filename().string() + ".rollback_backup");
+      if (std::filesystem::exists(backup_path / "CURRENT")) {
+         try {
+            std::filesystem::remove_all(database_path);
+            std::filesystem::rename(backup_path, database_path);
+            sync_directory(database_path.parent_path());
+            wlog("Restoring rollback backup after replacement database failed to open: ${error}",
+                 ("error", status.ToString()));
+            status = rocksdb::DB::Open(options_, db_path, &raw_db);
+         } catch (const std::exception& recovery_error) {
+            elog("Failed to restore rollback backup after open error: ${error}",
+                 ("error", recovery_error.what()));
+         }
+      }
+   }
    if (!status.ok()) {
       elog("Failed to open RocksDB: ${error}", ("error", status.ToString()));
       return false;
@@ -120,10 +184,23 @@ bool rocksdb_manager::open(const std::string& db_path, bool enable_compression) 
    }
 
    ilog("RocksDB opened successfully at: ${path}", ("path", db_path));
+
+   // A complete live database plus a leftover backup means the replacement
+   // was installed successfully and the process stopped before cleanup.
+   const auto database_path = std::filesystem::absolute(db_path).lexically_normal();
+   const auto backup_path = database_path.parent_path() /
+      (database_path.filename().string() + ".rollback_backup");
+   const auto staging_path = database_path.parent_path() /
+      (database_path.filename().string() + ".rollback_staging");
+   std::error_code cleanup_error;
+   std::filesystem::remove_all(backup_path, cleanup_error);
+   cleanup_error.clear();
+   std::filesystem::remove_all(staging_path, cleanup_error);
    return true;
 }
 
 void rocksdb_manager::close() {
+   std::unique_lock<std::shared_mutex> lifecycle_lock(db_lifecycle_mutex_);
    std::lock_guard<std::mutex> lock(stats_cache_mutex_);
    if (db_) {
       db_.reset();
@@ -339,10 +416,27 @@ bool rocksdb_manager::clear_from_block(uint32_t from_block_num) {
 
    try {
       std::unique_ptr<rocksdb::Iterator> it(db_->NewIterator(rocksdb::ReadOptions()));
-      std::vector<std::string> keys_to_delete;
+      rocksdb::WriteBatch batch;
+      constexpr size_t max_batch_keys = 10000;
+      constexpr size_t max_batch_bytes = 16 * 1024 * 1024;
+      size_t batch_keys = 0, batch_bytes = 0, deleted = 0;
       size_t blocks_checked = 0, transactions_checked = 0, accounts_checked = 0;
 
-      // Collect keys to delete (we can't delete while iterating)
+      const auto flush = [&]() -> bool {
+         if (batch_keys == 0) return true;
+         const auto status = db_->Write(rocksdb::WriteOptions(), &batch);
+         if (!status.ok()) {
+            elog("Failed to clear blocks from database: ${error}", ("error", status.ToString()));
+            return false;
+         }
+         deleted += batch_keys;
+         batch.Clear();
+         batch_keys = batch_bytes = 0;
+         return true;
+      };
+
+      // The iterator keeps a stable RocksDB view while bounded batches are
+      // committed, so no key list grows with database size.
       for (it->SeekToFirst(); it->Valid(); it->Next()) {
          std::string key = it->key().ToString();
 
@@ -384,26 +478,20 @@ bool rocksdb_manager::clear_from_block(uint32_t from_block_num) {
          }
 
          if (should_delete) {
-            keys_to_delete.push_back(key);
+            batch.Delete(key);
+            ++batch_keys;
+            batch_bytes += key.size();
+            if ((batch_keys >= max_batch_keys || batch_bytes >= max_batch_bytes) && !flush()) {
+               return false;
+            }
          }
       }
 
-      // Delete collected keys
-      if (!keys_to_delete.empty()) {
-         rocksdb::WriteBatch batch;
-         for (const auto& key : keys_to_delete) {
-            batch.Delete(key);
-         }
-
-         rocksdb::Status status = db_->Write(rocksdb::WriteOptions(), &batch);
-         if (!status.ok()) {
-            elog("Failed to clear blocks from database: ${error}", ("error", status.ToString()));
-            return false;
-         }
-
+      if (!flush()) return false;
+      if (deleted != 0) {
          ilog("Database cleanup completed: cleared ${count} entries from block ${from_block} onwards "
               "(scanned ${blocks} block keys, ${transactions} transaction keys, ${accounts} account keys)",
-              ("count", keys_to_delete.size())("from_block", from_block_num)
+              ("count", deleted)("from_block", from_block_num)
               ("blocks", blocks_checked)("transactions", transactions_checked)("accounts", accounts_checked));
       } else {
          ilog("Database cleanup: no entries found to clear from block ${from_block} onwards "
@@ -425,56 +513,55 @@ bool rocksdb_manager::clear_all_data() {
 
    try {
       std::unique_ptr<rocksdb::Iterator> it(db_->NewIterator(rocksdb::ReadOptions()));
-      std::vector<std::string> keys_to_delete;
-      size_t total_keys = 0;
+      rocksdb::WriteBatch batch;
+      constexpr size_t max_batch_keys = 10000;
+      constexpr size_t max_batch_bytes = 16 * 1024 * 1024;
+      size_t total_keys = 0, deleted = 0, batch_keys = 0, batch_bytes = 0;
+      const auto flush = [&]() -> bool {
+         if (batch_keys == 0) return true;
+         const auto status = db_->Write(rocksdb::WriteOptions(), &batch);
+         if (!status.ok()) {
+            elog("Failed to clear data batch: ${error}", ("error", status.ToString()));
+            return false;
+         }
+         deleted += batch_keys;
+         batch.Clear();
+         batch_keys = batch_bytes = 0;
+         return true;
+      };
 
       // Collect all non-internal keys for deletion
       for (it->SeekToFirst(); it->Valid(); it->Next()) {
          std::string key = it->key().ToString();
          total_keys++;
 
-         // Keep database metadata, but reset per-account history cursors along
-         // with the action records they address.
-         if (key.find("_internal_") != 0 ||
-             key.find("_internal_account_sequence:") == 0) {
-            keys_to_delete.push_back(key);
+         // Only the immutable storage-format setting survives a force clean.
+         if (key != "_internal_compression_enabled") {
+            batch.Delete(key);
+            ++batch_keys;
+            batch_bytes += key.size();
+            if ((batch_keys >= max_batch_keys || batch_bytes >= max_batch_bytes) && !flush()) {
+               return false;
+            }
          }
       }
 
-      if (!keys_to_delete.empty()) {
-         // Process in batches to avoid memory issues with large databases
-         const size_t BATCH_SIZE = 10000;
-         size_t processed = 0;
-
-         while (processed < keys_to_delete.size()) {
-            rocksdb::WriteBatch batch;
-            size_t batch_end = std::min(processed + BATCH_SIZE, keys_to_delete.size());
-
-            for (size_t i = processed; i < batch_end; ++i) {
-               batch.Delete(keys_to_delete[i]);
-            }
-
-            rocksdb::Status status = db_->Write(rocksdb::WriteOptions(), &batch);
-            if (!status.ok()) {
-               elog("Failed to clear data batch: ${error}", ("error", status.ToString()));
-               return false;
-            }
-
-            processed = batch_end;
-
-            if (processed % 50000 == 0) {
-               ilog("Progress: cleared ${processed}/${total} transaction history entries",
-                    ("processed", processed)("total", keys_to_delete.size()));
-            }
-         }
-
+      if (!flush()) return false;
+      if (deleted != 0) {
          ilog("Force clean completed: cleared ${count} transaction history entries (${total} total keys scanned)",
-              ("count", keys_to_delete.size())("total", total_keys));
+              ("count", deleted)("total", total_keys));
       } else {
          ilog("Force clean: no transaction data found to clear");
       }
 
-      // Reset the last block number to 0
+      std::error_code checkpoint_error;
+      std::filesystem::remove_all(
+         std::filesystem::path(get_checkpoint_path(0)).parent_path(), checkpoint_error);
+      if (checkpoint_error) {
+         elog("Failed to remove rollback checkpoints during force clean: ${error}",
+              ("error", checkpoint_error.message()));
+         return false;
+      }
       return update_last_block_number(0);
 
    } catch (const std::exception& e) {
@@ -848,9 +935,14 @@ bool rocksdb_manager::rollback_to_block(uint32_t block_num) {
    // still open. A failed copy must never put the current database at risk.
    try {
       if (std::filesystem::exists(backup_path)) {
-         elog("Cannot roll back block ${block}: backup path already exists at ${path}",
-              ("block", block_num)("path", backup_path.string()));
-         return false;
+         std::error_code stale_backup_error;
+         std::filesystem::remove_all(backup_path, stale_backup_error);
+         if (stale_backup_error) {
+            elog("Cannot roll back block ${block}: stale backup cannot be removed at ${path}: ${error}",
+                 ("block", block_num)("path", backup_path.string())
+                 ("error", stale_backup_error.message()));
+            return false;
+         }
       }
 
       std::filesystem::remove_all(staging_path);
@@ -875,8 +967,10 @@ bool rocksdb_manager::rollback_to_block(uint32_t block_num) {
       // Keep the original database intact until the replacement is ready, then
       // switch directories using same-filesystem renames.
       std::filesystem::rename(database_path, backup_path);
+      sync_directory(database_path.parent_path());
       original_moved = true;
       std::filesystem::rename(staging_path, database_path);
+      sync_directory(database_path.parent_path());
       replacement_installed = true;
 
       if (!open(database_path.string(), compression_enabled)) {
@@ -905,6 +999,7 @@ bool rocksdb_manager::rollback_to_block(uint32_t block_num) {
 
       if (original_moved && !recovery_error) {
          std::filesystem::rename(backup_path, database_path, recovery_error);
+         if (!recovery_error) sync_directory(database_path.parent_path());
       }
 
       if (original_moved && !recovery_error) {

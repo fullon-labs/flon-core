@@ -24,7 +24,7 @@ namespace transaction_history_apis {
 class read_only {
 public:
    struct get_transaction_params {
-      transaction_id_type id;
+      std::string id;
       std::optional<uint32_t> block_num_hint;
    };
 
@@ -32,9 +32,11 @@ public:
       transaction_id_type id;
       fc::variant trx;
       fc::time_point_sec block_time;
-      uint32_t block_num;
-      uint32_t last_irreversible_block;
+      uint32_t block_num = 0;
+      uint32_t last_irreversible_block = 0;
       std::vector<fc::variant> traces;
+      fc::variant res_usage;
+      fc::variant gas_traces;
    };
 
    struct get_actions_params {
@@ -47,6 +49,7 @@ public:
       std::vector<std::map<std::string, fc::variant>> actions;
       uint32_t last_irreversible_block;
       bool more = false;
+      std::optional<bool> time_limit_exceeded_error;
    };
 
    struct get_transaction_count_params {
@@ -191,9 +194,9 @@ private:
 } // namespace eosio
 
 FC_REFLECT(eosio::transaction_history_apis::read_only::get_transaction_params, (id)(block_num_hint))
-FC_REFLECT(eosio::transaction_history_apis::read_only::get_transaction_result, (id)(trx)(block_time)(block_num)(last_irreversible_block)(traces))
+FC_REFLECT(eosio::transaction_history_apis::read_only::get_transaction_result, (id)(trx)(block_time)(block_num)(last_irreversible_block)(traces)(res_usage)(gas_traces))
 FC_REFLECT(eosio::transaction_history_apis::read_only::get_actions_params, (account_name)(pos)(offset))
-FC_REFLECT(eosio::transaction_history_apis::read_only::get_actions_result, (actions)(last_irreversible_block)(more))
+FC_REFLECT(eosio::transaction_history_apis::read_only::get_actions_result, (actions)(last_irreversible_block)(more)(time_limit_exceeded_error))
 FC_REFLECT(eosio::transaction_history_apis::read_only::get_transaction_count_params, (start_block)(end_block))
 FC_REFLECT(eosio::transaction_history_apis::read_only::get_transaction_count_result, (count)(start_block)(end_block))
 FC_REFLECT(eosio::transaction_history_apis::read_only::get_key_accounts_params, (public_key))

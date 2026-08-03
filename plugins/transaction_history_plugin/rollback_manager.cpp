@@ -3,6 +3,7 @@
 #include <fc/log/logger.hpp>
 #include <fc/io/raw.hpp>
 #include <filesystem>
+#include <limits>
 
 namespace eosio {
 
@@ -30,6 +31,9 @@ bool rollback_manager::create_rollback_point(uint32_t block_num) {
 
       if (!save_rollback_info(info)) {
          elog("Failed to save rollback info for block ${block}", ("block", block_num));
+         rollback_points_.erase(block_num);
+         std::error_code cleanup_error;
+         std::filesystem::remove_all(info.checkpoint_path, cleanup_error);
          return false;
       }
 
@@ -92,32 +96,42 @@ bool rollback_manager::rollback_to_block(uint32_t block_num) {
    }
 }
 
-void rollback_manager::cleanup_old_rollback_points(uint32_t keep_blocks) {
-   if (rollback_points_.size() <= keep_blocks) {
-      return;
-   }
+void rollback_manager::cleanup_old_rollback_points(uint32_t keep_blocks,
+                                                   uint64_t min_free_bytes) {
+   const auto checkpoint_root = std::filesystem::path(db_->get_checkpoint_path(0)).parent_path();
+   const auto available_bytes = [&]() {
+      std::error_code error;
+      const auto info = std::filesystem::space(checkpoint_root, error);
+      return error ? std::numeric_limits<uint64_t>::max() : info.available;
+   };
 
-   auto it = rollback_points_.begin();
-   std::advance(it, rollback_points_.size() - keep_blocks);
-
-   for (auto cleanup_it = rollback_points_.begin(); cleanup_it != it; ++cleanup_it) {
+   size_t removed = 0;
+   uint64_t free_bytes = available_bytes();
+   while (rollback_points_.size() > 1 &&
+          (rollback_points_.size() > keep_blocks ||
+           (min_free_bytes != 0 && free_bytes < min_free_bytes))) {
+      auto cleanup_it = rollback_points_.begin();
       // Remove checkpoint directory
       std::string checkpoint_path = db_->get_checkpoint_path(cleanup_it->first);
-      try {
-         std::filesystem::remove_all(checkpoint_path);
-      } catch (const std::exception& e) {
+      std::error_code remove_error;
+      std::filesystem::remove_all(checkpoint_path, remove_error);
+      if (remove_error) {
          wlog("Failed to remove checkpoint directory ${path}: ${error}",
-              ("path", checkpoint_path)("error", e.what()));
+              ("path", checkpoint_path)("error", remove_error.message()));
+         break;
       }
 
       // Remove rollback info from database
       std::string key = get_rollback_key(cleanup_it->first);
       db_->remove(key);
+      rollback_points_.erase(cleanup_it);
+      free_bytes = available_bytes();
+      ++removed;
    }
-
-   rollback_points_.erase(rollback_points_.begin(), it);
-
-   dlog("Cleaned up old rollback points, keeping ${count} recent points", ("count", keep_blocks));
+   if (removed != 0) {
+      dlog("Cleaned up ${removed} rollback points; keeping ${count} points with ${bytes} bytes free",
+           ("removed", removed)("count", rollback_points_.size())("bytes", free_bytes));
+   }
 }
 
 std::optional<uint32_t> rollback_manager::get_latest_rollback_point() const {
