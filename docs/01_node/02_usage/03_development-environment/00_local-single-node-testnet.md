@@ -32,11 +32,11 @@ Open one "terminal" window and perform the following steps:
 Start your own single-node blockchain with this single command:
 
 ```sh
-funod -e -p eosio --plugin eosio::chain_api_plugin --plugin eosio::history_api_plugin
+funod -e -p eosio --plugin eosio::chain_api_plugin --plugin eosio::transaction_history_plugin --plugin eosio::transaction_history_api_plugin
 ```
 
 [[info | funod Minimal Options]]
-| A minimal `funod` instance setup for block production requires both `chain_api_plugin` and `history_api_plugin` with the `-e` option (enable stale production) and `-p eosio` option (producer name `eosio`). Alternatively, you can also setup and specify your own account as the producer name.
+| A minimal `funod` instance setup for block production requires `chain_api_plugin`, `transaction_history_plugin`, and `transaction_history_api_plugin` with the `-e` option (enable stale production) and `-p eosio` option (producer name `eosio`). Alternatively, you can also setup and specify your own account as the producer name.
 
 After running `funod`, you should get log messages similar as below. It means the blocks are successfully produced.
 
@@ -106,7 +106,8 @@ The build seeds this folder with a default `genesis.json` file.  A configuration
     # As well as API and HTTP plugins
     plugin = eosio::chain_api_plugin
     plugin = eosio::http_plugin
-    plugin = eosio::history_api_plugin
+    plugin = eosio::transaction_history_plugin
+    plugin = eosio::transaction_history_api_plugin
 ```
 
 Now it should be possible to run `funod` and see it begin producing blocks.

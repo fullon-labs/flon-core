@@ -42,12 +42,20 @@
 #include <eosio/chain_plugin/chain_plugin.hpp>
 #include <eosio/chain/controller.hpp>
 #include <eosio/chain/trace.hpp>
+#include <eosio/chain/permission_object.hpp>
 #include <fc/io/json.hpp>
 #include <fc/crypto/sha256.hpp>
 
+#include <boost/algorithm/string.hpp>
 #include <boost/signals2/connection.hpp>
 #include <boost/program_options.hpp>
+#include <algorithm>
 #include <filesystem>
+#include <iomanip>
+#include <limits>
+#include <mutex>
+#include <set>
+#include <sstream>
 
 namespace eosio {
 namespace bpo = boost::program_options;
@@ -66,6 +74,16 @@ public:
    std::unique_ptr<rollback_manager> rollback_mgr_;
 
    boost::signals2::scoped_connection applied_transaction_connection_;
+   boost::signals2::scoped_connection accepted_block_connection_;
+
+   struct filter_entry {
+      eosio::chain::name receiver;
+      eosio::chain::name action;
+      eosio::chain::name actor;
+
+      auto key() const { return std::tie(receiver, action, actor); }
+      bool operator<(const filter_entry& other) const { return key() < other.key(); }
+   };
 
    std::string db_path_;
    bool compression_enabled_ = true;
@@ -78,11 +96,16 @@ public:
    bool auto_tuning_enabled_ = false;
    uint32_t analysis_interval_ = 500000;
    bool filter_on_star = true;
+   std::set<filter_entry> filter_on_;
+   std::set<filter_entry> filter_out_;
 
    // Constants for monitoring and limits
    static constexpr uint32_t MAX_RETAINED_BLOCKS = 1000;
    static constexpr uint32_t MAX_TRACE_SIZE = 10 * 1024 * 1024; // 10MB
    static constexpr uint32_t MAX_ACTIONS_PER_TX = 1000;
+   static constexpr uint32_t MAX_API_RESULTS = 1000;
+   static constexpr uint64_t MAX_COUNT_SCAN_KEYS = 1000000;
+   static constexpr int64_t API_SCAN_TIME_US = 100000;
 
    // Statistics for monitoring
    std::atomic<uint64_t> transactions_processed_{0};
@@ -95,17 +118,31 @@ public:
    std::atomic<uint32_t> last_health_check_block_{0};
    std::atomic<uint32_t> last_maintenance_block_{0};
    std::atomic<uint32_t> last_analysis_block_{0};
+   std::mutex last_updated_block_mutex_;
+   uint32_t last_updated_block_ = 0;
    const uint32_t warning_interval_ = 10000; // Warn every 10000 blocks
    const uint32_t health_check_interval_ = 50000; // Health check every 50000 blocks
    const uint32_t max_safe_pending_blocks_ = 5000; // Warn if pending blocks exceed this
 
    void applied_transaction(const eosio::chain::transaction_trace_ptr& trace);
    void check_data_size_warnings(uint32_t current_block_num, uint32_t lib_block_num);
+   bool filter_action(const eosio::chain::action_trace& action_trace) const;
+   uint64_t next_account_sequence(const eosio::chain::name& account);
 
    std::string make_transaction_key(const eosio::chain::transaction_id_type& id) const;
    std::string make_account_action_key(const eosio::chain::name& account, uint64_t seq) const;
    std::string make_block_transaction_key(uint32_t block_num, const eosio::chain::transaction_id_type& id) const;
 };
+
+namespace {
+
+std::string fixed_width_number(uint64_t value, size_t width) {
+   std::ostringstream out;
+   out << std::setw(width) << std::setfill('0') << value;
+   return out.str();
+}
+
+} // namespace
 
 transaction_history_plugin::transaction_history_plugin() : my(new transaction_history_plugin_impl()) {
 }
@@ -138,7 +175,11 @@ void transaction_history_plugin::set_program_options(options_description& cli, o
       ("transaction-history-filter-on", bpo::value<std::vector<std::string>>()->composing(),
        "Track actions which match account:action:actor. Actor may be blank to include all actors.")
       ("transaction-history-filter-out", bpo::value<std::vector<std::string>>()->composing(),
-       "Do not track actions which match account:action:actor. Actor may be blank to exclude all actors.");
+       "Do not track actions which match account:action:actor. Actor may be blank to exclude all actors.")
+      ("filter-on,f", bpo::value<std::vector<std::string>>()->composing(),
+       "Compatibility alias for transaction-history-filter-on")
+      ("filter-out,F", bpo::value<std::vector<std::string>>()->composing(),
+       "Compatibility alias for transaction-history-filter-out");
 }
 
 void transaction_history_plugin::plugin_initialize(const variables_map& options) {
@@ -196,6 +237,59 @@ void transaction_history_plugin::plugin_initialize(const variables_map& options)
          my->analysis_interval_ = options.at("transaction-history-analysis-interval").as<uint32_t>();
       }
 
+      auto parse_filters = [](const std::vector<std::string>& values,
+                              std::set<transaction_history_plugin_impl::filter_entry>& output,
+                              bool allow_star, bool& star) {
+         for (const auto& value : values) {
+            if (allow_star && (value == "*" || value == "\"*\"")) {
+               star = true;
+               continue;
+            }
+
+            std::vector<std::string> fields;
+            boost::split(fields, value, boost::is_any_of(":"));
+            EOS_ASSERT(fields.size() == 3, fc::invalid_arg_exception,
+                       "Invalid transaction history filter ${filter}; expected receiver:action:actor",
+                       ("filter", value));
+
+            // Accept both the documented empty wildcard and the commonly used
+            // explicit '*' spelling for action and actor.
+            if (fields[1] == "*") fields[1].clear();
+            if (fields[2] == "*") fields[2].clear();
+
+            transaction_history_plugin_impl::filter_entry entry{
+               eosio::chain::name(fields[0]), eosio::chain::name(fields[1]), eosio::chain::name(fields[2])
+            };
+            EOS_ASSERT(entry.receiver.to_uint64_t() != 0, fc::invalid_arg_exception,
+                       "Invalid transaction history filter ${filter}: receiver is required",
+                       ("filter", value));
+            output.insert(entry);
+         }
+      };
+
+      if (options.count("transaction-history-filter-on") || options.count("filter-on")) {
+         my->filter_on_star = false;
+         if (options.count("transaction-history-filter-on")) {
+            parse_filters(options.at("transaction-history-filter-on").as<std::vector<std::string>>(),
+                          my->filter_on_, true, my->filter_on_star);
+         }
+         if (options.count("filter-on")) {
+            parse_filters(options.at("filter-on").as<std::vector<std::string>>(),
+                          my->filter_on_, true, my->filter_on_star);
+         }
+      }
+      if (options.count("transaction-history-filter-out") || options.count("filter-out")) {
+         bool ignored_star = false;
+         if (options.count("transaction-history-filter-out")) {
+            parse_filters(options.at("transaction-history-filter-out").as<std::vector<std::string>>(),
+                          my->filter_out_, false, ignored_star);
+         }
+         if (options.count("filter-out")) {
+            parse_filters(options.at("filter-out").as<std::vector<std::string>>(),
+                          my->filter_out_, false, ignored_star);
+         }
+      }
+
       // Validate configuration parameters
       EOS_ASSERT(!my->db_path_.empty(), eosio::chain::plugin_exception,
                  "transaction-history-dir cannot be empty");
@@ -209,7 +303,6 @@ void transaction_history_plugin::plugin_initialize(const variables_map& options)
       // Initialize components
       my->db_ = std::make_shared<rocksdb_manager>();
       my->worker_ = std::make_unique<async_worker>();
-      my->rollback_mgr_ = std::make_unique<rollback_manager>(my->db_);
 
       if (!my->db_->open(my->db_path_, my->compression_enabled_)) {
          throw std::runtime_error("Failed to open transaction history database at: " + my->db_path_);
@@ -244,6 +337,10 @@ void transaction_history_plugin::plugin_initialize(const variables_map& options)
       // Log compression information
       std::string compression_info = my->db_->get_compression_info();
       ilog("Database compression status: ${info}", ("info", compression_info));
+
+      // Construct after RocksDB is open so persisted rollback points can be
+      // loaded and old external checkpoints remain subject to retention.
+      my->rollback_mgr_ = std::make_unique<rollback_manager>(my->db_);
 
       ilog("Transaction history plugin initialized with database at: ${path}",
            ("path", my->db_path_));
@@ -325,9 +422,30 @@ void transaction_history_plugin::plugin_startup() {
    std::string db_stats = my->db_->get_database_stats();
    dlog("Transaction history database statistics: ${stats}", ("stats", db_stats));
 
+   // Initialize the monotonic database height after any startup repair or cleanup.
+   my->last_updated_block_ = my->db_->get_last_block_number();
+
+   // A bounded, ordered writer is required so accepted-block checkpoints are
+   // taken only after all transaction writes for that block have completed.
+   my->worker_->start();
+
    my->applied_transaction_connection_ = chain.applied_transaction().connect(
       [&](std::tuple<const eosio::chain::transaction_trace_ptr&, const eosio::chain::packed_transaction_ptr&> t) {
          my->applied_transaction(std::get<0>(t));
+      });
+
+   my->accepted_block_connection_ = chain.accepted_block().connect(
+      [&](const eosio::chain::block_signal_params& event) {
+         const uint32_t block_num = std::get<0>(event)->block_num();
+         my->worker_->enqueue_task([impl = my.get(), block_num]() {
+            if (!impl->rollback_mgr_->create_rollback_point(block_num)) {
+               wlog("Failed to create transaction history checkpoint at block ${block}",
+                    ("block", block_num));
+               return;
+            }
+            impl->rollback_mgr_->cleanup_old_rollback_points(
+               transaction_history_plugin_impl::MAX_RETAINED_BLOCKS);
+         });
       });
 
    ilog("Transaction history plugin started successfully");
@@ -349,6 +467,7 @@ void transaction_history_plugin::plugin_shutdown() {
 
    // Disconnect from chain signals
    my->applied_transaction_connection_.disconnect();
+   my->accepted_block_connection_.disconnect();
 
    // Stop worker threads and wait for completion
    if (my->worker_) {
@@ -376,11 +495,29 @@ void transaction_history_plugin_impl::applied_transaction(const eosio::chain::tr
       return;
    }
 
+   // Capture immutable block metadata on the chain thread. Reading the controller
+   // later from a worker can associate the transaction with a newer block.
+   const uint32_t block_num = trace->block_num;
+   const fc::time_point_sec block_time(trace->block_time.to_time_point());
+   const uint32_t last_irreversible_block = chain_plug->chain().last_irreversible_block_num();
+
    // Process transaction asynchronously to avoid blocking main chain
-   worker_->enqueue_task([this, trace]() {
+   worker_->enqueue_task([this, trace, block_num, block_time, last_irreversible_block]() {
       auto start_time = fc::time_point::now();
 
       try {
+         std::vector<const eosio::chain::action_trace*> filtered_actions;
+         filtered_actions.reserve(trace->action_traces.size());
+         for (const auto& action_trace : trace->action_traces) {
+            if (filter_action(action_trace)) {
+               filtered_actions.push_back(&action_trace);
+            }
+         }
+
+         if (filtered_actions.empty()) {
+            return;
+         }
+
          fc::variant trace_var;
          fc::to_variant(*trace, trace_var);
 
@@ -389,9 +526,9 @@ void transaction_history_plugin_impl::applied_transaction(const eosio::chain::tr
          transaction_history_apis::read_only::get_transaction_result result;
          result.id = trace->id;
          result.trx = trace_var;
-         result.block_time = fc::time_point_sec(chain_plug->chain().pending_block_time());
-         result.block_num = chain_plug->chain().head().block_num();
-         result.last_irreversible_block = chain_plug->chain().last_irreversible_block_num();
+         result.block_time = block_time;
+         result.block_num = block_num;
+         result.last_irreversible_block = last_irreversible_block;
 
          // Check for data size warnings periodically
          if (result.block_num > last_warning_block_ + warning_interval_) {
@@ -549,9 +686,9 @@ void transaction_history_plugin_impl::applied_transaction(const eosio::chain::tr
          // Convert action traces to variants with size monitoring
          size_t total_size = 0;
 
-         for (const auto& action_trace : trace->action_traces) {
+         for (const auto* action_trace : filtered_actions) {
             fc::variant action_var;
-            fc::to_variant(action_trace, action_var);
+            fc::to_variant(*action_trace, action_var);
 
             size_t action_size = fc::raw::pack_size(action_var);
             total_size += action_size;
@@ -571,44 +708,65 @@ void transaction_history_plugin_impl::applied_transaction(const eosio::chain::tr
             return;
          }
 
+         const std::string block_key = make_block_transaction_key(result.block_num, trace->id);
+         if (!db_->put(block_key, trx_key)) {
+            elog("Failed to store block transaction index for ${id} at block ${block}",
+                 ("id", trace->id)("block", result.block_num));
+            return;
+         }
+
          // Update last processed block number for database state tracking
-         static uint32_t last_updated_block = 0;
-         if (result.block_num > last_updated_block) {
-            if (!db_->update_last_block_number(result.block_num)) {
-               wlog("Failed to update last block number to ${block}", ("block", result.block_num));
+         {
+            std::lock_guard<std::mutex> lock(last_updated_block_mutex_);
+            if (result.block_num > last_updated_block_) {
+               if (db_->update_last_block_number(result.block_num)) {
+                  last_updated_block_ = result.block_num;
+               } else {
+                  wlog("Failed to update last block number to ${block}", ("block", result.block_num));
+               }
             }
-            last_updated_block = result.block_num;
          }
 
          // Create account-level indexes for action queries with limit
          size_t indexed_actions = 0;
-         for (const auto& action_trace : trace->action_traces) {
-            if (action_trace.receipt && indexed_actions < MAX_ACTIONS_PER_TX) {
-               std::string account_key = make_account_action_key(
-                  action_trace.receipt->receiver,
-                  action_trace.receipt->global_sequence
-               );
+         for (const auto* action_trace : filtered_actions) {
+            if (action_trace->receipt && indexed_actions < MAX_ACTIONS_PER_TX) {
+               fc::variant action_variant;
+               fc::to_variant(*action_trace, action_variant);
 
-               // Store minimal action info for account queries
-               std::map<std::string, fc::variant> action_info;
-               action_info["trx_id"] = trace->id;
-               action_info["block_num"] = result.block_num;
-               action_info["global_sequence"] = action_trace.receipt->global_sequence;
-               action_info["account"] = action_trace.receipt->receiver;
-               action_info["action_name"] = action_trace.act.name;
+               std::map<std::string, fc::variant> base_action_info;
+               base_action_info["trx_id"] = trace->id;
+               base_action_info["block_num"] = result.block_num;
+               base_action_info["block_time"] = result.block_time;
+               base_action_info["global_sequence"] = action_trace->receipt->global_sequence;
+               base_action_info["account"] = action_trace->receipt->receiver;
+               base_action_info["action_name"] = action_trace->act.name;
+               base_action_info["action_trace"] = std::move(action_variant);
 
-               if (!db_->put_object(account_key, action_info)) {
-                  wlog("Failed to store account action index for ${account}:${seq}",
-                       ("account", action_trace.receipt->receiver)("seq", action_trace.receipt->global_sequence));
+               std::set<eosio::chain::name> indexed_accounts{action_trace->receipt->receiver};
+               for (const auto& authorization : action_trace->act.authorization) {
+                  indexed_accounts.insert(authorization.actor);
+               }
+
+               for (const auto& account : indexed_accounts) {
+                  const uint64_t account_sequence = next_account_sequence(account);
+                  const std::string account_key = make_account_action_key(
+                     account, account_sequence);
+                  auto action_info = base_action_info;
+                  action_info["account_action_seq"] = account_sequence;
+                  if (!db_->put_object(account_key, action_info)) {
+                     wlog("Failed to store account action index for ${account}:${seq}",
+                          ("account", account)("seq", action_trace->receipt->global_sequence));
+                  }
                }
                indexed_actions++;
             }
          }
 
          // Warn if too many actions were skipped in indexing
-         if (trace->action_traces.size() > MAX_ACTIONS_PER_TX) {
+         if (filtered_actions.size() > MAX_ACTIONS_PER_TX) {
             wlog("Transaction ${id} has ${total} actions, only indexed first ${indexed} actions",
-                 ("id", trace->id)("total", trace->action_traces.size())("indexed", MAX_ACTIONS_PER_TX));
+                 ("id", trace->id)("total", filtered_actions.size())("indexed", MAX_ACTIONS_PER_TX));
          }
 
          auto processing_time = fc::time_point::now() - start_time;
@@ -629,6 +787,51 @@ void transaction_history_plugin_impl::applied_transaction(const eosio::chain::tr
          elog("Unknown error processing transaction ${id}", ("id", trace->id));
       }
    });
+}
+
+bool transaction_history_plugin_impl::filter_action(const eosio::chain::action_trace& action_trace) const {
+   if (!action_trace.receipt) {
+      return false;
+   }
+
+   const auto matches = [&action_trace](const std::set<filter_entry>& filters) {
+      const auto receiver = action_trace.receipt->receiver;
+      const auto action = action_trace.act.name;
+      if (filters.count({receiver, {}, {}}) || filters.count({receiver, action, {}})) {
+         return true;
+      }
+      for (const auto& authorization : action_trace.act.authorization) {
+         if (filters.count({receiver, {}, authorization.actor}) ||
+             filters.count({receiver, action, authorization.actor})) {
+            return true;
+         }
+      }
+      return false;
+   };
+
+   if (!filter_on_star && !matches(filter_on_)) {
+      return false;
+   }
+   return !matches(filter_out_);
+}
+
+uint64_t transaction_history_plugin_impl::next_account_sequence(const eosio::chain::name& account) {
+   const std::string counter_key = "_internal_account_sequence:" + account.to_string();
+   std::string stored;
+   uint64_t next = 0;
+   if (db_->get(counter_key, stored)) {
+      try {
+         next = std::stoull(stored);
+      } catch (...) {
+         wlog("Resetting invalid account history sequence for ${account}", ("account", account));
+      }
+   }
+
+   if (!db_->put(counter_key, std::to_string(next + 1))) {
+      EOS_THROW(eosio::chain::plugin_exception,
+                "Failed to update account history sequence for ${account}", ("account", account));
+   }
+   return next;
 }
 
 void transaction_history_plugin_impl::check_data_size_warnings(uint32_t current_block_num, uint32_t lib_block_num) {
@@ -667,11 +870,11 @@ std::string transaction_history_plugin_impl::make_transaction_key(const transact
 }
 
 std::string transaction_history_plugin_impl::make_account_action_key(const name& account, uint64_t seq) const {
-   return "acc:" + account.to_string() + ":" + std::to_string(seq);
+   return "acc:" + account.to_string() + ":" + fixed_width_number(seq, 20);
 }
 
 std::string transaction_history_plugin_impl::make_block_transaction_key(uint32_t block_num, const transaction_id_type& id) const {
-   return "blk:" + std::to_string(block_num) + ":" + id.str();
+   return "blk:" + fixed_width_number(block_num, 10) + ":" + id.str();
 }
 
 // transaction_history_plugin public methods implementation
@@ -723,9 +926,84 @@ read_only::get_actions_result read_only::get_actions(const get_actions_params& p
    result.last_irreversible_block = history->my->chain_plug->chain().last_irreversible_block_num();
    result.more = false;
 
-   // TODO: Implement account action querying
-   // This would involve iterating through account-specific keys in RocksDB
-   // and reconstructing action data from stored transaction traces
+   const int32_t offset = params.offset.value_or(-20);
+   EOS_ASSERT(offset >= -static_cast<int32_t>(transaction_history_plugin_impl::MAX_API_RESULTS) &&
+              offset <= static_cast<int32_t>(transaction_history_plugin_impl::MAX_API_RESULTS),
+              chain::plugin_exception, "offset must be between -${max} and ${max}",
+              ("max", transaction_history_plugin_impl::MAX_API_RESULTS));
+   if (offset == 0) {
+      return result;
+   }
+
+   const std::string prefix = "acc:" + params.account_name.to_string() + ":";
+   const auto deadline = fc::time_point::now() +
+      fc::microseconds(transaction_history_plugin_impl::API_SCAN_TIME_US);
+   const size_t requested = static_cast<size_t>(std::abs(static_cast<int64_t>(offset)));
+   std::unique_ptr<rocksdb::Iterator> iterator(history->my->db_->new_iterator());
+   EOS_ASSERT(iterator, chain::plugin_exception, "Transaction history database is not open");
+
+   auto has_prefix = [&prefix](const rocksdb::Iterator& it) {
+      return it.Valid() && it.key().starts_with(prefix);
+   };
+   auto append_current = [&result](const rocksdb::Iterator& it) {
+      try {
+         result.actions.emplace_back(
+            fc::json::from_string(it.value().ToString()).as<std::map<std::string, fc::variant>>());
+         return true;
+      } catch (...) {
+         return false;
+      }
+   };
+
+   size_t scanned = 0;
+   if (offset < 0) {
+      if (!params.pos || *params.pos < 0) {
+         iterator->Seek(prefix + "\xff");
+         if (iterator->Valid()) {
+            iterator->Prev();
+         } else {
+            iterator->SeekToLast();
+         }
+      } else {
+         iterator->Seek(history->make_account_action_key(
+            params.account_name, static_cast<uint64_t>(*params.pos)));
+         if (!iterator->Valid()) {
+            iterator->SeekToLast();
+         } else if (iterator->key().ToString() != history->make_account_action_key(
+                       params.account_name, static_cast<uint64_t>(*params.pos))) {
+            iterator->Prev();
+         }
+      }
+
+      while (has_prefix(*iterator) && result.actions.size() < requested) {
+         EOS_ASSERT(fc::time_point::now() < deadline, chain::deadline_exception,
+                    "get_actions exceeded the query time limit");
+         append_current(*iterator);
+         ++scanned;
+         iterator->Prev();
+      }
+      result.more = has_prefix(*iterator);
+      std::reverse(result.actions.begin(), result.actions.end());
+   } else {
+      if (params.pos && *params.pos > 0) {
+         iterator->Seek(history->make_account_action_key(
+            params.account_name, static_cast<uint64_t>(*params.pos)));
+      } else {
+         iterator->Seek(prefix);
+      }
+
+      while (has_prefix(*iterator) && result.actions.size() < requested) {
+         EOS_ASSERT(fc::time_point::now() < deadline, chain::deadline_exception,
+                    "get_actions exceeded the query time limit");
+         append_current(*iterator);
+         ++scanned;
+         iterator->Next();
+      }
+      result.more = has_prefix(*iterator);
+   }
+
+   EOS_ASSERT(scanned <= transaction_history_plugin_impl::MAX_API_RESULTS * 4,
+              chain::plugin_exception, "Too many invalid action index entries");
 
    return result;
 }
@@ -736,26 +1014,125 @@ read_only::get_transaction_count_result read_only::get_transaction_count(const g
    result.start_block = params.start_block.value_or(1);
    result.end_block = params.end_block.value_or(history->my->chain_plug->chain().head().block_num());
 
-   // TODO: Implement transaction counting logic
-   // This would involve iterating through block-specific transaction keys
+   EOS_ASSERT(result.start_block <= result.end_block, chain::plugin_exception,
+              "start_block must not be greater than end_block");
+
+   const auto deadline = fc::time_point::now() +
+      fc::microseconds(transaction_history_plugin_impl::API_SCAN_TIME_US);
+   const std::string first_key = "blk:" + fixed_width_number(result.start_block, 10) + ":";
+   const std::string end_prefix = result.end_block == std::numeric_limits<uint32_t>::max()
+      ? "blz:"
+      : "blk:" + fixed_width_number(static_cast<uint64_t>(result.end_block) + 1, 10) + ":";
+   std::unique_ptr<rocksdb::Iterator> iterator(history->my->db_->new_iterator());
+   EOS_ASSERT(iterator, chain::plugin_exception, "Transaction history database is not open");
+
+   uint64_t scanned = 0;
+   for (iterator->Seek(first_key); iterator->Valid(); iterator->Next()) {
+      const std::string key = iterator->key().ToString();
+      if (key.compare(0, 4, "blk:") != 0 || key >= end_prefix) {
+         break;
+      }
+      ++result.count;
+      ++scanned;
+      EOS_ASSERT(scanned <= transaction_history_plugin_impl::MAX_COUNT_SCAN_KEYS,
+                 chain::plugin_exception, "Transaction count exceeds the ${max} key query limit",
+                 ("max", transaction_history_plugin_impl::MAX_COUNT_SCAN_KEYS));
+      EOS_ASSERT(fc::time_point::now() < deadline, chain::deadline_exception,
+                 "get_transaction_count exceeded the query time limit");
+   }
 
    return result;
 }
 
 read_only::get_key_accounts_result read_only::get_key_accounts(const get_key_accounts_params& params) const {
    get_key_accounts_result result;
+   std::set<eosio::chain::name> accounts;
+   const auto deadline = fc::time_point::now() +
+      fc::microseconds(transaction_history_plugin_impl::API_SCAN_TIME_US);
 
-   // TODO: Implement key accounts lookup
-   // This would require maintaining an index of public keys to accounts
+   try {
+      auto chain_api = history->my->chain_plug->get_read_only_api(
+         fc::microseconds(transaction_history_plugin_impl::API_SCAN_TIME_US));
+      eosio::chain_apis::account_query_db::get_accounts_by_authorizers_params query;
+      query.keys.push_back(params.public_key);
+      const auto matches = chain_api.get_accounts_by_authorizers(query, deadline);
+      for (const auto& match : matches.accounts) {
+         accounts.insert(match.account_name);
+         EOS_ASSERT(accounts.size() <= transaction_history_plugin_impl::MAX_API_RESULTS,
+                    chain::plugin_exception, "get_key_accounts exceeds the result limit");
+      }
+   } catch (const eosio::chain::plugin_config_exception&) {
+      const auto& permissions = history->my->chain_plug->chain().db()
+         .get_index<eosio::chain::permission_index, ::by_id>();
+      size_t checked = 0;
+      for (const auto& permission : permissions) {
+         for (const auto& key : permission.auth.keys) {
+            if (key.key.to_public_key() == params.public_key) {
+               accounts.insert(permission.owner);
+               EOS_ASSERT(accounts.size() <= transaction_history_plugin_impl::MAX_API_RESULTS,
+                          chain::plugin_exception, "get_key_accounts exceeds the result limit");
+               break;
+            }
+         }
+         if ((++checked & 0xff) == 0) {
+            EOS_ASSERT(fc::time_point::now() < deadline, chain::deadline_exception,
+                       "get_key_accounts exceeded the query time limit; enable account queries for indexed lookup");
+         }
+      }
+   }
+
+   EOS_ASSERT(accounts.size() <= transaction_history_plugin_impl::MAX_API_RESULTS,
+              chain::plugin_exception, "get_key_accounts exceeds the ${max} result limit",
+              ("max", transaction_history_plugin_impl::MAX_API_RESULTS));
+   result.account_names.assign(accounts.begin(), accounts.end());
 
    return result;
 }
 
 read_only::get_controlled_accounts_result read_only::get_controlled_accounts(const get_controlled_accounts_params& params) const {
    get_controlled_accounts_result result;
+   std::set<eosio::chain::name> accounts;
+   const auto deadline = fc::time_point::now() +
+      fc::microseconds(transaction_history_plugin_impl::API_SCAN_TIME_US);
 
-   // TODO: Implement controlled accounts lookup
-   // This would require maintaining an index of account control relationships
+   try {
+      auto chain_api = history->my->chain_plug->get_read_only_api(
+         fc::microseconds(transaction_history_plugin_impl::API_SCAN_TIME_US));
+      eosio::chain_apis::account_query_db::get_accounts_by_authorizers_params query;
+      eosio::chain_apis::account_query_db::get_accounts_by_authorizers_params::permission_level level;
+      level.actor = params.controlling_account;
+      level.permission = {};
+      query.accounts.push_back(level);
+      const auto matches = chain_api.get_accounts_by_authorizers(query, deadline);
+      for (const auto& match : matches.accounts) {
+         accounts.insert(match.account_name);
+         EOS_ASSERT(accounts.size() <= transaction_history_plugin_impl::MAX_API_RESULTS,
+                    chain::plugin_exception, "get_controlled_accounts exceeds the result limit");
+      }
+   } catch (const eosio::chain::plugin_config_exception&) {
+      const auto& permissions = history->my->chain_plug->chain().db()
+         .get_index<eosio::chain::permission_index, ::by_id>();
+      size_t checked = 0;
+      for (const auto& permission : permissions) {
+         for (const auto& account : permission.auth.accounts) {
+            if (account.permission.actor == params.controlling_account) {
+               accounts.insert(permission.owner);
+               EOS_ASSERT(accounts.size() <= transaction_history_plugin_impl::MAX_API_RESULTS,
+                          chain::plugin_exception, "get_controlled_accounts exceeds the result limit");
+               break;
+            }
+         }
+         if ((++checked & 0xff) == 0) {
+            EOS_ASSERT(fc::time_point::now() < deadline, chain::deadline_exception,
+                       "get_controlled_accounts exceeded the query time limit; enable account queries for indexed lookup");
+         }
+      }
+   }
+
+   EOS_ASSERT(accounts.size() <= transaction_history_plugin_impl::MAX_API_RESULTS,
+              chain::plugin_exception, "get_controlled_accounts exceeds the ${max} result limit",
+              ("max", transaction_history_plugin_impl::MAX_API_RESULTS));
+   result.controlled_accounts.assign(accounts.begin(), accounts.end());
 
    return result;
 }

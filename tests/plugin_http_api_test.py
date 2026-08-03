@@ -17,7 +17,7 @@ from TestHarness import Account, Node, TestHelper, Utils, WalletMgr, ReturnType
 
 class HttpCategoryConfig:
     categories = ["chain_ro", "chain_rw", "db_size", "net_ro", "net_rw", "producer_ro",
-                  "producer_rw", "snapshot", "trace_api", "prometheus", "test_control"]
+                  "producer_rw", "snapshot", "trace_api", "prometheus", "test_control", "history_ro"]
     default_port = int(TestHelper.DEFAULT_PORT)
     def __init__(self, use_category: bool):
         if use_category:
@@ -88,12 +88,14 @@ class PluginHttpTest(unittest.TestCase):
         self.wallet.launch()
         plugin_names = ["trace_api_plugin", "test_control_api_plugin", "test_control_plugin", "net_plugin",
                         "net_api_plugin", "producer_plugin", "producer_api_plugin", "chain_api_plugin",
-                        "http_plugin", "db_size_api_plugin", "prometheus_plugin"]
+                        "http_plugin", "db_size_api_plugin", "prometheus_plugin",
+                        "transaction_history_plugin", "transaction_history_api_plugin"]
         node_plugins = "--plugin eosio::" +  " --plugin eosio::".join(plugin_names)
         node_flags = (" --data-dir=%s --config-dir=%s --trace-dir=%s --trace-no-abis --access-control-allow-origin=%s "
                         "--contracts-console --http-validate-host=%s --verbose-http-errors --max-transaction-time -1 --abi-serializer-max-time-ms 30000 --http-max-response-time-ms 30000 "
                         "--p2p-peer-address localhost:9011 --resource-monitor-not-shutdown-on-threshold-exceeded ") % (self.data_dir, self.config_dir, self.data_dir, "\'*\'", "false")
         node_flags += category_config.nodeArgs()
+        node_flags += ' --transaction-history-filter-on "*"'
 
         start_node_cmd = ("%s -e -p %s %s %s ") % (Utils.NodeServerPath, Utils.SysAccount, node_plugins, node_flags)
         self.node = Node(TestHelper.LOCAL_HOST, TestHelper.DEFAULT_PORT, self.node_id, self.data_dir, self.config_dir, shlex.split(start_node_cmd), walletMgr=self.wallet)

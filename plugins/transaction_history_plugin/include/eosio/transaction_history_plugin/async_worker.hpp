@@ -7,6 +7,7 @@
 #include <atomic>
 #include <future>
 #include <vector>
+#include <stdexcept>
 
 namespace eosio {
 
@@ -20,6 +21,7 @@ namespace eosio {
 class async_worker {
 public:
    using task_type = std::function<void()>;
+   static constexpr size_t max_pending_tasks = 10000;
 
    async_worker();
    ~async_worker();
@@ -56,6 +58,9 @@ public:
 
       {
          std::unique_lock<std::mutex> lock(queue_mutex_);
+         queue_not_full_.wait(lock, [this] {
+            return stopping_ || tasks_.size() < max_pending_tasks;
+         });
          if (stopping_) {
             throw std::runtime_error("enqueue on stopped async_worker");
          }
@@ -79,6 +84,7 @@ private:
    std::queue<task_type> tasks_;
    mutable std::mutex queue_mutex_;
    std::condition_variable condition_;
+   std::condition_variable queue_not_full_;
    std::atomic<bool> stopping_;
 };
 

@@ -586,12 +586,12 @@ class cluster_generator:
         # Always enable a history query plugin on the bios node
         if is_bios:
             if self.args.is_node_v2:
-                a(a(eosdcmd, '--plugin'), 'eosio::history_api_plugin')
+                a(a(eosdcmd, '--plugin'), 'eosio::transaction_history_api_plugin')
                 a(a(eosdcmd, '--filter-on'), '"*"')
             else:
                 a(a(eosdcmd, '--plugin'), 'eosio::trace_api_plugin')
 
-        if 'eosio::history_api_plugin' in eosdcmd and 'eosio::trace_api_plugin' in eosdcmd:
+        if 'eosio::transaction_history_api_plugin' in eosdcmd and 'eosio::trace_api_plugin' in eosdcmd:
             eosdcmd.remove('--trace-no-abis')
             eosdcmd.remove('--trace-rpc-abi')
             i = eosdcmd.index('eosio::trace_api_plugin')

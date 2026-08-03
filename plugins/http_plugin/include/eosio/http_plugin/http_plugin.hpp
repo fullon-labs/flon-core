@@ -40,6 +40,9 @@ namespace eosio {
       string path;
       api_category category;
       url_handler handler;
+      // Sensitive APIs can require Unix socket transport and remain unavailable
+      // on TCP listeners even when the listener exposes the matching category.
+      bool unix_socket_only = false;
    };
 
    using api_description = std::vector<api_entry>;

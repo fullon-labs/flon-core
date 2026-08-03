@@ -9,6 +9,8 @@
 #include <fc/io/json.hpp>
 #include <memory>
 #include <string>
+#include <chrono>
+#include <mutex>
 
 namespace eosio {
 
@@ -189,6 +191,9 @@ private:
    rocksdb::Options options_;
    std::string db_path_;
    bool is_open_;
+   mutable std::mutex stats_cache_mutex_;
+   mutable std::string stats_cache_;
+   mutable std::chrono::steady_clock::time_point stats_cache_time_;
 
    /**
     * @brief Internal helper to calculate optimal write buffer size
@@ -293,6 +298,13 @@ public:
     * @return true if successful, false otherwise
     */
    bool rollback_to_block(uint32_t block_num);
+
+   /**
+    * @brief Get the path used to store a checkpoint
+    * @param block_num Block number for checkpoint
+    * @return Checkpoint path outside the live database directory
+    */
+   std::string get_checkpoint_path(uint32_t block_num) const;
 
    /**
     * @brief Get database path

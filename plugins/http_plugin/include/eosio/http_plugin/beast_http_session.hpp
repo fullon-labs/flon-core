@@ -159,7 +159,12 @@ class beast_http_session : public detail::abstract_conn,
          std::string resource = std::string(req.target());
          // look for the URL handler to handle this resource
          auto handler_itr = plugin_state_->url_handlers.find(resource);
-         if(handler_itr != plugin_state_->url_handlers.end() && categories_.contains(handler_itr->second.category)) {
+         constexpr bool is_unix_socket = std::is_same_v<typename Socket::protocol_type,
+                                                        boost::asio::local::stream_protocol>;
+         const bool handler_is_available = handler_itr != plugin_state_->url_handlers.end() &&
+                                           categories_.contains(handler_itr->second.category) &&
+                                           (!handler_itr->second.unix_socket_only || is_unix_socket);
+         if(handler_is_available) {
             if(plugin_state_->get_logger().is_enabled(fc::log_level::all))
                plugin_state_->get_logger().log(FC_LOG_MESSAGE(all, "resource: ${ep}", ("ep", resource)));
             std::string body = req.body();
@@ -176,7 +181,8 @@ class beast_http_session : public detail::abstract_conn,
          } else if (resource == "/v1/node/get_supported_apis") {
             http_plugin::get_supported_apis_result result;
             for (const auto& handler : plugin_state_->url_handlers) {
-               if (categories_.contains(handler.second.category))
+               if (categories_.contains(handler.second.category) &&
+                   (!handler.second.unix_socket_only || is_unix_socket))
                   result.apis.push_back(handler.first);
             }
             send_response(fc::json::to_string(fc::variant(result), fc::time_point::maximum()), 200);

@@ -467,7 +467,7 @@ class Cluster(object):
 
         if type(specificExtraNodeArgs) is dict:
             for args in specificExtraNodeArgs.values():
-                if "--plugin eosio::history_api_plugin" in args:
+                if "--plugin eosio::transaction_history_api_plugin" in args:
                     argsArr.append("--is-node-v2")
                     break
         if signatureProviderForNonProducer:

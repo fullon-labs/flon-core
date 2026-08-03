@@ -17,8 +17,9 @@ void async_worker::start() {
 
    stopping_ = false;
 
-   // Create worker threads (typically 2-4 threads for I/O bound tasks)
-   const size_t num_threads = std::min(4u, std::max(2u, std::thread::hardware_concurrency()));
+   // History writes and block checkpoints must retain chain event order. A
+   // single writer also avoids races between per-transaction index updates.
+   const size_t num_threads = 1;
    workers_.reserve(num_threads);
 
    for (size_t i = 0; i < num_threads; ++i) {
@@ -36,6 +37,7 @@ void async_worker::stop() {
    }
 
    condition_.notify_all();
+   queue_not_full_.notify_all();
 
    for (auto& worker : workers_) {
       if (worker.joinable()) {
@@ -72,6 +74,7 @@ void async_worker::worker_thread() {
 
          task = std::move(tasks_.front());
          tasks_.pop();
+         queue_not_full_.notify_one();
       }
 
       try {

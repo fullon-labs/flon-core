@@ -84,3 +84,7 @@ snapshots
 
 .build*
 .test*
+
+gpul
+gpus
+.env

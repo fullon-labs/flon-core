@@ -175,7 +175,7 @@ The `fucli` command returns detailed information of the transaction:
 ```
 
 [[info]]
-| Be aware that you need to connect to a `funod` instance that enables both the [history plugin](../../01_node/03_plugins/history_plugin/index.md) and [history API plugin](../../01_node/03_plugins/history_api_plugin/index.md) to query transaction information.
+| Be aware that you need to connect to a `funod` instance that enables both the [transaction history plugin](../../01_node/03_plugins/transaction_history_plugin/index.md) and [transaction history API plugin](../../01_node/03_plugins/transaction_history_api_plugin/index.md) to query transaction information.
 
 ## Summary
 
@@ -183,16 +183,16 @@ By following these instructions, you are able to retrieve transaction informatio
 
 ## Trobleshooting
 
-If the [history plugin](../../01_node/03_plugins/history_plugin/index.md) and [history API plugin](../../01_node/03_plugins/history_api_plugin/index.md) are not enabled in the `funod` **config.ini file**, the `fucli get transaction id` command will result in an error as shown below:
+If the [transaction history plugin](../../01_node/03_plugins/transaction_history_plugin/index.md) and [transaction history API plugin](../../01_node/03_plugins/transaction_history_api_plugin/index.md) are not enabled in the `funod` **config.ini file**, the `fucli get transaction id` command will result in an error as shown below:
 
 ```sh
 fucli get transaction 509eee3aa8988d533a336fec7a4c8b067ae3205cd97e2d27b3e9a2da61ef460c
 ```
 ```console
-Error 3110003: Missing History API Plugin
-Ensure that you have flonian::history_api_plugin added to your node's configuration!
+Error 3110003: Missing Transaction History API Plugin
+Ensure that you have eosio::transaction_history_api_plugin added to your node's configuration!
 Error Details:
-History API plugin is not enabled
+Transaction history API plugin is not enabled
 ```
 
-To troubleshoot this error, enable the [history plugin](../../01_node/03_plugins/history_plugin/index.md) and [history API plugin](../../01_node/03_plugins/history_api_plugin/index.md), then run the command again.
+To troubleshoot this error, enable the [transaction history plugin](../../01_node/03_plugins/transaction_history_plugin/index.md) and [transaction history API plugin](../../01_node/03_plugins/transaction_history_api_plugin/index.md), then run the command again.

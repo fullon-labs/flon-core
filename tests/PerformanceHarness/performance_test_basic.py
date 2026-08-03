@@ -126,7 +126,7 @@ class PerformanceTestBasic:
                 validationNodeSpecificNodeStr = ""
                 validationNodeSpecificNodeStr += '--p2p-accept-transactions false '
                 if "v2" in self.nodeVers:
-                    validationNodeSpecificNodeStr += '--plugin eosio::history_api_plugin --filter-on "*" '
+                    validationNodeSpecificNodeStr += '--plugin eosio::transaction_history_api_plugin --filter-on "*" '
                 else:
                     #If prodsEnableTraceApi, then Cluster configures all nodes with trace_api_plugin so no need to duplicate here
                     if not self.prodsEnableTraceApi:

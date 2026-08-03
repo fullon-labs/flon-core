@@ -37,8 +37,6 @@ target_link_libraries( ${NODE_EXECUTABLE_NAME}
         PRIVATE -Wl,${whole_archive_flag} test_control_plugin             -Wl,${no_whole_archive_flag}
         PRIVATE -Wl,${whole_archive_flag} test_control_api_plugin         -Wl,${no_whole_archive_flag}
         PRIVATE -Wl,${whole_archive_flag} prometheus_plugin               -Wl,${no_whole_archive_flag}
-        PRIVATE -Wl,${whole_archive_flag} history_plugin                  -Wl,${no_whole_archive_flag}
-        PRIVATE -Wl,${whole_archive_flag} history_api_plugin              -Wl,${no_whole_archive_flag}
         PRIVATE -Wl,${whole_archive_flag} sign_transaction_plugin         -Wl,${no_whole_archive_flag}
         PRIVATE -Wl,${whole_archive_flag} sign_transaction_api_plugin     -Wl,${no_whole_archive_flag}
         PRIVATE -Wl,${whole_archive_flag} transaction_history_plugin      -Wl,${no_whole_archive_flag}

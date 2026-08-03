@@ -1,5 +1,6 @@
 #include <boost/test/unit_test.hpp>
 #include <eosio/testing/tester.hpp>
+#include <eosio/transaction_history_plugin/transaction_history_plugin.hpp>
 #include <eosio/transaction_history_plugin/rocksdb_manager.hpp>
 #include <eosio/transaction_history_plugin/async_worker.hpp>
 #include <eosio/transaction_history_plugin/rollback_manager.hpp>
@@ -9,6 +10,7 @@
 #include <ctime>
 #include <atomic>
 #include <future>
+#include <map>
 
 using namespace eosio;
 using namespace eosio::testing;
@@ -51,10 +53,51 @@ BOOST_AUTO_TEST_CASE(rocksdb_manager_basic_operations) {
    BOOST_CHECK(manager.get("batch_key1", batch_value));
    BOOST_CHECK_EQUAL(batch_value, "batch_value1");
 
+   // HTTP-facing statistics use RocksDB metadata and never require exact
+   // per-prefix counts from a full keyspace scan.
+   const auto stats = fc::json::from_string(manager.get_database_stats()).get_object();
+   BOOST_CHECK(stats.contains("estimated_total_keys"));
+   BOOST_CHECK(stats.contains("rocksdb_metadata"));
+   BOOST_CHECK(!stats.contains("key_counts"));
+
    manager.close();
 
    // Cleanup
    std::filesystem::remove_all(test_path);
+}
+
+BOOST_AUTO_TEST_CASE(rocksdb_manager_json_validation_and_cleanup) {
+   fc::temp_directory temp_dir;
+   rocksdb_manager manager;
+   BOOST_REQUIRE(manager.open((temp_dir.path() / "history").string()));
+
+   auto history_record = [](uint32_t block_num) {
+      return std::map<std::string, fc::variant>{{"block_num", block_num}, {"payload", "test"}};
+   };
+
+   BOOST_REQUIRE(manager.put_object("trx:before", history_record(99)));
+   BOOST_REQUIRE(manager.put_object("acc:before", history_record(99)));
+   BOOST_REQUIRE(manager.put_object("trx:from", history_record(100)));
+   BOOST_REQUIRE(manager.put_object("acc:after", history_record(101)));
+   BOOST_REQUIRE(manager.put("trx:invalid", "not-json"));
+   BOOST_REQUIRE(manager.update_last_block_number(101));
+
+   BOOST_REQUIRE(manager.validate_and_repair_database());
+
+   std::string value;
+   BOOST_CHECK(manager.get("trx:before", value));
+   BOOST_CHECK(manager.get("acc:before", value));
+   BOOST_CHECK(manager.get("trx:from", value));
+   BOOST_CHECK(manager.get("acc:after", value));
+   BOOST_CHECK(!manager.get("trx:invalid", value));
+
+   BOOST_REQUIRE(manager.clear_from_block(100));
+   BOOST_CHECK(manager.get("trx:before", value));
+   BOOST_CHECK(manager.get("acc:before", value));
+   BOOST_CHECK(!manager.get("trx:from", value));
+   BOOST_CHECK(!manager.get("acc:after", value));
+
+   manager.close();
 }
 
 BOOST_AUTO_TEST_CASE(async_worker_task_execution) {
@@ -90,29 +133,61 @@ BOOST_AUTO_TEST_CASE(async_worker_task_execution) {
 }
 
 BOOST_AUTO_TEST_CASE(rollback_manager_operations) {
+   fc::temp_directory temp_dir;
    auto db = std::make_shared<rocksdb_manager>();
-   std::string test_path = "/tmp/test_rollback_db_" + std::to_string(std::time(nullptr));
+   std::string test_path = (temp_dir.path() / "history").string();
    BOOST_REQUIRE(db->open(test_path));
 
-   rollback_manager manager(db);
+   {
+      rollback_manager manager(db);
 
-   // Test creating rollback points
-   BOOST_CHECK(manager.create_rollback_point(100));
-   BOOST_CHECK(manager.create_rollback_point(200));
-   BOOST_CHECK(manager.create_rollback_point(300));
+      // Test creating rollback points
+      BOOST_CHECK(manager.create_rollback_point(100));
+      BOOST_CHECK(manager.create_rollback_point(200));
+      BOOST_CHECK(manager.create_rollback_point(300));
 
-   // Test getting latest rollback point
-   auto latest = manager.get_latest_rollback_point();
+      // Test getting latest rollback point
+      auto latest = manager.get_latest_rollback_point();
+      BOOST_REQUIRE(latest.has_value());
+      BOOST_CHECK_EQUAL(*latest, 300u);
+   }
+
+   // Rollback metadata and external checkpoint paths survive manager restart.
+   rollback_manager reloaded_manager(db);
+   auto latest = reloaded_manager.get_latest_rollback_point();
    BOOST_REQUIRE(latest.has_value());
    BOOST_CHECK_EQUAL(*latest, 300u);
 
    // Test cleanup
-   manager.cleanup_old_rollback_points(1);
+   reloaded_manager.cleanup_old_rollback_points(1);
 
    db->close();
+}
 
-   // Cleanup
-   std::filesystem::remove_all(test_path);
+BOOST_AUTO_TEST_CASE(rocksdb_manager_checkpoint_rollback_preserves_database) {
+   fc::temp_directory temp_dir;
+   const auto database_path = temp_dir.path() / "history";
+   rocksdb_manager manager;
+   BOOST_REQUIRE(manager.open(database_path.string()));
+
+   BOOST_REQUIRE(manager.put("value", "at-checkpoint"));
+   BOOST_REQUIRE(manager.create_checkpoint(100));
+
+   const std::filesystem::path checkpoint_path = manager.get_checkpoint_path(100);
+   BOOST_CHECK(std::filesystem::exists(checkpoint_path / "CURRENT"));
+   BOOST_CHECK(checkpoint_path.parent_path() != database_path);
+
+   BOOST_REQUIRE(manager.put("value", "after-checkpoint"));
+   BOOST_REQUIRE(manager.put("new-value", "must-disappear"));
+   BOOST_REQUIRE(manager.rollback_to_block(100));
+
+   std::string value;
+   BOOST_REQUIRE(manager.get("value", value));
+   BOOST_CHECK_EQUAL(value, "at-checkpoint");
+   BOOST_CHECK(!manager.get("new-value", value));
+   BOOST_CHECK(std::filesystem::exists(checkpoint_path / "CURRENT"));
+
+   manager.close();
 }
 
 BOOST_AUTO_TEST_CASE(transaction_history_key_generation) {
@@ -120,30 +195,18 @@ BOOST_AUTO_TEST_CASE(transaction_history_key_generation) {
    name test_account("testaccount");
    uint64_t test_seq = 12345;
    uint32_t test_block = 67890;
-
-   // Mock the key generation methods
-   auto make_transaction_key = [](const transaction_id_type& id) {
-      return "trx:" + id.str();
-   };
-
-   auto make_account_action_key = [](const name& account, uint64_t seq) {
-      return "acc:" + account.to_string() + ":" + std::to_string(seq);
-   };
-
-   auto make_block_transaction_key = [](uint32_t block_num, const transaction_id_type& id) {
-      return "blk:" + std::to_string(block_num) + ":" + id.str();
-   };
+   transaction_history_plugin plugin;
 
    // Test key generation
-   std::string trx_key = make_transaction_key(test_id);
+   std::string trx_key = plugin.make_transaction_key(test_id);
    BOOST_CHECK(trx_key.find("trx:") == 0);
 
-   std::string acc_key = make_account_action_key(test_account, test_seq);
+   std::string acc_key = plugin.make_account_action_key(test_account, test_seq);
    BOOST_CHECK(acc_key.find("acc:testaccount:") == 0);
-   BOOST_CHECK(acc_key.find("12345") == acc_key.length() - 5);
+   BOOST_CHECK_EQUAL(acc_key, "acc:testaccount:00000000000000012345");
 
-   std::string blk_key = make_block_transaction_key(test_block, test_id);
-   BOOST_CHECK(blk_key.find("blk:67890:") == 0);
+   std::string blk_key = plugin.make_block_transaction_key(test_block, test_id);
+   BOOST_CHECK(blk_key.find("blk:0000067890:") == 0);
 }
 
 BOOST_AUTO_TEST_CASE(rocksdb_manager_error_handling) {

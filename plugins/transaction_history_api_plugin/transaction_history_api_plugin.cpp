@@ -2,10 +2,18 @@
 #include <eosio/chain/exceptions.hpp>
 #include <eosio/http_plugin/macros.hpp>
 #include <fc/io/json.hpp>
+#include <set>
 
 namespace eosio {
 
 using namespace eosio;
+
+namespace {
+   std::set<std::string>& registered_history_api_names() {
+      static std::set<std::string> names;
+      return names;
+   }
+}
 
 static auto _transaction_history_api_plugin = application::register_plugin<transaction_history_api_plugin>();
 
@@ -129,17 +137,50 @@ parse_params<transaction_history_apis::read_only::get_performance_metrics_params
      auto params = parse_params<in_param, http_params_types::possible_no_params>(body);\
      auto result = api_handle.call_name( std::move(params) );
 
-#define CALL_WITH_400(api_name, api_handle, call_name, INVOKE, http_response_code) \
-{std::string("/v1/" #api_name "/" #call_name), \
+#define CALL_WITH_400(api_name_var, api_handle, call_name, INVOKE, http_response_code) \
+{std::string("/v1/") + api_name_var + "/" + #call_name, \
    api_category::history_ro, \
-   [api_handle](string&&, string&& body, url_response_callback&& cb) mutable { \
+   [api_handle, api_name_var](string&&, string&& body, url_response_callback&& cb) mutable { \
             try { \
                INVOKE \
                cb(http_response_code, fc::variant(result)); \
             } catch (...) { \
-               http_plugin::handle_exception(#api_name, #call_name, body, cb); \
+               http_plugin::handle_exception(api_name_var.c_str(), #call_name, body, cb); \
             } \
        }}
+
+void transaction_history_api_plugin::register_history_routes(http_plugin& http, const std::string& api_name,
+                                                              const transaction_history_apis::read_only& history_mgr) {
+   auto& registered_names = registered_history_api_names();
+   if (registered_names.count(api_name)) {
+      return;
+   }
+   registered_names.insert(api_name);
+
+   http.add_api({
+      CALL_WITH_400(api_name, history_mgr, get_transaction,
+         INVOKE_R_R(history_mgr, get_transaction, transaction_history_apis::read_only::get_transaction_params), 200),
+
+      CALL_WITH_400(api_name, history_mgr, get_actions,
+         INVOKE_R_R(history_mgr, get_actions, transaction_history_apis::read_only::get_actions_params), 200),
+
+      CALL_WITH_400(api_name, history_mgr, get_transaction_count,
+         INVOKE_R_R_OPTIONAL(history_mgr, get_transaction_count, transaction_history_apis::read_only::get_transaction_count_params), 200),
+
+      CALL_WITH_400(api_name, history_mgr, get_key_accounts,
+         INVOKE_R_R(history_mgr, get_key_accounts, transaction_history_apis::read_only::get_key_accounts_params), 200),
+
+      CALL_WITH_400(api_name, history_mgr, get_controlled_accounts,
+         INVOKE_R_R(history_mgr, get_controlled_accounts, transaction_history_apis::read_only::get_controlled_accounts_params), 200),
+
+      CALL_WITH_400(api_name, history_mgr, get_database_stats,
+         INVOKE_R_R_OPTIONAL(history_mgr, get_database_stats, transaction_history_apis::read_only::get_database_stats_params), 200),
+
+      CALL_WITH_400(api_name, history_mgr, get_performance_metrics,
+         INVOKE_R_R_OPTIONAL(history_mgr, get_performance_metrics, transaction_history_apis::read_only::get_performance_metrics_params), 200),
+
+   }, appbase::exec_queue::read_only);
+}
 
 void transaction_history_api_plugin::plugin_startup() {
    ilog("Starting transaction_history_api_plugin");
@@ -147,29 +188,8 @@ void transaction_history_api_plugin::plugin_startup() {
    auto history_mgr = app().get_plugin<transaction_history_plugin>().get_read_only_api();
    auto& _http_plugin = app().get_plugin<http_plugin>();
 
-   _http_plugin.add_api({
-      CALL_WITH_400(transaction_history, history_mgr, get_transaction,
-         INVOKE_R_R(history_mgr, get_transaction, transaction_history_apis::read_only::get_transaction_params), 200),
-
-      CALL_WITH_400(transaction_history, history_mgr, get_actions,
-         INVOKE_R_R(history_mgr, get_actions, transaction_history_apis::read_only::get_actions_params), 200),
-
-      CALL_WITH_400(transaction_history, history_mgr, get_transaction_count,
-         INVOKE_R_R_OPTIONAL(history_mgr, get_transaction_count, transaction_history_apis::read_only::get_transaction_count_params), 200),
-
-      CALL_WITH_400(transaction_history, history_mgr, get_key_accounts,
-         INVOKE_R_R(history_mgr, get_key_accounts, transaction_history_apis::read_only::get_key_accounts_params), 200),
-
-      CALL_WITH_400(transaction_history, history_mgr, get_controlled_accounts,
-         INVOKE_R_R(history_mgr, get_controlled_accounts, transaction_history_apis::read_only::get_controlled_accounts_params), 200),
-
-      CALL_WITH_400(transaction_history, history_mgr, get_database_stats,
-         INVOKE_R_R_OPTIONAL(history_mgr, get_database_stats, transaction_history_apis::read_only::get_database_stats_params), 200),
-
-      CALL_WITH_400(transaction_history, history_mgr, get_performance_metrics,
-         INVOKE_R_R_OPTIONAL(history_mgr, get_performance_metrics, transaction_history_apis::read_only::get_performance_metrics_params), 200),
-
-   }, appbase::exec_queue::read_only);
+   register_history_routes(_http_plugin, "transaction_history", history_mgr);
+   register_history_routes(_http_plugin, "history", history_mgr);
 
    ilog("Transaction history API plugin started successfully");
 }

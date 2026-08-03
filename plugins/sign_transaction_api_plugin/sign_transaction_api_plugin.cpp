@@ -13,6 +13,13 @@ static auto _sign_transaction_api_plugin = application::register_plugin<sign_tra
 
 using namespace eosio;
 
+namespace {
+api_entry unix_socket_only(api_entry entry) {
+   entry.unix_socket_only = true;
+   return entry;
+}
+}
+
 
 sign_transaction_api_plugin::sign_transaction_api_plugin() = default;
 sign_transaction_api_plugin::~sign_transaction_api_plugin() = default;
@@ -46,10 +53,10 @@ void sign_transaction_api_plugin::plugin_startup() {
    auto rw_api = sign_trx_plug.get_read_write_api(max_response_time);
    _http_plugin.add_api({
       // transaction related APIs will be posted to read_write queue after keys are recovered, they are safe to run in parallel until they post to the read_write queue
-      CHAIN_RW_CALL_ASYNC(push_transaction, sign_transaction_apis::read_write::push_transaction_results, 202, http_params_types::params_required),
-      CHAIN_RW_CALL_ASYNC(push_transactions, sign_transaction_apis::read_write::push_transactions_results, 202, http_params_types::params_required),
-      CHAIN_RW_CALL_ASYNC(send_transaction, sign_transaction_apis::read_write::send_transaction_results, 202, http_params_types::params_required),
-      CHAIN_RW_CALL_ASYNC(send_transaction2, sign_transaction_apis::read_write::send_transaction_results, 202, http_params_types::params_required)
+      unix_socket_only(CHAIN_RW_CALL_ASYNC(push_transaction, sign_transaction_apis::read_write::push_transaction_results, 202, http_params_types::params_required)),
+      unix_socket_only(CHAIN_RW_CALL_ASYNC(push_transactions, sign_transaction_apis::read_write::push_transactions_results, 202, http_params_types::params_required)),
+      unix_socket_only(CHAIN_RW_CALL_ASYNC(send_transaction, sign_transaction_apis::read_write::send_transaction_results, 202, http_params_types::params_required)),
+      unix_socket_only(CHAIN_RW_CALL_ASYNC(send_transaction2, sign_transaction_apis::read_write::send_transaction_results, 202, http_params_types::params_required))
    }, appbase::exec_queue::read_only);
 
 }

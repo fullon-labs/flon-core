@@ -157,9 +157,9 @@ Gets accounts controlled by a specific account.
 
 The plugin implements a robust rollback mechanism using RocksDB checkpoints:
 
-1. **Checkpoint Creation**: For each accepted block, a checkpoint is created asynchronously
+1. **Checkpoint Creation**: For each accepted block, a checkpoint is created by the ordered history writer after that block's transactions are persisted. Checkpoints are stored in a sibling `*_checkpoints` directory, outside the live RocksDB directory.
 2. **Rollback Execution**: When a rollback is needed, the database is restored from the appropriate checkpoint
-3. **Cleanup**: Old checkpoints are automatically cleaned up to prevent excessive disk usage
+3. **Cleanup**: Old checkpoints are automatically cleaned up, including after restart, to prevent excessive disk usage
 
 ## Snapshot Recovery
 
@@ -256,7 +256,7 @@ The plugin provides detailed logging at various levels:
 To migrate from the deprecated `history_plugin`:
 
 1. Stop the node
-2. Remove `history_plugin` and `history_api_plugin` from configuration
+2. Remove `history_plugin` from configuration
 3. Add `transaction_history_plugin` and `transaction_history_api_plugin`
 4. Restart the node (historical data will be rebuilt from the current point)
 

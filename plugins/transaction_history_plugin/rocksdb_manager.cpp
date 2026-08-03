@@ -8,6 +8,29 @@
 
 namespace eosio {
 
+namespace {
+
+bool extract_json_block_num(const std::string& value, uint32_t& block_num) {
+   try {
+      fc::variant data = fc::json::from_string(value);
+      if (!data.is_object()) {
+         return false;
+      }
+
+      const auto& obj = data.get_object();
+      if (!obj.contains("block_num")) {
+         return false;
+      }
+
+      block_num = obj["block_num"].as<uint32_t>();
+      return true;
+   } catch (...) {
+      return false;
+   }
+}
+
+} // namespace
+
 rocksdb_manager::rocksdb_manager() : is_open_(false) {
    // Configure RocksDB options for optimal performance
    options_.create_if_missing = true;
@@ -63,6 +86,10 @@ bool rocksdb_manager::open(const std::string& db_path, bool enable_compression) 
 
    db_.reset(raw_db);
    is_open_ = true;
+   {
+      std::lock_guard<std::mutex> lock(stats_cache_mutex_);
+      stats_cache_.clear();
+   }
 
    // Store compression setting in a special key for future reference
    std::string compression_key = "_internal_compression_enabled";
@@ -97,9 +124,11 @@ bool rocksdb_manager::open(const std::string& db_path, bool enable_compression) 
 }
 
 void rocksdb_manager::close() {
+   std::lock_guard<std::mutex> lock(stats_cache_mutex_);
    if (db_) {
       db_.reset();
       is_open_ = false;
+      stats_cache_.clear();
    }
 }
 
@@ -340,43 +369,17 @@ bool rocksdb_manager::clear_from_block(uint32_t from_block_num) {
             // Transaction key - read the data to check block number
             transactions_checked++;
             std::string value = it->value().ToString();
-            try {
-               // Try to parse the stored transaction data to extract block number
-               fc::datastream<const char*> ds(value.data(), value.size());
-               fc::variant transaction_data;
-               fc::raw::unpack(ds, transaction_data);
-
-               if (transaction_data.is_object()) {
-                  auto obj = transaction_data.get_object();
-                  if (obj.contains("block_num")) {
-                     uint32_t block_num = obj["block_num"].as<uint32_t>();
-                     should_delete = (block_num >= from_block_num);
-                  }
-               }
-            } catch (...) {
-               // If we can't parse the data, conservatively keep it
-               // unless we're doing a complete cleanup
-               should_delete = false;
+            uint32_t block_num = 0;
+            if (extract_json_block_num(value, block_num)) {
+               should_delete = (block_num >= from_block_num);
             }
          } else if (key.find("acc:") == 0) {
             // Account action key - similar approach
             accounts_checked++;
             std::string value = it->value().ToString();
-            try {
-               fc::datastream<const char*> ds(value.data(), value.size());
-               fc::variant action_data;
-               fc::raw::unpack(ds, action_data);
-
-               if (action_data.is_object()) {
-                  auto obj = action_data.get_object();
-                  if (obj.contains("block_num")) {
-                     uint32_t block_num = obj["block_num"].as<uint32_t>();
-                     should_delete = (block_num >= from_block_num);
-                  }
-               }
-            } catch (...) {
-               // If we can't parse the data, conservatively keep it
-               should_delete = false;
+            uint32_t block_num = 0;
+            if (extract_json_block_num(value, block_num)) {
+               should_delete = (block_num >= from_block_num);
             }
          }
 
@@ -430,8 +433,10 @@ bool rocksdb_manager::clear_all_data() {
          std::string key = it->key().ToString();
          total_keys++;
 
-         // Keep internal metadata keys but clear all transaction data
-         if (key.find("_internal_") != 0) {
+         // Keep database metadata, but reset per-account history cursors along
+         // with the action records they address.
+         if (key.find("_internal_") != 0 ||
+             key.find("_internal_account_sequence:") == 0) {
             keys_to_delete.push_back(key);
          }
       }
@@ -479,86 +484,65 @@ bool rocksdb_manager::clear_all_data() {
 }
 
 std::string rocksdb_manager::get_database_stats() const {
+   std::lock_guard<std::mutex> cache_lock(stats_cache_mutex_);
    if (!db_) {
       return R"({"status": "closed", "message": "Database not open"})";
    }
 
+   const auto now = std::chrono::steady_clock::now();
+   if (!stats_cache_.empty() && now - stats_cache_time_ < std::chrono::seconds(1)) {
+      return stats_cache_;
+   }
+
    try {
-      std::string stats;
-
-      // Get basic RocksDB statistics
-      std::string db_stats;
-      if (db_->GetProperty("rocksdb.stats", &db_stats)) {
-         // Extract key metrics from the stats string
-         size_t total_size = 0;
-         std::string size_str;
-         if (db_->GetProperty("rocksdb.total-sst-files-size", &size_str)) {
-            try {
-               total_size = std::stoull(size_str);
-            } catch (...) {}
+      auto read_uint_property = [this](const char* property) -> uint64_t {
+         std::string value;
+         if (!db_->GetProperty(property, &value)) {
+            return 0;
          }
-
-         std::string num_keys_str;
-         size_t estimated_keys = 0;
-         if (db_->GetProperty("rocksdb.estimate-num-keys", &num_keys_str)) {
-            try {
-               estimated_keys = std::stoull(num_keys_str);
-            } catch (...) {}
+         try {
+            return std::stoull(value);
+         } catch (...) {
+            return 0;
          }
+      };
 
-         // Count our specific key types
-         std::unique_ptr<rocksdb::Iterator> it(db_->NewIterator(rocksdb::ReadOptions()));
-         size_t block_keys = 0, transaction_keys = 0, account_keys = 0, internal_keys = 0;
+      // RocksDB properties are constant-time metadata reads. Do not iterate the
+      // user keyspace from an HTTP-facing statistics request.
+      const uint64_t total_size = read_uint_property("rocksdb.total-sst-files-size");
+      const uint64_t estimated_keys = read_uint_property("rocksdb.estimate-num-keys");
+      const uint64_t live_versions = read_uint_property("rocksdb.num-live-versions");
+      const uint64_t pending_compaction =
+         read_uint_property("rocksdb.estimate-pending-compaction-bytes");
+      const uint32_t last_block = get_last_block_number();
+      const std::string compression_info = get_compression_info();
 
-         for (it->SeekToFirst(); it->Valid(); it->Next()) {
-            std::string key = it->key().ToString();
-            if (key.find("_internal_") == 0) {
-               internal_keys++;
-            } else if (key.find("blk:") == 0) {
-               block_keys++;
-            } else if (key.find("trx:") == 0) {
-               transaction_keys++;
-            } else if (key.find("acc:") == 0) {
-               account_keys++;
-            }
-         }
+      fc::mutable_variant_object stats;
+      stats["status"] = "open";
+      stats["database_path"] = db_path_;
+      stats["last_recorded_block"] = last_block;
+      stats["estimated_total_keys"] = estimated_keys;
+      stats["total_size_bytes"] = total_size;
+      stats["total_size_mb"] = total_size / (1024.0 * 1024.0);
+      stats["compression_info"] = compression_info;
+      stats["rocksdb_metadata"] = fc::mutable_variant_object()
+         ("num_live_versions", live_versions)
+         ("estimated_pending_compaction_bytes", pending_compaction)
+         ("key_count_is_estimate", true);
+      stats["health"] = fc::mutable_variant_object()
+         ("database_open", true)
+         ("compression_consistent", compression_info.find("Mixed mode") == std::string::npos)
+         ("has_recorded_blocks", last_block > 0);
 
-         uint32_t last_block = get_last_block_number();
-         std::string compression_info = get_compression_info();
-
-         // Format as JSON with better structure
-         std::ostringstream json;
-         json << "{"
-              << R"("status": "open",)"
-              << R"("database_path": ")" << db_path_ << R"(",)"
-              << R"("last_recorded_block": )" << last_block << ","
-              << R"("estimated_total_keys": )" << estimated_keys << ","
-              << R"("total_size_bytes": )" << total_size << ","
-              << R"("total_size_mb": )" << (total_size / (1024.0 * 1024.0)) << ","
-              << R"("compression_info": ")" << compression_info << R"(",)"
-              << R"("key_counts": {)"
-              << R"("block_keys": )" << block_keys << ","
-              << R"("transaction_keys": )" << transaction_keys << ","
-              << R"("account_keys": )" << account_keys << ","
-              << R"("internal_keys": )" << internal_keys << ","
-              << R"("total_data_keys": )" << (block_keys + transaction_keys + account_keys)
-              << "},"
-              << R"("health": {)"
-              << R"("database_open": true,)"
-              << R"("compression_consistent": )" << (compression_info.find("Mixed mode") == std::string::npos ? "true" : "false") << ","
-              << R"("has_recorded_blocks": )" << (last_block > 0 ? "true" : "false")
-              << "}"
-              << "}";
-
-         return json.str();
-      } else {
-         return R"({"status": "open", "message": "Could not retrieve database statistics"})";
-      }
+      stats_cache_ = fc::json::to_string(fc::variant(stats), fc::time_point::maximum());
+      stats_cache_time_ = now;
+      return stats_cache_;
 
    } catch (const std::exception& e) {
-      std::ostringstream json;
-      json << R"({"status": "error", "message": ")" << e.what() << R"("})";
-      return json.str();
+      fc::mutable_variant_object error;
+      error["status"] = "error";
+      error["message"] = e.what();
+      return fc::json::to_string(fc::variant(error), fc::time_point::maximum());
    }
 }
 
@@ -596,49 +580,17 @@ bool rocksdb_manager::validate_and_repair_database() {
 
          if (key.find("trx:") == 0) {
             // Validate transaction data
-            try {
-               fc::datastream<const char*> ds(value.data(), value.size());
-               fc::variant transaction_data;
-               fc::raw::unpack(ds, transaction_data);
-
-               if (transaction_data.is_object()) {
-                  auto obj = transaction_data.get_object();
-                  if (obj.contains("block_num")) {
-                     key_block_num = obj["block_num"].as<uint32_t>();
-                     highest_block_found = std::max(highest_block_found, key_block_num);
-                  } else {
-                     key_is_valid = false;
-                     invalid_keys_found++;
-                  }
-               } else {
-                  key_is_valid = false;
-                  invalid_keys_found++;
-               }
-            } catch (...) {
+            if (extract_json_block_num(value, key_block_num)) {
+               highest_block_found = std::max(highest_block_found, key_block_num);
+            } else {
                key_is_valid = false;
                invalid_keys_found++;
             }
          } else if (key.find("acc:") == 0) {
             // Validate account action data
-            try {
-               fc::datastream<const char*> ds(value.data(), value.size());
-               fc::variant action_data;
-               fc::raw::unpack(ds, action_data);
-
-               if (action_data.is_object()) {
-                  auto obj = action_data.get_object();
-                  if (obj.contains("block_num")) {
-                     key_block_num = obj["block_num"].as<uint32_t>();
-                     highest_block_found = std::max(highest_block_found, key_block_num);
-                  } else {
-                     key_is_valid = false;
-                     invalid_keys_found++;
-                  }
-               } else {
-                  key_is_valid = false;
-                  invalid_keys_found++;
-               }
-            } catch (...) {
+            if (extract_json_block_num(value, key_block_num)) {
+               highest_block_found = std::max(highest_block_found, key_block_num);
+            } else {
                key_is_valid = false;
                invalid_keys_found++;
             }
@@ -836,17 +788,25 @@ bool rocksdb_manager::batch_write(const std::vector<std::pair<std::string, std::
 bool rocksdb_manager::create_checkpoint(uint32_t block_num) {
    if (!db_) return false;
 
-   std::string checkpoint_path = db_path_ + "/checkpoint_" + std::to_string(block_num);
+   const std::string checkpoint_path = get_checkpoint_path(block_num);
 
-   rocksdb::Checkpoint* checkpoint;
-   rocksdb::Status status = rocksdb::Checkpoint::Create(db_.get(), &checkpoint);
+   try {
+      std::filesystem::create_directories(std::filesystem::path(checkpoint_path).parent_path());
+   } catch (const std::exception& e) {
+      elog("Failed to create checkpoint directory for block ${block}: ${error}",
+           ("block", block_num)("error", e.what()));
+      return false;
+   }
+
+   rocksdb::Checkpoint* raw_checkpoint = nullptr;
+   rocksdb::Status status = rocksdb::Checkpoint::Create(db_.get(), &raw_checkpoint);
    if (!status.ok()) {
       elog("Failed to create checkpoint object: ${error}", ("error", status.ToString()));
       return false;
    }
 
+   std::unique_ptr<rocksdb::Checkpoint> checkpoint(raw_checkpoint);
    status = checkpoint->CreateCheckpoint(checkpoint_path);
-   delete checkpoint;
 
    if (!status.ok()) {
       elog("Failed to create checkpoint for block ${block}: ${error}",
@@ -859,38 +819,112 @@ bool rocksdb_manager::create_checkpoint(uint32_t block_num) {
    return true;
 }
 
+std::string rocksdb_manager::get_checkpoint_path(uint32_t block_num) const {
+   const auto database_path = std::filesystem::absolute(db_path_).lexically_normal();
+   const auto checkpoint_root = database_path.parent_path() /
+      (database_path.filename().string() + "_checkpoints");
+   return (checkpoint_root / ("checkpoint_" + std::to_string(block_num))).string();
+}
+
 bool rocksdb_manager::rollback_to_block(uint32_t block_num) {
    if (!db_) return false;
 
-   std::string checkpoint_path = db_path_ + "/checkpoint_" + std::to_string(block_num);
+   const std::filesystem::path checkpoint_path = get_checkpoint_path(block_num);
+   const std::filesystem::path database_path =
+      std::filesystem::absolute(db_path_).lexically_normal();
+   const std::filesystem::path staging_path = database_path.parent_path() /
+      (database_path.filename().string() + ".rollback_staging");
+   const std::filesystem::path backup_path = database_path.parent_path() /
+      (database_path.filename().string() + ".rollback_backup");
+   const bool compression_enabled = options_.compression != rocksdb::kNoCompression;
 
-   if (!std::filesystem::exists(checkpoint_path)) {
+   if (!std::filesystem::is_directory(checkpoint_path) ||
+       !std::filesystem::exists(checkpoint_path / "CURRENT")) {
       elog("Checkpoint for block ${block} does not exist", ("block", block_num));
       return false;
    }
 
-   // Close current database
-   close();
-
+   // Prepare and validate a complete replacement while the live database is
+   // still open. A failed copy must never put the current database at risk.
    try {
-      // Remove current database directory
-      std::filesystem::remove_all(db_path_);
-
-      // Copy checkpoint to main database path
-      std::filesystem::copy(checkpoint_path, db_path_,
-                           std::filesystem::copy_options::recursive);
-
-      // Reopen database
-      if (!open(db_path_)) {
-         elog("Failed to reopen database after rollback");
+      if (std::filesystem::exists(backup_path)) {
+         elog("Cannot roll back block ${block}: backup path already exists at ${path}",
+              ("block", block_num)("path", backup_path.string()));
          return false;
       }
 
+      std::filesystem::remove_all(staging_path);
+      std::filesystem::copy(checkpoint_path, staging_path,
+                            std::filesystem::copy_options::recursive);
+      if (!std::filesystem::exists(staging_path / "CURRENT")) {
+         throw std::runtime_error("staged checkpoint is incomplete");
+      }
+   } catch (const std::exception& e) {
+      std::error_code cleanup_error;
+      std::filesystem::remove_all(staging_path, cleanup_error);
+      elog("Failed to prepare rollback to block ${block}: ${error}",
+           ("block", block_num)("error", e.what()));
+      return false;
+   }
+
+   close();
+   bool original_moved = false;
+   bool replacement_installed = false;
+
+   try {
+      // Keep the original database intact until the replacement is ready, then
+      // switch directories using same-filesystem renames.
+      std::filesystem::rename(database_path, backup_path);
+      original_moved = true;
+      std::filesystem::rename(staging_path, database_path);
+      replacement_installed = true;
+
+      if (!open(database_path.string(), compression_enabled)) {
+         throw std::runtime_error("failed to open restored checkpoint");
+      }
+
+      std::error_code cleanup_error;
+      std::filesystem::remove_all(backup_path, cleanup_error);
+      if (cleanup_error) {
+         wlog("Rollback succeeded but failed to remove backup ${path}: ${error}",
+              ("path", backup_path.string())("error", cleanup_error.message()));
+      }
       ilog("Successfully rolled back database to block ${block}", ("block", block_num));
       return true;
-
    } catch (const std::exception& e) {
-      elog("Exception during rollback to block ${block}: ${error}",
+      close();
+
+      std::error_code recovery_error;
+      if (replacement_installed) {
+         std::filesystem::remove_all(database_path, recovery_error);
+         if (recovery_error) {
+            elog("Failed to remove unusable rollback database ${path}: ${error}",
+                 ("path", database_path.string())("error", recovery_error.message()));
+         }
+      }
+
+      if (original_moved && !recovery_error) {
+         std::filesystem::rename(backup_path, database_path, recovery_error);
+      }
+
+      if (original_moved && !recovery_error) {
+         if (!open(database_path.string(), compression_enabled)) {
+            elog("Failed to reopen original database after rollback failure");
+         }
+      } else if (!original_moved) {
+         // The directory swap never started, so the original database is still
+         // in place and only needs to be reopened.
+         if (!open(database_path.string(), compression_enabled)) {
+            elog("Failed to reopen database after rollback setup failure");
+         }
+      } else if (recovery_error) {
+         elog("Failed to restore original database from ${path}: ${error}",
+              ("path", backup_path.string())("error", recovery_error.message()));
+      }
+
+      std::error_code cleanup_error;
+      std::filesystem::remove_all(staging_path, cleanup_error);
+      elog("Rollback to block ${block} failed; original database recovery was attempted: ${error}",
            ("block", block_num)("error", e.what()));
       return false;
    }
@@ -1303,23 +1337,11 @@ std::string rocksdb_manager::analyze_key_distribution() const {
 
             // Extract block numbers for temporal analysis
             if (prefix == "trx:" || prefix == "acc:") {
-               try {
-                  // Try to extract block number from value
-                  fc::datastream<const char*> ds(value.data(), value.size());
-                  fc::variant data;
-                  fc::raw::unpack(ds, data);
-
-                  if (data.is_object()) {
-                     auto obj = data.get_object();
-                     if (obj.contains("block_num")) {
-                        uint32_t block_num = obj["block_num"].as<uint32_t>();
-                        block_distribution[block_num]++;
-                        min_block = std::min(min_block, block_num);
-                        max_block = std::max(max_block, block_num);
-                     }
-                  }
-               } catch (...) {
-                  // Skip invalid entries
+               uint32_t block_num = 0;
+               if (extract_json_block_num(value, block_num)) {
+                  block_distribution[block_num]++;
+                  min_block = std::min(min_block, block_num);
+                  max_block = std::max(max_block, block_num);
                }
             } else if (prefix == "blk:") {
                // Extract from key: "blk:block_num:..."

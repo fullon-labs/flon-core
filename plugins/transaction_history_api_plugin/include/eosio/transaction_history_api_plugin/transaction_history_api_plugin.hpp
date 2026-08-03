@@ -24,6 +24,9 @@ public:
    void plugin_startup();
    void plugin_shutdown();
 
+   static void register_history_routes(http_plugin& http, const std::string& api_name,
+                                       const transaction_history_apis::read_only& history_mgr);
+
 private:
 };
 

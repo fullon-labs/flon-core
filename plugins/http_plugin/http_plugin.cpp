@@ -98,7 +98,7 @@ namespace eosio {
 
       if (api_category_set({api_category::history_ro})
          .contains(category))
-         return "eosio::history_api_plugin";
+         return "eosio::transaction_history_api_plugin";
 
 
       // It's a programming error when the control flow reaches this point, 
@@ -110,7 +110,7 @@ namespace eosio {
    std::string category_names(api_category_set set) {
       if (set == api_category_set::all()) return "all";
       std::string result;
-      for (uint32_t i = 1; i <= static_cast<uint32_t>(api_category::test_control); i<<=1) {
+      for (uint32_t i = 1; i <= static_cast<uint32_t>(api_category::history_ro); i<<=1) {
          if (set.contains(api_category(i))) {
             result += from_category(api_category(i));
             result += " ";
@@ -151,6 +151,7 @@ namespace eosio {
             detail::internal_url_handler handler;
             handler.content_type = content_type;
             handler.category = entry.category;
+            handler.unix_socket_only = entry.unix_socket_only;
             auto next_ptr = std::make_shared<url_handler>(std::move(entry.handler));
             handler.fn = [my=std::move(my), priority, to_queue, next_ptr=std::move(next_ptr)]
                        ( detail::abstract_conn_ptr conn, string&& r, string&& b, url_response_callback&& then ) {
@@ -191,6 +192,7 @@ namespace eosio {
             detail::internal_url_handler handler;
             handler.content_type = content_type;
             handler.category = entry.category;
+            handler.unix_socket_only = entry.unix_socket_only;
             handler.fn = [next=std::move(entry.handler)]( const detail::abstract_conn_ptr& conn, string&& r, string&& b, url_response_callback&& then ) mutable {
                try {
                   next(std::move(r), std::move(b), std::move(then));
@@ -314,7 +316,7 @@ namespace eosio {
              "    in addition, unix socket path must starts with '/', './' or '../'. When relative path\n"
              "    is used, it is relative to the data path.\n\n"
              "    Valid categories include chain_ro, chain_rw, db_size, net_ro, net_rw, producer_ro\n"
-             "    producer_rw, snapshot, trace_api, prometheus, and test_control.\n\n"
+             "    producer_rw, snapshot, trace_api, prometheus, test_control, and history_ro.\n\n"
              "    A single `hostname:port` specification can be used by multiple categories\n" 
              "    However, two specifications having the same port with different hostname strings\n" 
              "    are always considered as configuration error regardless of whether they can be resolved\n"

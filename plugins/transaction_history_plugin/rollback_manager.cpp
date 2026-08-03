@@ -24,7 +24,7 @@ bool rollback_manager::create_rollback_point(uint32_t block_num) {
       rollback_info info;
       info.block_num = block_num;
       info.timestamp = fc::time_point::now();
-      info.checkpoint_path = "checkpoint_" + std::to_string(block_num);
+      info.checkpoint_path = db_->get_checkpoint_path(block_num);
 
       rollback_points_[block_num] = info;
 
@@ -60,7 +60,7 @@ bool rollback_manager::rollback_to_block(uint32_t block_num) {
       auto upper = rollback_points_.upper_bound(block_num);
       for (auto cleanup_it = upper; cleanup_it != rollback_points_.end(); ++cleanup_it) {
          // Remove checkpoint directory
-         std::string checkpoint_path = db_->get_db_path() + "/" + cleanup_it->second.checkpoint_path;
+         std::string checkpoint_path = db_->get_checkpoint_path(cleanup_it->first);
          try {
             std::filesystem::remove_all(checkpoint_path);
          } catch (const std::exception& e) {
@@ -95,7 +95,7 @@ void rollback_manager::cleanup_old_rollback_points(uint32_t keep_blocks) {
 
    for (auto cleanup_it = rollback_points_.begin(); cleanup_it != it; ++cleanup_it) {
       // Remove checkpoint directory
-      std::string checkpoint_path = db_->get_db_path() + "/" + cleanup_it->second.checkpoint_path;
+      std::string checkpoint_path = db_->get_checkpoint_path(cleanup_it->first);
       try {
          std::filesystem::remove_all(checkpoint_path);
       } catch (const std::exception& e) {
@@ -135,10 +135,46 @@ bool rollback_manager::save_rollback_info(const rollback_info& info) {
 }
 
 bool rollback_manager::load_rollback_points() {
-   // In a production implementation, this would iterate through all rollback keys
-   // For now, we'll start with an empty set and build as we create new checkpoints
    rollback_points_.clear();
-   return true;
+   if (!db_) {
+      return false;
+   }
+
+   try {
+      std::unique_ptr<rocksdb::Iterator> iterator(db_->new_iterator());
+      if (!iterator) {
+         return false;
+      }
+
+      constexpr const char* prefix = "rollback:";
+      for (iterator->Seek(prefix); iterator->Valid(); iterator->Next()) {
+         const std::string key = iterator->key().ToString();
+         if (key.compare(0, std::char_traits<char>::length(prefix), prefix) != 0) {
+            break;
+         }
+
+         rollback_info info;
+         if (!db_->get_object(key, info)) {
+            wlog("Ignoring invalid rollback metadata at key ${key}", ("key", key));
+            continue;
+         }
+
+         const std::string checkpoint_path = db_->get_checkpoint_path(info.block_num);
+         if (!std::filesystem::exists(checkpoint_path)) {
+            wlog("Ignoring rollback metadata for missing checkpoint at block ${block}",
+                 ("block", info.block_num));
+            continue;
+         }
+
+         info.checkpoint_path = checkpoint_path;
+         rollback_points_[info.block_num] = std::move(info);
+      }
+      return true;
+   } catch (const std::exception& e) {
+      elog("Failed to load rollback points: ${error}", ("error", e.what()));
+      rollback_points_.clear();
+      return false;
+   }
 }
 
 } // namespace eosio

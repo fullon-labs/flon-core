@@ -74,6 +74,7 @@ struct internal_url_handler {
    internal_url_handler_fn fn;
    api_category category;
    http_content_type content_type = http_content_type::json;
+   bool unix_socket_only = false;
 };
 /**
 * Helper method to calculate the "in flight" size of a fc::variant

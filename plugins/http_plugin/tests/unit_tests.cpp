@@ -560,6 +560,33 @@ BOOST_FIXTURE_TEST_CASE(valid_category_addresses, http_plugin_test_fixture) {
                      R"({"apis":["/v1/chain_rw/hello","/v1/net_rw/hello","/v1/node/hello"]})");
 }
 
+BOOST_FIXTURE_TEST_CASE(unix_socket_only_api, http_plugin_test_fixture) {
+   fc::temp_directory dir;
+   auto data_dir = dir.path() / "data";
+   auto socket_path = data_dir / "trusted.sock";
+
+   auto http_plugin = init({bu::framework::current_test_case().p_name->c_str(),
+                            "--data-dir", data_dir.c_str(),
+                            "--http-server-address", "127.0.0.1:8892",
+                            "--unix-socket-path", "trusted.sock"});
+   BOOST_REQUIRE(http_plugin);
+
+   http_plugin->add_api({{std::string("/sensitive"), api_category::node,
+                          [&](string&&, string&&, url_response_callback&& cb) {
+                             cb(200, fc::variant("allowed"));
+                          },
+                          true}},
+                        appbase::exec_queue::read_write);
+
+   BOOST_CHECK_EQUAL(http_response_for("127.0.0.1:8892", "/sensitive").status(), http::status::not_found);
+   BOOST_CHECK_EQUAL(http_response_for(socket_path, "/sensitive").body(), "\"allowed\"");
+
+   BOOST_CHECK_EQUAL(http_response_for("127.0.0.1:8892", "/v1/node/get_supported_apis").body(),
+                     R"({"apis":[]})");
+   BOOST_CHECK_EQUAL(http_response_for(socket_path, "/v1/node/get_supported_apis").body(),
+                     R"({"apis":["/sensitive"]})");
+}
+
 
 bool on_loopback(std::initializer_list<const char*> args){
    appbase::scoped_app app;
