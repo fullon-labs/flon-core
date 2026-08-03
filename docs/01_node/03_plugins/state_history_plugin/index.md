@@ -23,6 +23,9 @@ These can only be specified from the `funod` command-line:
 Command Line Options for eosio::state_history_plugin:
 
   --delete-state-history                clear state history files
+  --state-history-max-connections arg (=100)
+                                        maximum number of simultaneous state
+                                        history client connections
 ```
 
 ## Options

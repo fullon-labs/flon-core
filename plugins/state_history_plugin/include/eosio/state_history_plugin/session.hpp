@@ -145,6 +145,9 @@ private:
                 */
                std::visit(chain::overloaded {
                   [&self]<typename GetStatusRequestV0orV1, typename = std::enable_if_t<std::is_base_of_v<get_status_request_v0, GetStatusRequestV0orV1>>>(const GetStatusRequestV0orV1&) {
+                     EOS_ASSERT(self.queued_status_requests.size() < self.max_queued_status_requests,
+                                chain::plugin_exception,
+                                "too many queued state history status requests");
                      self.queued_status_requests.emplace_back(std::is_same_v<GetStatusRequestV0orV1, get_status_request_v1>);
                   },
                   [&self]<typename GetBlocksRequestV0orV1, typename = std::enable_if_t<std::is_base_of_v<get_blocks_request_v0, GetBlocksRequestV0orV1>>>(const GetBlocksRequestV0orV1& gbr) {
@@ -314,6 +317,7 @@ private:
    std::atomic_flag                  has_logged_exception;  //left as atomic_flag for useful test_and_set() interface
 
    ///these items must only ever be touched on the main thread
+   static constexpr size_t             max_queued_status_requests = 128;
    std::deque<bool>                  queued_status_requests;  //false for v0, true for v1
 
    get_blocks_request_v0             current_blocks_request;

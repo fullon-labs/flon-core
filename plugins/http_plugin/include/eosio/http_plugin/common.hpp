@@ -120,7 +120,7 @@ struct http_plugin_state {
    std::atomic<size_t> bytes_in_flight{0};
    std::atomic<int32_t> requests_in_flight{0};
    size_t max_bytes_in_flight = 0;
-   int32_t max_requests_in_flight = -1;
+   int32_t max_requests_in_flight = 1024;
    fc::microseconds max_response_time{30 * 1000};
 
    bool validate_host = true;
@@ -137,6 +137,22 @@ struct http_plugin_state {
 
    fc::logger& logger;
    std::function<void(http_plugin::metrics)> update_metrics;
+
+   bool try_reserve_bytes(size_t amount) {
+      size_t current = bytes_in_flight.load(std::memory_order_relaxed);
+      while (true) {
+         if (amount > max_bytes_in_flight || current > max_bytes_in_flight - amount)
+            return false;
+         if (bytes_in_flight.compare_exchange_weak(current, current + amount,
+                                                   std::memory_order_acq_rel,
+                                                   std::memory_order_relaxed))
+            return true;
+      }
+   }
+
+   void release_bytes(size_t amount) {
+      bytes_in_flight.fetch_sub(amount, std::memory_order_acq_rel);
+   }
 
    fc::logger& get_logger() { return logger; }
 

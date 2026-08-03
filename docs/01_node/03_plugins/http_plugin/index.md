@@ -43,12 +43,12 @@ Config Options for eosio::http_plugin:
   --http-max-bytes-in-flight-mb arg (=500)
                                         Maximum size in megabytes http_plugin
                                         should use for processing http
-                                        requests. -1 for unlimited. 429 error
+                                        requests. -1 for unlimited. 503 error
                                         response when exceeded.
-  --http-max-in-flight-requests arg (=-1)
+  --http-max-in-flight-requests arg (=1024)
                                         Maximum number of requests http_plugin
                                         should use for processing http
-                                        requests. 429 error response when
+                                        requests. 503 error response when
                                         exceeded.
   --http-max-response-time-ms arg (=30) Maximum time for processing a request,
                                         -1 for unlimited

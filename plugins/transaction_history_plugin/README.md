@@ -86,6 +86,8 @@ Transaction    Queue Tasks  Execute     Store Data
 - **Type**: string array
 - **Description**: Exclude actions matching the pattern `account:action:actor`. Actor may be blank to exclude all actors.
 
+When either filter option is active, the stored transaction envelope is marked `filtered` and omits the signed transaction body. `block_num_hint` fallback is also disabled so excluded actions cannot be recovered by bypassing the history index.
+
 ## API Endpoints
 
 The `transaction_history_api_plugin` provides the following REST API endpoints:
@@ -159,9 +161,9 @@ Gets accounts controlled by a specific account.
 ## Performance Considerations
 
 ### Asynchronous Processing
-- All database write operations are performed asynchronously in dedicated worker threads
-- The main chain processing thread is never blocked by database operations
-- Worker thread pool size is automatically determined based on available CPU cores
+- Database writes, fork checks, and checkpoints are processed by one ordered worker so their chain-event order is preserved
+- The queue has task-count and retained-byte limits; when full it applies backpressure to the chain thread instead of consuming unbounded memory
+- Monitoring and maintenance work is skipped when it cannot be enqueued without blocking the ordered worker
 
 ### Storage Optimization
 - RocksDB is configured with optimized settings for write-heavy workloads

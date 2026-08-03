@@ -17,6 +17,7 @@
 #include <boost/beast/core.hpp>
 
 #include <boost/signals2/connection.hpp>
+#include <cstdlib>
 #include <mutex>
 
 #include <fc/network/listener.hpp>
@@ -61,6 +62,7 @@ private:
    state_history::trace_converter   trace_converter;
 
    named_thread_pool<struct ship>   thread_pool;
+   uint32_t                         max_connections = 100;
 
    struct connection_map_key_less {
       using is_transparent = void;
@@ -104,6 +106,13 @@ public:
       fc::create_listener<Protocol>(thread_pool.get_executor(), _log, accept_timeout, address, "", [this](Protocol::socket&& socket) {
          boost::asio::post(app().get_io_service(), [this, socket{std::move(socket)}]() mutable {
             catch_and_log([this, &socket]() {
+               if (connections.size() >= max_connections) {
+                  fc_wlog(_log, "Rejecting state history connection: maximum of ${max} clients reached",
+                          ("max", max_connections));
+                  boost::system::error_code close_error;
+                  socket.close(close_error);
+                  return;
+               }
                connections.emplace(new session(std::move(socket), boost::asio::make_strand(thread_pool.get_executor()), chain_plug->chain(),
                                                trace_log, chain_state_log, finality_data_log,
                                                [this](const chain::block_num_type block_num) {
@@ -241,6 +250,8 @@ void state_history_plugin::set_program_options(options_description& cli, options
            "the path (relative to data-dir) to create a unix socket upon which to listen for incoming connections.");
    options("trace-history-debug-mode", bpo::bool_switch()->default_value(false), "enable debug mode for trace history");
    options("state-history-log-retain-blocks", bpo::value<uint32_t>(), "if set, periodically prune the state history files to store only configured number of most recent blocks");
+   options("state-history-max-connections", bpo::value<uint32_t>()->default_value(100),
+           "maximum number of simultaneous state history client connections");
 }
 
 void state_history_plugin_impl::plugin_initialize(const variables_map& options) {
@@ -276,6 +287,9 @@ void state_history_plugin_impl::plugin_initialize(const variables_map& options) 
          resmon_plugin->monitor_directory(state_history_dir);
 
       endpoint_address = options.at("state-history-endpoint").as<string>();
+      max_connections = options.at("state-history-max-connections").as<uint32_t>();
+      EOS_ASSERT(max_connections > 0, plugin_config_exception,
+                 "state-history-max-connections must be greater than zero");
 
       if(options.count("state-history-unix-socket-path")) {
          std::filesystem::path sock_path = options.at("state-history-unix-socket-path").as<string>();
@@ -285,8 +299,56 @@ void state_history_plugin_impl::plugin_initialize(const variables_map& options) 
       }
 
       if(options.at("delete-state-history").as<bool>()) {
+         const auto normalized_history_dir = std::filesystem::weakly_canonical(
+            std::filesystem::absolute(state_history_dir));
+         const auto normalized_data_dir = std::filesystem::weakly_canonical(
+            std::filesystem::absolute(app().data_dir()));
+         const auto is_same_or_ancestor = [](const std::filesystem::path& candidate,
+                                             const std::filesystem::path& protected_path) {
+            const auto relative = protected_path.lexically_relative(candidate);
+            if (relative.empty()) return candidate == protected_path;
+            return *relative.begin() != "..";
+         };
+         EOS_ASSERT(!normalized_history_dir.empty() && normalized_history_dir.has_filename() &&
+                    normalized_history_dir != normalized_history_dir.root_path() &&
+                    normalized_history_dir.parent_path() != normalized_history_dir.root_path() &&
+                    !is_same_or_ancestor(normalized_history_dir, normalized_data_dir),
+                    plugin_config_exception,
+                    "Refusing to delete unsafe state history path ${path}",
+                    ("path", normalized_history_dir.string()));
+         if (const char* home = std::getenv("HOME")) {
+            const auto normalized_home = std::filesystem::weakly_canonical(
+               std::filesystem::absolute(home));
+            EOS_ASSERT(!is_same_or_ancestor(normalized_history_dir, normalized_home),
+                       plugin_config_exception,
+                       "Refusing to delete state history path ${path} because it contains the home directory",
+                       ("path", normalized_history_dir.string()));
+         }
+         if (std::filesystem::exists(normalized_history_dir)) {
+            std::set<std::string> allowed_directories{"retained", "archive"};
+            for (const char* option_name : {"state-history-retained-dir", "state-history-archive-dir"}) {
+               if (!options.count(option_name)) continue;
+               const auto configured = options.at(option_name).as<std::filesystem::path>();
+               if (configured.is_relative() && !configured.empty())
+                  allowed_directories.insert((*configured.begin()).string());
+            }
+            const auto has_history_prefix = [](const std::string& filename) {
+               return filename.rfind("trace_history", 0) == 0 ||
+                      filename.rfind("chain_state_history", 0) == 0 ||
+                      filename.rfind("finality_data_history", 0) == 0;
+            };
+            for (const auto& entry : std::filesystem::directory_iterator(normalized_history_dir)) {
+               const auto filename = entry.path().filename().string();
+               const bool recognized = entry.is_directory()
+                  ? allowed_directories.count(filename) != 0
+                  : has_history_prefix(filename);
+               EOS_ASSERT(recognized, plugin_config_exception,
+                          "Refusing to delete ${path}: unrecognized entry ${entry}",
+                          ("path", normalized_history_dir.string())("entry", filename));
+            }
+         }
          fc_ilog(_log, "Deleting state history");
-         std::filesystem::remove_all(state_history_dir);
+         std::filesystem::remove_all(normalized_history_dir);
       }
       std::filesystem::create_directories(state_history_dir);
 

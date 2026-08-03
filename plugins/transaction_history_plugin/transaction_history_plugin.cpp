@@ -650,7 +650,7 @@ void transaction_history_plugin_impl::applied_transaction(
    // Capture immutable block metadata on the chain thread. Reading the controller
    // later from a worker can associate the transaction with a newer block.
    const uint32_t block_num = trace->block_num;
-   const fc::time_point_sec block_time(trace->block_time.to_time_point());
+   const eosio::chain::block_timestamp_type block_time = trace->block_time;
    const uint32_t last_irreversible_block = chain_plug->chain().last_irreversible_block_num();
 
    size_t retained_trace_bytes = 0;
@@ -703,8 +703,11 @@ void transaction_history_plugin_impl::applied_transaction(
          transaction_history_apis::read_only::get_transaction_result result;
          result.id = trace->id;
          fc::mutable_variant_object transaction_value("receipt", *trace->receipt);
-         if (packed) {
+         const bool filtering_active = !filter_on_star || !filter_out_.empty();
+         if (packed && !filtering_active) {
             transaction_value("trx", packed->get_signed_transaction());
+         } else if (filtering_active) {
+            transaction_value("filtered", true);
          }
          result.trx = std::move(transaction_value);
          result.block_time = block_time;
@@ -896,6 +899,8 @@ void transaction_history_plugin_impl::applied_transaction(
 
          std::vector<std::pair<std::string, std::string>> writes;
          size_t write_bytes = 0;
+         constexpr uint64_t fixed_metadata_reserve = 256;
+         constexpr uint64_t account_metadata_reserve = 128;
          const auto append_write = [&writes, &write_bytes, this](std::string key, std::string value) {
             const uint64_t candidate = write_bytes + key.size() + value.size();
             if (candidate > max_write_batch_bytes_) return false;
@@ -903,13 +908,20 @@ void transaction_history_plugin_impl::applied_transaction(
             writes.emplace_back(std::move(key), std::move(value));
             return true;
          };
-         if (!append_write(trx_key, object_to_json(result))) {
+         const std::string transaction_json = object_to_json(result);
+         const std::string block_key = make_block_transaction_key(result.block_num, trace->id);
+         const uint64_t base_bytes = trx_key.size() + transaction_json.size() +
+                                     block_key.size() + trx_key.size();
+         if (base_bytes > max_write_batch_bytes_ ||
+             fixed_metadata_reserve > max_write_batch_bytes_ - base_bytes ||
+             !append_write(trx_key, transaction_json)) {
+            transactions_failed_++;
             wlog("Dropping transaction ${id} history because its record exceeds the write batch byte limit",
                  ("id", trace->id));
             return;
          }
-         const std::string block_key = make_block_transaction_key(result.block_num, trace->id);
-         if (!append_write(block_key, trx_key)) return;
+         EOS_ASSERT(append_write(block_key, trx_key), chain::plugin_exception,
+                    "transaction history base write exceeded the validated byte budget");
 
          // Create account-level indexes for action queries with limit
          size_t indexed_actions = 0;
@@ -941,20 +953,30 @@ void transaction_history_plugin_impl::applied_transaction(
                      index_budget_exhausted = true;
                      break;
                   }
-                  auto [sequence_it, inserted] = next_sequences.try_emplace(account, 0);
-                  if (inserted) {
-                     sequence_it->second = load_account_sequence(account);
-                  }
-                  const uint64_t account_sequence = sequence_it->second++;
-                  const std::string account_key = make_account_action_key(
-                     account, account_sequence);
+                  const bool new_account = next_sequences.find(account) == next_sequences.end();
                   auto action_info = base_action_info;
+                  const uint64_t account_sequence = new_account ? load_account_sequence(account)
+                                                                 : next_sequences.at(account);
                   action_info["account_action_seq"] = account_sequence;
-                  if (!append_write(account_key, object_to_json(action_info))) {
-                     --sequence_it->second;
+                  const std::string account_key = make_account_action_key(account, account_sequence);
+                  const std::string action_json = object_to_json(action_info);
+                  const uint64_t reserve = fixed_metadata_reserve +
+                     (next_sequences.size() + (new_account ? 1 : 0)) * account_metadata_reserve;
+                  const uint64_t index_bytes = account_key.size() + action_json.size();
+                  if (index_bytes > max_write_batch_bytes_ ||
+                      write_bytes > max_write_batch_bytes_ - index_bytes ||
+                      reserve > max_write_batch_bytes_ - write_bytes - index_bytes) {
                      index_budget_exhausted = true;
                      break;
                   }
+
+                  auto [sequence_it, inserted] = next_sequences.try_emplace(account, account_sequence);
+                  if (inserted) {
+                     sequence_it->second = account_sequence;
+                  }
+                  ++sequence_it->second;
+                  EOS_ASSERT(append_write(account_key, action_json), chain::plugin_exception,
+                             "transaction history index exceeded the reserved byte budget");
                   ++account_indexes;
                }
                indexed_actions++;
@@ -1139,6 +1161,7 @@ read_only::get_transaction_result read_only::get_transaction(const get_transacti
    std::string normalized = boost::algorithm::to_lower_copy(params.id);
    get_transaction_result result;
    bool found = false;
+   const bool filtering_active = !history->my->filter_on_star || !history->my->filter_out_.empty();
 
    if (normalized.size() == 64) {
       found = history->my->db_->get_object("trx:" + normalized, result);
@@ -1157,8 +1180,12 @@ read_only::get_transaction_result read_only::get_transaction(const get_transacti
       }
    }
 
-   if (!found && params.block_num_hint) {
-      auto block = history->my->chain_plug->chain().fetch_block_by_number(*params.block_num_hint);
+   auto& controller = history->my->chain_plug->chain();
+   const auto abi_yield = eosio::chain::abi_serializer::create_yield_function(
+      history->my->chain_plug->get_abi_serializer_max_time());
+
+   if (!found && params.block_num_hint && !filtering_active) {
+      auto block = controller.fetch_block_by_number(*params.block_num_hint);
       if (block) {
          for (const auto& receipt : block->transactions) {
             transaction_id_type id;
@@ -1171,11 +1198,13 @@ read_only::get_transaction_result read_only::get_transaction(const get_transacti
 
             result.id = id;
             result.block_num = *params.block_num_hint;
-            result.block_time = fc::time_point_sec(block->timestamp.to_time_point());
+            result.block_time = block->timestamp;
             fc::mutable_variant_object transaction_value("receipt", receipt);
             if (std::holds_alternative<eosio::chain::packed_transaction>(receipt.trx)) {
-               transaction_value("trx", std::get<eosio::chain::packed_transaction>(receipt.trx)
-                                           .get_signed_transaction());
+               transaction_value(
+                  "trx", controller.to_variant_with_abi(
+                     std::get<eosio::chain::packed_transaction>(receipt.trx).get_signed_transaction(),
+                     abi_yield));
             }
             result.trx = std::move(transaction_value);
             found = true;
@@ -1187,6 +1216,43 @@ read_only::get_transaction_result read_only::get_transaction(const get_transacti
    EOS_ASSERT(found, chain::tx_not_found,
               "Transaction ${id} not found in history${hint}",
               ("id", params.id)("hint", params.block_num_hint ? " or hinted block" : ""));
+
+   // Rebuild the legacy receipt/transaction representation with ABI-decoded
+   // action data when the stored record was not redacted by filtering.
+   if (filtering_active) {
+      fc::mutable_variant_object filtered_transaction("filtered", true);
+      if (result.trx.is_object() && result.trx.get_object().contains("receipt")) {
+         filtered_transaction("receipt", result.trx.get_object()["receipt"]);
+      }
+      result.trx = std::move(filtered_transaction);
+   }
+   const bool transaction_visible = !filtering_active && result.trx.is_object() &&
+      result.trx.get_object().contains("trx");
+   if (transaction_visible) {
+      if (auto block = controller.fetch_block_by_number(result.block_num)) {
+         for (const auto& receipt : block->transactions) {
+            if (!std::holds_alternative<eosio::chain::packed_transaction>(receipt.trx)) continue;
+            const auto& packed = std::get<eosio::chain::packed_transaction>(receipt.trx);
+            if (packed.id() != result.id) continue;
+            fc::mutable_variant_object transaction_value("receipt", receipt);
+            transaction_value("trx", controller.to_variant_with_abi(
+               packed.get_signed_transaction(), abi_yield));
+            result.trx = std::move(transaction_value);
+            break;
+         }
+      }
+
+   }
+   for (auto& action_value : result.traces) {
+      try {
+         eosio::chain::action_trace action;
+         fc::from_variant(action_value, action);
+         action_value = controller.to_variant_with_abi(action, abi_yield);
+      } catch (...) {
+         // Preserve the stored representation if an older record cannot be
+         // converted with the current ABI.
+      }
+   }
 
    // Update current irreversible block
    result.last_irreversible_block = history->get_last_irreversible_block_num();
@@ -1223,27 +1289,43 @@ read_only::get_actions_result read_only::get_actions(const get_actions_params& p
    size_t response_bytes = 0;
    bool byte_limit_reached = false;
    const uint64_t max_response_bytes = history->my->max_api_response_bytes_;
+   auto& controller = history->my->chain_plug->chain();
+   const auto abi_yield = eosio::chain::abi_serializer::create_yield_function(
+      history->my->chain_plug->get_abi_serializer_max_time());
    auto append_current = [&result, &response_bytes, &byte_limit_reached,
-                          max_response_bytes](const rocksdb::Iterator& it) {
+                          max_response_bytes, &controller, &abi_yield](const rocksdb::Iterator& it) {
       const auto value = it.value();
       EOS_ASSERT(value.size() <= max_response_bytes, chain::plugin_exception,
                  "A single history action record exceeds the configured API response byte limit");
-      if (response_bytes + value.size() > max_response_bytes) {
-         byte_limit_reached = true;
-         return false;
-      }
+      std::map<std::string, fc::variant> action;
       try {
-         auto action = fc::json::from_string(value.ToString())
+         action = fc::json::from_string(value.ToString())
             .as<std::map<std::string, fc::variant>>();
-         if (!action.count("global_action_seq") && action.count("global_sequence")) {
-            action["global_action_seq"] = action["global_sequence"];
-         }
-         result.actions.emplace_back(std::move(action));
-         response_bytes += value.size();
-         return true;
       } catch (...) {
          return false;
       }
+      if (!action.count("global_action_seq") && action.count("global_sequence")) {
+         action["global_action_seq"] = action["global_sequence"];
+      }
+      if (auto trace_it = action.find("action_trace"); trace_it != action.end()) {
+         try {
+            eosio::chain::action_trace typed_trace;
+            fc::from_variant(trace_it->second, typed_trace);
+            trace_it->second = controller.to_variant_with_abi(typed_trace, abi_yield);
+         } catch (...) {
+            // Keep records written under an older schema queryable.
+         }
+      }
+      const size_t serialized_size = object_to_json(action).size();
+      EOS_ASSERT(serialized_size <= max_response_bytes, chain::plugin_exception,
+                 "A single decoded history action exceeds the configured API response byte limit");
+      if (response_bytes > max_response_bytes - serialized_size) {
+         byte_limit_reached = true;
+         return false;
+      }
+      result.actions.emplace_back(std::move(action));
+      response_bytes += serialized_size;
+      return true;
    };
 
    size_t scanned = 0;

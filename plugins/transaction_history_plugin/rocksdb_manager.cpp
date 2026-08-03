@@ -47,6 +47,32 @@ void sync_directory(const std::filesystem::path& path) {
 #endif
 }
 
+void clone_checkpoint_for_rollback(const std::filesystem::path& source,
+                                   const std::filesystem::path& destination) {
+   std::filesystem::create_directories(destination);
+   for (const auto& entry : std::filesystem::recursive_directory_iterator(source)) {
+      const auto relative = std::filesystem::relative(entry.path(), source);
+      const auto target = destination / relative;
+      if (entry.is_directory()) {
+         std::filesystem::create_directories(target);
+      } else if (entry.is_regular_file()) {
+         std::filesystem::create_directories(target.parent_path());
+         const auto extension = entry.path().extension();
+         if (extension == ".sst" || extension == ".ldb") {
+            // RocksDB table files are immutable. Preserve the checkpoint's
+            // hard-link behavior instead of copying the complete database.
+            std::filesystem::create_hard_link(entry.path(), target);
+         } else {
+            std::filesystem::copy_file(entry.path(), target,
+                                       std::filesystem::copy_options::overwrite_existing);
+         }
+      } else {
+         throw std::runtime_error("unsupported file type in RocksDB checkpoint: " +
+                                  entry.path().string());
+      }
+   }
+}
+
 } // namespace
 
 rocksdb_manager::rocksdb_manager() : is_open_(false) {
@@ -946,8 +972,7 @@ bool rocksdb_manager::rollback_to_block(uint32_t block_num) {
       }
 
       std::filesystem::remove_all(staging_path);
-      std::filesystem::copy(checkpoint_path, staging_path,
-                            std::filesystem::copy_options::recursive);
+      clone_checkpoint_for_rollback(checkpoint_path, staging_path);
       if (!std::filesystem::exists(staging_path / "CURRENT")) {
          throw std::runtime_error("staged checkpoint is incomplete");
       }

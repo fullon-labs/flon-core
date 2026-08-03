@@ -7,6 +7,7 @@
 #include <fc/log/logger_config.hpp>
 #include <fc/reflect/variant.hpp>
 #include <fc/network/listener.hpp>
+#include <fc/scoped_exit.hpp>
 
 #include <boost/asio.hpp>
 #include <boost/algorithm/string/predicate.hpp>
@@ -139,7 +140,8 @@ namespace eosio {
           * Make an internal_url_handler that will run the url_handler on the app() thread and then
           * return to the http thread pool for response processing
           *
-          * @pre b.size() has been added to bytes_in_flight by caller
+          * The returned handler reserves b.size() in bytes_in_flight until the
+          * queued application task has consumed the request body.
           * @param priority - priority to post to the app thread at
           * @param to_queue - execution queue to post to
           * @param next - the next handler for responses
@@ -155,27 +157,37 @@ namespace eosio {
             auto next_ptr = std::make_shared<url_handler>(std::move(entry.handler));
             handler.fn = [my=std::move(my), priority, to_queue, next_ptr=std::move(next_ptr)]
                        ( detail::abstract_conn_ptr conn, string&& r, string&& b, url_response_callback&& then ) {
-               if (auto error_str = conn->verify_max_bytes_in_flight(b.size()); !error_str.empty()) {
-                  conn->send_busy_response(std::move(error_str));
+               const size_t body_size = b.size();
+               auto state = my->plugin_state;
+               if (!state->try_reserve_bytes(body_size)) {
+                  conn->send_busy_response("Too many bytes in flight while queueing request body");
                   return;
                }
-
-               url_response_callback wrapped_then = [then=std::move(then)](int code, std::optional<fc::variant> resp) {
-                  then(code, std::move(resp));
-               };
 
                // post to the app thread taking shared ownership of next (via std::shared_ptr),
                // sole ownership of the tracked body and the passed in parameters
                // we can't std::move() next_ptr because we post a new lambda for each http request and we need to keep the original
-               app().executor().post( priority, to_queue, [next_ptr, conn=std::move(conn), r=std::move(r), b = std::move(b), wrapped_then=std::move(wrapped_then)]() mutable {
-                  try {
-                     if( app().is_quiting() ) return; // http_plugin shutting down, do not call callback
-                     // call the `next` url_handler and wrap the response handler
-                     (*next_ptr)( std::move(r), std::move(b), std::move(wrapped_then)) ;
-                  } catch( ... ) {
-                     conn->handle_exception();
-                  }
-               } );
+               try {
+                  url_response_callback wrapped_then = [then=std::move(then)](
+                     int code, std::optional<fc::variant> resp) mutable {
+                     then(code, std::move(resp));
+                  };
+                  app().executor().post( priority, to_queue,
+                     [next_ptr, conn=std::move(conn), r=std::move(r), b=std::move(b),
+                      wrapped_then=std::move(wrapped_then), state, body_size]() mutable {
+                        auto release_body = fc::make_scoped_exit(
+                           [state, body_size] { state->release_bytes(body_size); });
+                        try {
+                           if( app().is_quiting() ) return;
+                           (*next_ptr)(std::move(r), std::move(b), std::move(wrapped_then));
+                        } catch(...) {
+                           conn->handle_exception();
+                        }
+                     });
+               } catch(...) {
+                  state->release_bytes(body_size);
+                  throw;
+               }
             };
             return handler;
          }
@@ -184,16 +196,28 @@ namespace eosio {
          /**
           * Make an internal_url_handler that will run the url_handler directly
           *
-          * @pre b.size() has been added to bytes_in_flight by caller
+          * The returned handler reserves b.size() while the direct handler is
+          * consuming the request body.
           * @param next - the next handler for responses
           * @return the constructed internal_url_handler
           */
-         static detail::internal_url_handler make_http_thread_url_handler(api_entry&& entry, http_content_type content_type) {
+         static detail::internal_url_handler make_http_thread_url_handler(api_entry&& entry,
+                                                                          http_plugin_impl_ptr my,
+                                                                          http_content_type content_type) {
             detail::internal_url_handler handler;
             handler.content_type = content_type;
             handler.category = entry.category;
             handler.unix_socket_only = entry.unix_socket_only;
-            handler.fn = [next=std::move(entry.handler)]( const detail::abstract_conn_ptr& conn, string&& r, string&& b, url_response_callback&& then ) mutable {
+            handler.fn = [next=std::move(entry.handler), state=my->plugin_state]
+                         ( const detail::abstract_conn_ptr& conn, string&& r, string&& b,
+                           url_response_callback&& then ) mutable {
+               const size_t body_size = b.size();
+               if (!state->try_reserve_bytes(body_size)) {
+                  conn->send_busy_response("Too many bytes in flight while handling request body");
+                  return;
+               }
+               auto release_body = fc::make_scoped_exit(
+                  [state, body_size] { state->release_bytes(body_size); });
                try {
                   next(std::move(r), std::move(b), std::move(then));
                } catch( ... ) {
@@ -369,7 +393,7 @@ namespace eosio {
              "The maximum body size in bytes allowed for incoming RPC requests")
             ("http-max-bytes-in-flight-mb", bpo::value<int64_t>()->default_value(500),
              "Maximum size in megabytes http_plugin should use for processing http requests. -1 for unlimited. 503 error response when exceeded." )
-            ("http-max-in-flight-requests", bpo::value<int32_t>()->default_value(-1),
+            ("http-max-in-flight-requests", bpo::value<int32_t>()->default_value(my->plugin_state->max_requests_in_flight),
              "Maximum number of requests http_plugin should use for processing http requests. 503 error response when exceeded." )
             ("http-max-response-time-ms", bpo::value<int64_t>()->default_value(15),
              "Maximum time on main thread for processing a request, -1 for unlimited")
@@ -405,6 +429,9 @@ namespace eosio {
             my->plugin_state->max_bytes_in_flight = max_bytes_mb * 1024 * 1024;
          }
          my->plugin_state->max_requests_in_flight = options.at( "http-max-in-flight-requests" ).as<int32_t>();
+         EOS_ASSERT(my->plugin_state->max_requests_in_flight >= -1,
+                    chain::plugin_config_exception,
+                    "http-max-in-flight-requests must be -1 or non-negative");
          int64_t max_reponse_time_ms = options.at("http-max-response-time-ms").as<int64_t>();
          EOS_ASSERT( max_reponse_time_ms == -1 || max_reponse_time_ms >= 0, chain::plugin_config_exception,
                      "http-max-response-time-ms must be -1, or non-negative: ${m}", ("m", max_reponse_time_ms) );
@@ -546,7 +573,8 @@ namespace eosio {
    void http_plugin::add_async_handler(api_entry&& entry, http_content_type content_type) {
       log_add_handler(my.get(), entry);
       std::string path  = entry.path;
-      auto p = my->plugin_state->url_handlers.emplace(path, my->make_http_thread_url_handler(std::move(entry), content_type));
+      auto p = my->plugin_state->url_handlers.emplace(
+         path, my->make_http_thread_url_handler(std::move(entry), my, content_type));
       EOS_ASSERT( p.second, chain::plugin_config_exception, "http url ${u} is not unique", ("u", path) );
    }
 

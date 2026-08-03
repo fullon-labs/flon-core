@@ -31,7 +31,7 @@ public:
    struct get_transaction_result {
       transaction_id_type id;
       fc::variant trx;
-      fc::time_point_sec block_time;
+      eosio::chain::block_timestamp_type block_time;
       uint32_t block_num = 0;
       uint32_t last_irreversible_block = 0;
       std::vector<fc::variant> traces;

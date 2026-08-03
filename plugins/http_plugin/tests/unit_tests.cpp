@@ -32,6 +32,22 @@ namespace http  = beast::http;      // from <boost/beast/http.hpp>
 namespace net   = boost::asio;      // from <boost/asio.hpp>
 using tcp       = net::ip::tcp;     // from <boost/asio/ip/tcp.hpp>
 
+BOOST_AUTO_TEST_CASE(bytes_in_flight_reservation_is_atomic_and_bounded) {
+   fc::logger log;
+   http_plugin_state state(log);
+   state.max_bytes_in_flight = 10;
+
+   BOOST_REQUIRE(state.try_reserve_bytes(6));
+   BOOST_CHECK_EQUAL(state.bytes_in_flight.load(), 6u);
+   BOOST_CHECK(!state.try_reserve_bytes(5));
+   BOOST_CHECK_EQUAL(state.bytes_in_flight.load(), 6u);
+   state.release_bytes(6);
+   BOOST_REQUIRE(state.try_reserve_bytes(10));
+   BOOST_CHECK(!state.try_reserve_bytes(1));
+   state.release_bytes(10);
+   BOOST_CHECK_EQUAL(state.bytes_in_flight.load(), 0u);
+}
+
 // -------------------------------------------------------------------------
 // this class handles some basic http requests.
 // -------------------------------------------------------------------------
