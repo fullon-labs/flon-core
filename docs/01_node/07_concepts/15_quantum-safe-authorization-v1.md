@@ -122,7 +122,25 @@ string `FLON-QS-TX-v1`. Signature generation may use the FIPS 204 hedged mode wh
 is available; verification behavior is identical. The implementation must publish the exact library version,
 known-answer tests, and FIPS 204 errata assessment before protocol activation.
 
-### 4.1 Algorithm identifier
+### 4.1 Key-pair generation
+
+Every quantum-safe one-time key pair, including the initially bound `(SK_0, PK_0)` and every successor
+`(SK_(n+1), PK_(n+1))`, must be generated directly by the ML-DSA-65 key-generation algorithm defined by
+FIPS 204. A legacy K1/R1 key must not be converted, reinterpreted, or used as an ML-DSA seed.
+
+Key generation is performed locally by the wallet, hardware signer, or trusted signing service using a
+cryptographically secure random source. It produces:
+
+- an ML-DSA-65 public key `PK_n` encoded as exactly 1952 bytes; and
+- the corresponding ML-DSA-65 private key `SK_n`, whose expanded encoding is exactly 4032 bytes when that
+  representation is used.
+
+The newly generated `PK_(n+1)` remains local while only its commitment `C_(n+1)` is submitted in transaction
+`n`. Private keys are never transmitted to a node or written to chain state. Implementations must protect key
+material at rest, avoid logging or swapping it where practical, and securely erase `SK_n` only after the
+transaction that consumes epoch `n` becomes irreversible.
+
+### 4.2 Algorithm identifier
 
 ```text
 0x0001 = ML-DSA-65 / FIPS 204
@@ -293,7 +311,8 @@ For every quantum authorization `account@permission` at epoch `n`:
 
 1. Read a finalized or otherwise trusted state response containing `(algorithm_id, epoch, C_n)`.
 2. Load `(SK_n, PK_n)` and verify locally that `Commit(PK_n, epoch=n) == C_n`.
-3. Generate `(SK_(n+1), PK_(n+1))` using a cryptographically secure random source.
+3. Run the FIPS 204 ML-DSA-65 key-generation algorithm with a cryptographically secure random source to produce
+   `(SK_(n+1), PK_(n+1))`; do not derive it by converting a legacy K1/R1 key.
 4. Compute `C_(n+1) = Commit(PK_(n+1), epoch=n+1)`.
 5. Build the transaction and claim containing `C_n`, `C_(n+1)`, and epoch `n`.
 6. Compute the quantum signature digest and sign it with `SK_n` using ML-DSA-65.
