@@ -412,6 +412,16 @@ namespace eosio {
              "Maximum size in megabytes http_plugin should use for processing http requests. -1 for unlimited. 503 error response when exceeded." )
             ("http-max-in-flight-requests", bpo::value<int32_t>()->default_value(my->plugin_state->max_requests_in_flight),
              "Maximum number of requests http_plugin should use for processing http requests. 503 error response when exceeded." )
+            ("http-max-connections", bpo::value<int32_t>()->default_value(my->plugin_state->max_connections),
+             "Maximum number of active TCP and Unix socket HTTP connections. -1 for unlimited." )
+            ("http-header-timeout-ms", bpo::value<uint32_t>()->default_value(my->plugin_state->header_timeout.count()),
+             "Maximum time to receive an HTTP request header; 0 disables the timeout." )
+            ("http-body-timeout-ms", bpo::value<uint32_t>()->default_value(my->plugin_state->body_timeout.count()),
+             "Maximum time to receive an HTTP request body; 0 disables the timeout." )
+            ("http-idle-timeout-ms", bpo::value<uint32_t>()->default_value(my->plugin_state->idle_timeout.count()),
+             "Maximum idle time between keep-alive requests; 0 disables the timeout." )
+            ("http-write-timeout-ms", bpo::value<uint32_t>()->default_value(my->plugin_state->write_timeout.count()),
+             "Maximum time to produce and write an HTTP response; 0 disables the timeout." )
             ("http-max-history-requests-in-flight", bpo::value<int32_t>()->default_value(my->plugin_state->max_history_requests_in_flight),
              "Maximum number of transaction history requests queued or executing on the application thread." )
             ("http-history-requests-per-second", bpo::value<uint32_t>()->default_value(my->plugin_state->history_requests_per_second),
@@ -453,6 +463,14 @@ namespace eosio {
          EOS_ASSERT(my->plugin_state->max_requests_in_flight >= -1,
                     chain::plugin_config_exception,
                     "http-max-in-flight-requests must be -1 or non-negative");
+         my->plugin_state->max_connections = options.at("http-max-connections").as<int32_t>();
+         EOS_ASSERT(my->plugin_state->max_connections >= -1,
+                    chain::plugin_config_exception,
+                    "http-max-connections must be -1 or non-negative");
+         my->plugin_state->header_timeout = std::chrono::milliseconds(options.at("http-header-timeout-ms").as<uint32_t>());
+         my->plugin_state->body_timeout = std::chrono::milliseconds(options.at("http-body-timeout-ms").as<uint32_t>());
+         my->plugin_state->idle_timeout = std::chrono::milliseconds(options.at("http-idle-timeout-ms").as<uint32_t>());
+         my->plugin_state->write_timeout = std::chrono::milliseconds(options.at("http-write-timeout-ms").as<uint32_t>());
          my->plugin_state->max_history_requests_in_flight =
             options.at("http-max-history-requests-in-flight").as<int32_t>();
          my->plugin_state->history_requests_per_second =

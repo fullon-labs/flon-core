@@ -72,6 +72,7 @@ class beast_http_session : public detail::abstract_conn,
 
    std::shared_ptr<http_plugin_state> plugin_state_;
    Socket             socket_;
+   asio::steady_timer deadline_;
    api_category_set   categories_;
    beast::flat_buffer buffer_;
 
@@ -90,6 +91,53 @@ class beast_http_session : public detail::abstract_conn,
 
    // whether response should be sent back to client when an exception occurs
    bool is_send_exception_response_ = true;
+   std::atomic<bool> request_reserved_{false};
+   bool completed_request_ = false;
+   std::atomic<bool> closed_{false};
+   std::mutex deadline_mutex_;
+   std::atomic<uint64_t> deadline_generation_{0};
+
+   void release_request() {
+      if (request_reserved_.exchange(false, std::memory_order_relaxed)) {
+         plugin_state_->requests_in_flight.fetch_sub(1, std::memory_order_relaxed);
+      }
+   }
+
+   bool reserve_request() {
+      const auto limit = plugin_state_->max_requests_in_flight;
+      const auto previous = plugin_state_->requests_in_flight.fetch_add(1, std::memory_order_relaxed);
+      if (limit >= 0 && previous >= limit) {
+         plugin_state_->requests_in_flight.fetch_sub(1, std::memory_order_relaxed);
+         return false;
+      }
+      request_reserved_.store(true, std::memory_order_relaxed);
+      return true;
+   }
+
+   void cancel_deadline() {
+      std::lock_guard<std::mutex> lock(deadline_mutex_);
+      deadline_generation_.fetch_add(1, std::memory_order_relaxed);
+      beast::error_code ignored;
+      deadline_.cancel(ignored);
+   }
+
+   void arm_deadline(std::chrono::milliseconds timeout, const char* stage) {
+      std::lock_guard<std::mutex> lock(deadline_mutex_);
+      beast::error_code ignored;
+      deadline_.cancel(ignored);
+      const uint64_t generation = deadline_generation_.fetch_add(1, std::memory_order_relaxed) + 1;
+      if (timeout.count() == 0 || closed_.load(std::memory_order_relaxed))
+         return;
+      deadline_.expires_after(timeout);
+      deadline_.async_wait([self = this->shared_from_this(), stage, generation](beast::error_code ec) {
+         if (!ec && generation == self->deadline_generation_.load(std::memory_order_relaxed)) {
+            fc_wlog(self->plugin_state_->get_logger(),
+                    "HTTP ${stage} timeout from ${endpoint}",
+                    ("stage", stage)("endpoint", self->remote_endpoint_));
+            self->do_eof();
+         }
+      });
+   }
 
    void set_content_type_header(http_content_type content_type) {
       switch (content_type) {
@@ -242,27 +290,12 @@ public:
       return {};
    }
 
-   virtual std::string verify_max_requests_in_flight() final {
-      if(plugin_state_->max_requests_in_flight < 0)
-         return {};
-
-      auto requests_in_flight_num = plugin_state_->requests_in_flight.load();
-      if(requests_in_flight_num > plugin_state_->max_requests_in_flight) {
-         fc_dlog(plugin_state_->get_logger(), "503 - too many requests in flight: ${requests}", ("requests", requests_in_flight_num));
-         return "Too many requests in flight: " + std::to_string( requests_in_flight_num );
-      }
-      return {};
-   }
-
 public:
-   // shared_from_this() requires default constructor
-   beast_http_session() = default;
-
    beast_http_session(Socket&& socket, std::shared_ptr<http_plugin_state> plugin_state, std::string remote_endpoint,
                       api_category_set categories, const std::string& local_address)
-       : plugin_state_(std::move(plugin_state)), socket_(std::move(socket)), categories_(categories),
+       : plugin_state_(std::move(plugin_state)), socket_(std::move(socket)), deadline_(socket_.get_executor()), categories_(categories),
          remote_endpoint_(std::move(remote_endpoint)), local_address_(local_address) {
-      plugin_state_->requests_in_flight += 1;
+      plugin_state_->active_connections.fetch_add(1, std::memory_order_relaxed);
       req_parser_.emplace();
       req_parser_->body_limit(plugin_state_->max_body_size);
       res_.emplace();
@@ -276,7 +309,8 @@ public:
 
    virtual ~beast_http_session() {
       is_send_exception_response_ = false;
-      plugin_state_->requests_in_flight -= 1;
+      release_request();
+      plugin_state_->active_connections.fetch_sub(1, std::memory_order_relaxed);
       if(plugin_state_->get_logger().is_enabled(fc::log_level::all)) {
          auto session_time = steady_clock::now() - session_begin_;
          auto session_time_us = std::chrono::duration_cast<std::chrono::microseconds>(session_time).count();
@@ -289,6 +323,8 @@ public:
 
    void do_read_header() {
       read_begin_ = steady_clock::now();
+      arm_deadline(completed_request_ ? plugin_state_->idle_timeout : plugin_state_->header_timeout,
+                   completed_request_ ? "keep-alive idle" : "header read");
 
       // Read a request
       http::async_read_header(
@@ -301,6 +337,7 @@ public:
    }
 
    void on_read_header(beast::error_code ec, std::size_t /* bytes_transferred */) {
+      cancel_deadline();
       if(ec) {
          // See on_read comment below
          if(ec == http::error::end_of_stream || ec == asio::error::connection_reset)
@@ -326,6 +363,7 @@ public:
    }
 
    void do_read() {
+      arm_deadline(plugin_state_->body_timeout, "body read");
       // Read a request
       http::async_read(
             socket_,
@@ -337,6 +375,8 @@ public:
    }
 
    void on_read(beast::error_code ec, std::size_t /* bytes_transferred */) {
+
+      cancel_deadline();
 
       if(ec) {
          // By default, http_plugin runs in keep_alive mode (persistent connections)
@@ -351,6 +391,15 @@ public:
 
       auto req = req_parser_->release();
 
+      if (!reserve_request()) {
+         res_->keep_alive(false);
+         send_busy_response("Too many requests in flight: " +
+                            std::to_string(plugin_state_->requests_in_flight.load()));
+         return;
+      }
+      completed_request_ = true;
+      arm_deadline(plugin_state_->write_timeout, "response generation");
+
       handle_begin_ = steady_clock::now();
       auto dt = handle_begin_ - read_begin_;
       read_time_us_ += std::chrono::duration_cast<std::chrono::microseconds>(dt).count();
@@ -363,6 +412,8 @@ public:
                  std::size_t bytes_transferred,
                  bool close) {
       boost::ignore_unused(bytes_transferred);
+      cancel_deadline();
+      release_request();
 
       if(ec) {
          return fail(ec, "write", plugin_state_->get_logger(), "closing connection");
@@ -482,6 +533,7 @@ public:
 
       // Determine if we should close the connection after
       bool close = !(plugin_state_->keep_alive) || res_->need_eof();
+      arm_deadline(plugin_state_->write_timeout, "response write");
 
       fc_dlog( plugin_state_->get_logger(), "Response: ${ep} ${b}",
                ("ep", remote_endpoint_)("b", to_log_string(*res_)) );
@@ -497,9 +549,10 @@ public:
    }
 
    void run_session() {
-      if(auto error_str = verify_max_requests_in_flight(); !error_str.empty()) {
+      const auto connections = plugin_state_->active_connections.load(std::memory_order_relaxed);
+      if(plugin_state_->max_connections >= 0 && connections > plugin_state_->max_connections) {
          res_->keep_alive(false);
-         send_busy_response(std::move(error_str));
+         send_busy_response("Too many active connections: " + std::to_string(connections));
          return;
       }
 
@@ -507,7 +560,11 @@ public:
    }
 
    void do_eof() {
+      if (closed_.exchange(true))
+         return;
       is_send_exception_response_ = false;
+      cancel_deadline();
+      release_request();
       try {
          // Send a shutdown signal
          beast::error_code ec;

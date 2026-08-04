@@ -19,6 +19,9 @@
 #include <thread>
 #include <future>
 #include <optional>
+#include <condition_variable>
+#include <mutex>
+#include <vector>
 
 namespace bu = boost::unit_test;
 
@@ -750,12 +753,20 @@ BOOST_FIXTURE_TEST_CASE(bytes_in_flight, http_plugin_test_fixture) {
 BOOST_FIXTURE_TEST_CASE(requests_in_flight, http_plugin_test_fixture) {
    http_plugin* http_plugin = init({"--plugin=eosio::http_plugin",
                                     "--http-server-address=127.0.0.1:8892",
-                                    "--http-max-in-flight-requests=16"});
+                                    "--http-max-in-flight-requests=16",
+                                    "--http-write-timeout-ms=5000"});
    BOOST_REQUIRE(http_plugin);
 
+   std::mutex callbacks_mutex;
+   std::condition_variable callbacks_ready;
+   std::vector<url_response_callback> pending_callbacks;
    http_plugin->add_api({{std::string("/doit"), api_category::node,
                           [&](string&&, string&& body, url_response_callback&& cb) {
-                             cb(200, "hello");
+                             {
+                                std::lock_guard<std::mutex> lock(callbacks_mutex);
+                                pending_callbacks.emplace_back(std::move(cb));
+                             }
+                             callbacks_ready.notify_one();
                           }}}, appbase::exec_queue::read_write);
 
    boost::asio::io_context ctx;
@@ -789,15 +800,35 @@ BOOST_FIXTURE_TEST_CASE(requests_in_flight, http_plugin_test_fixture) {
       return count_of_status_replies;
    };
 
+   auto release_pending = [&](size_t expected, bool allow_rejections_to_settle = false) {
+      std::vector<url_response_callback> callbacks;
+      {
+         std::unique_lock<std::mutex> lock(callbacks_mutex);
+         BOOST_REQUIRE(callbacks_ready.wait_for(lock, std::chrono::seconds(2), [&] {
+            return pending_callbacks.size() >= expected;
+         }));
+         if (allow_rejections_to_settle) {
+            lock.unlock();
+            std::this_thread::sleep_for(std::chrono::milliseconds(200));
+            lock.lock();
+         }
+         callbacks.swap(pending_callbacks);
+      }
+      for (auto& callback : callbacks)
+         callback(200, "hello");
+   };
+
 
    //8 requests to start with
    send_requests(8u);
+   release_pending(8u);
    std::unordered_map<boost::beast::http::status, size_t> r = scan_http_replies();
    BOOST_REQUIRE_EQUAL(r[boost::beast::http::status::ok], 8u);
    connections.clear();
 
    //24 requests will exceed threshold
    send_requests(24u);
+   release_pending(16u, true);
    r = scan_http_replies();
    BOOST_REQUIRE_GT(r[boost::beast::http::status::ok], 0u);
    BOOST_REQUIRE_GT(r[boost::beast::http::status::service_unavailable], 0u);
@@ -806,9 +837,57 @@ BOOST_FIXTURE_TEST_CASE(requests_in_flight, http_plugin_test_fixture) {
 
    //requests should still work
    send_requests(8u);
+   release_pending(8u);
    r = scan_http_replies();
    BOOST_REQUIRE_EQUAL(r[boost::beast::http::status::ok], 8u);
    connections.clear();
+}
+
+BOOST_FIXTURE_TEST_CASE(active_connection_limit, http_plugin_test_fixture) {
+   http_plugin* http_plugin = init({"--plugin=eosio::http_plugin",
+                                    "--http-server-address=127.0.0.1:8893",
+                                    "--http-max-connections=1",
+                                    "--http-header-timeout-ms=5000"});
+   BOOST_REQUIRE(http_plugin);
+
+   boost::asio::io_context ctx;
+   boost::asio::ip::tcp::resolver resolver(ctx);
+   const auto endpoint = resolver.resolve("127.0.0.1", "8893")->endpoint();
+
+   boost::asio::ip::tcp::socket occupying(ctx);
+   occupying.connect(endpoint);
+   std::this_thread::sleep_for(std::chrono::milliseconds(50));
+
+   boost::asio::ip::tcp::socket rejected(ctx);
+   rejected.connect(endpoint);
+   boost::beast::http::request<boost::beast::http::empty_body> req(
+      boost::beast::http::verb::get, "/v1/node/get_supported_apis", 11);
+   req.set(http::field::host, "127.0.0.1:8893");
+   boost::beast::http::write(rejected, req);
+   boost::beast::flat_buffer buffer;
+   boost::beast::http::response<boost::beast::http::string_body> response;
+   boost::beast::http::read(rejected, buffer, response);
+   BOOST_CHECK_EQUAL(response.result(), boost::beast::http::status::service_unavailable);
+}
+
+BOOST_FIXTURE_TEST_CASE(header_read_timeout, http_plugin_test_fixture) {
+   http_plugin* http_plugin = init({"--plugin=eosio::http_plugin",
+                                    "--http-server-address=127.0.0.1:8894",
+                                    "--http-header-timeout-ms=100"});
+   BOOST_REQUIRE(http_plugin);
+
+   boost::asio::io_context ctx;
+   boost::asio::ip::tcp::resolver resolver(ctx);
+   boost::asio::ip::tcp::socket socket(ctx);
+   socket.connect(resolver.resolve("127.0.0.1", "8894")->endpoint());
+   std::this_thread::sleep_for(std::chrono::milliseconds(250));
+
+   char byte = 0;
+   boost::system::error_code ec;
+   socket.read_some(boost::asio::buffer(&byte, 1), ec);
+   BOOST_CHECK(ec == boost::asio::error::eof ||
+               ec == boost::asio::error::connection_reset ||
+               ec == boost::asio::error::operation_aborted);
 }
 
 //A warning for future tests: destruction of http_plugin_test_fixture sometimes does not destroy http_plugin's listeners. Tests

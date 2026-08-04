@@ -50,6 +50,16 @@ Config Options for eosio::http_plugin:
                                         should use for processing http
                                         requests. 503 error response when
                                         exceeded.
+  --http-max-connections arg (=1024)    Maximum number of active TCP and Unix
+                                        socket connections. -1 for unlimited.
+  --http-header-timeout-ms arg (=5000) Maximum time to receive request headers.
+                                        0 disables the timeout.
+  --http-body-timeout-ms arg (=30000)  Maximum time to receive a request body.
+                                        0 disables the timeout.
+  --http-idle-timeout-ms arg (=30000)  Maximum idle time between keep-alive
+                                        requests. 0 disables the timeout.
+  --http-write-timeout-ms arg (=30000) Maximum time to produce and write a
+                                        response. 0 disables the timeout.
   --http-max-history-requests-in-flight arg (=4)
                                         Maximum number of transaction-history
                                         requests queued or executing.

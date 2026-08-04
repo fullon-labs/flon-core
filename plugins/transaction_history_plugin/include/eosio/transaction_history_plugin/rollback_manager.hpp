@@ -60,6 +60,7 @@ public:
     * @return Block number of latest rollback point, or empty if none exist
     */
    std::optional<uint32_t> get_latest_rollback_point() const;
+   bool has_rollback_point(uint32_t block_num) const;
 
 private:
    std::shared_ptr<rocksdb_manager> db_;

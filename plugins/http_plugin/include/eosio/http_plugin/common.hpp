@@ -60,7 +60,6 @@ namespace detail {
 struct abstract_conn {
    virtual ~abstract_conn() = default;
    virtual std::string verify_max_bytes_in_flight(size_t extra_bytes) = 0;
-   virtual std::string verify_max_requests_in_flight() = 0;
    virtual void send_busy_response(std::string&& what) = 0;
    virtual void handle_exception() = 0;
 
@@ -121,12 +120,18 @@ struct http_plugin_state {
    size_t max_body_size{2 * 1024 * 1024};
 
    std::atomic<size_t> bytes_in_flight{0};
+   std::atomic<int32_t> active_connections{0};
    std::atomic<int32_t> requests_in_flight{0};
    size_t max_bytes_in_flight = 0;
+   int32_t max_connections = 1024;
    int32_t max_requests_in_flight = 1024;
    int32_t max_history_requests_in_flight = 4;
    uint32_t history_requests_per_second = 5;
    fc::microseconds max_response_time{30 * 1000};
+   std::chrono::milliseconds header_timeout{5000};
+   std::chrono::milliseconds body_timeout{30000};
+   std::chrono::milliseconds idle_timeout{30000};
+   std::chrono::milliseconds write_timeout{30000};
 
    bool validate_host = true;
    set<string> valid_hosts;

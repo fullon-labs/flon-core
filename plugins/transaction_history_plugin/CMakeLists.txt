@@ -72,8 +72,7 @@ target_link_libraries( transaction_history_plugin
                       pthread )
 
 target_include_directories( transaction_history_plugin
-                           PUBLIC "include"
-                           PRIVATE ${ROCKSDB_INCLUDE_DIRS} )
+                           PUBLIC "include" ${ROCKSDB_INCLUDE_DIRS} )
 
 if(ROCKSDB_CFLAGS_OTHER)
    target_compile_options( transaction_history_plugin PRIVATE ${ROCKSDB_CFLAGS_OTHER} )

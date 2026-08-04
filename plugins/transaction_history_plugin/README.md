@@ -166,7 +166,9 @@ Gets accounts controlled by a specific account.
 
 ### Asynchronous Processing
 - Database writes, fork checks, and checkpoints are processed by one ordered worker so their chain-event order is preserved
-- The queue has task-count and retained-byte limits; when full it applies backpressure to the chain thread instead of consuming unbounded memory
+- The queue has task-count and retained-byte limits and uses non-blocking admission from chain callbacks
+- If a required history event cannot be queued or stored, the plugin persists a gap marker, stops advancing accepted-block checkpoints, and exposes the degraded state through performance metrics
+- With automatic repair enabled, a persisted gap is cleared on restart and a new verified chain-head baseline is established; otherwise recording remains disabled until an operator repairs the database
 - Monitoring and maintenance work is skipped when it cannot be enqueued without blocking the ordered worker
 - HTTP history work is admitted before the application queue with a configurable concurrency and token-bucket rate limit; individual key scans yield after 20 ms
 
@@ -184,7 +186,7 @@ Gets accounts controlled by a specific account.
 
 The plugin implements a robust rollback mechanism using RocksDB checkpoints:
 
-1. **Checkpoint Creation**: For each accepted block, a checkpoint is created by the ordered history writer after that block's transactions are persisted. Checkpoints are stored in a sibling `*_checkpoints` directory, outside the live RocksDB directory.
+1. **Checkpoint Creation**: A startup checkpoint is created for the verified chain head, then each accepted block is checkpointed by the ordered history writer after its transactions are persisted. Checkpoints are stored in a sibling `*_checkpoints` directory, outside the live RocksDB directory. A bounded WAL threshold avoids forcing a memtable flush for every block.
 2. **Rollback Execution**: When a rollback is needed, the database is restored from the appropriate checkpoint
 3. **Cleanup**: Checkpoints below the irreversible boundary are removed, while configured count and free-space limits cap the remaining reversible checkpoints
 

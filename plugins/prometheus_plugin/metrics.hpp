@@ -86,9 +86,9 @@ struct catalog_type {
    };
 
    // produced blocks
-   Counter& unapplied_transactions_total;
-   Counter& subjective_bill_account_size_total;
-   Counter& scheduled_trxs_total;
+   Gauge& unapplied_transactions;
+   Gauge& subjective_bill_account_size;
+   Gauge& scheduled_trxs;
    Counter& trxs_produced_total;
    Counter& cpu_usage_us_produced_block;
    Counter& total_elapsed_time_us_produced_block;
@@ -144,12 +144,11 @@ struct catalog_type {
        , net_usage_us(family<Counter>("node_net_usage_us_total", "total net usage in microseconds for blocks"))
        , last_irreversible(build<Gauge>("node_last_irreversible", "last irreversible block number"))
        , head_block_num(build<Gauge>("node_head_block_num", "head block number"))
-       , unapplied_transactions_total(build<Counter>("node_unapplied_transactions_total",
-                                                     "total number of unapplied transactions from produced blocks"))
-       , subjective_bill_account_size_total(build<Counter>(
-             "node_subjective_bill_account_size_total", "total number of subjective bill account size from produced blocks"))
-       , scheduled_trxs_total(
-             build<Counter>("node_scheduled_trxs_total", "total number of scheduled transactions from produced blocks"))
+       , unapplied_transactions(build<Gauge>("node_unapplied_transactions",
+                                             "current number of unapplied transactions"))
+       , subjective_bill_account_size(build<Gauge>(
+             "node_subjective_bill_account_size", "current number of accounts in the subjective billing cache"))
+       , scheduled_trxs(build<Gauge>("node_scheduled_transactions", "current number of scheduled transactions"))
        , trxs_produced_total(build<Counter>("node_trxs_produced_total", "number of transactions produced"))
        , cpu_usage_us_produced_block(cpu_usage_us.Add({{"block_type", "produced"}}))
        , total_elapsed_time_us_produced_block(build<Counter>("node_produced_elapsed_us_total", "total produced blocks elapsed time"))
@@ -249,9 +248,9 @@ struct catalog_type {
    }
 
    void update(const producer_plugin::produced_block_metrics& metrics) {
-      unapplied_transactions_total.Increment(metrics.unapplied_transactions_total);
-      subjective_bill_account_size_total.Increment(metrics.subjective_bill_account_size_total);
-      scheduled_trxs_total.Increment(metrics.scheduled_trxs_total);
+      unapplied_transactions.Set(metrics.unapplied_transactions);
+      subjective_bill_account_size.Set(metrics.subjective_bill_account_size);
+      scheduled_trxs.Set(metrics.scheduled_trxs);
       trxs_produced_total.Increment(metrics.trxs_produced_total);
       cpu_usage_us_produced_block.Increment(metrics.cpu_usage_us);
       total_elapsed_time_us_produced_block.Increment(metrics.total_elapsed_time_us);

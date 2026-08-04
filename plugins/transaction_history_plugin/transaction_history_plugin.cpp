@@ -51,6 +51,7 @@
 #include <boost/program_options.hpp>
 #include <algorithm>
 #include <cctype>
+#include <chrono>
 #include <filesystem>
 #include <iomanip>
 #include <limits>
@@ -58,6 +59,7 @@
 #include <set>
 #include <sstream>
 #include <stdexcept>
+#include <thread>
 
 namespace eosio {
 namespace bpo = boost::program_options;
@@ -119,6 +121,7 @@ public:
    std::atomic<uint64_t> transactions_failed_{0};
    std::atomic<uint64_t> total_processing_time_us_{0};
    std::atomic<bool> history_healthy_{true};
+   std::atomic<uint32_t> history_gap_block_{0};
    fc::time_point startup_time_;
 
    // For monitoring and warnings
@@ -135,6 +138,9 @@ public:
    void applied_transaction(const eosio::chain::transaction_trace_ptr& trace,
                             const eosio::chain::packed_transaction_ptr& packed);
    void ensure_chain_parent(uint32_t parent_block_num, const std::string& parent_block_id);
+   void record_history_gap(uint32_t block_num, const std::string& reason);
+   bool batch_write_with_retry(const std::vector<std::pair<std::string, std::string>>& writes,
+                               const std::vector<std::string>& deletes = {});
    void check_data_size_warnings(uint32_t current_block_num, uint32_t lib_block_num);
    bool filter_action(const eosio::chain::action_trace& action_trace) const;
    uint64_t load_account_sequence(const eosio::chain::name& account) const;
@@ -468,6 +474,31 @@ void transaction_history_plugin::plugin_startup() {
    // checkpoints actively dangerous, so discard unverified history rather
    // than allowing the first block_start event to restore it.
    const std::string chain_head_id = chain.head().id().str();
+   std::string persisted_gap_block;
+   if (my->db_->get("_internal_history_gap_block", persisted_gap_block)) {
+      if (my->auto_repair_enabled_) {
+         wlog("Transaction history contains a persisted gap at block ${block}; clearing incomplete history",
+              ("block", persisted_gap_block));
+         EOS_ASSERT(my->db_->clear_all_data(), chain::plugin_exception,
+                    "Failed to clear incomplete transaction history");
+         EOS_ASSERT(my->db_->batch_write({
+              {"_internal_last_block_number", std::to_string(chain_head_block)},
+              {"_internal_last_accepted_block_num", std::to_string(chain_head_block)},
+              {"_internal_last_accepted_block_id", chain_head_id}
+           }, {}), chain::plugin_exception,
+           "Failed to establish transaction history baseline after repairing a gap");
+         db_last_block = chain_head_block;
+      } else {
+         my->history_healthy_ = false;
+         try {
+            my->history_gap_block_ = static_cast<uint32_t>(std::stoul(persisted_gap_block));
+         } catch (...) {
+            my->history_gap_block_ = chain_head_block;
+         }
+         elog("Transaction history contains a persisted gap at block ${block}; recording disabled",
+              ("block", persisted_gap_block));
+      }
+   }
    std::string stored_accepted_num;
    std::string stored_accepted_id;
    bool has_chain_identity = my->db_->get("_internal_last_accepted_block_num", stored_accepted_num) &&
@@ -537,6 +568,15 @@ void transaction_history_plugin::plugin_startup() {
    // branch and removed any incompatible external checkpoints.
    my->rollback_mgr_ = std::make_unique<rollback_manager>(my->db_);
 
+   // A newly established or repaired baseline must itself be restorable. This
+   // closes the window in which the first live block can fork before any
+   // accepted-block callback has created a checkpoint for its parent.
+   if (my->history_healthy_.load() &&
+       !my->rollback_mgr_->has_rollback_point(chain_head_block) &&
+       !my->rollback_mgr_->create_rollback_point(chain_head_block)) {
+      my->record_history_gap(chain_head_block, "failed to create startup checkpoint");
+   }
+
    // Log final database statistics
    std::string db_stats = my->db_->get_database_stats();
    dlog("Transaction history database statistics: ${stats}", ("stats", db_stats));
@@ -555,9 +595,11 @@ void transaction_history_plugin::plugin_startup() {
       [&](uint32_t) {
          const uint32_t parent_block_num = chain.head().block_num();
          const std::string parent_block_id = chain.head().id().str();
-         my->worker_->enqueue_task([impl = my.get(), parent_block_num, parent_block_id]() {
-            impl->ensure_chain_parent(parent_block_num, parent_block_id);
-         });
+         if (!my->worker_->try_enqueue_task([impl = my.get(), parent_block_num, parent_block_id]() {
+                impl->ensure_chain_parent(parent_block_num, parent_block_id);
+             })) {
+            my->record_history_gap(parent_block_num, "history queue full before fork-parent check");
+         }
       });
 
    my->applied_transaction_connection_ = chain.applied_transaction().connect(
@@ -570,33 +612,31 @@ void transaction_history_plugin::plugin_startup() {
          const uint32_t block_num = std::get<0>(event)->block_num();
          const std::string block_id = std::get<1>(event).str();
          const uint32_t irreversible_block_num = chain.last_irreversible_block_num();
-         my->worker_->enqueue_task([impl = my.get(), block_num, block_id, irreversible_block_num]() {
+         if (!my->worker_->try_enqueue_task([impl = my.get(), block_num, block_id, irreversible_block_num]() {
             if (!impl->history_healthy_.load()) {
                return;
             }
 
-            if (!impl->db_->batch_write({
+            if (!impl->batch_write_with_retry({
                    {"_internal_last_accepted_block_num", std::to_string(block_num)},
                    {"_internal_last_accepted_block_id", block_id}
                 }, {})) {
-               impl->history_healthy_ = false;
-               elog("Failed to persist accepted block identity at block ${block}; "
-                    "transaction history recording has been disabled",
-                    ("block", block_num));
+               impl->record_history_gap(block_num, "failed to persist accepted-block identity");
                return;
             }
 
             impl->rollback_mgr_->cleanup_old_rollback_points(
                impl->max_retained_blocks_, impl->min_checkpoint_free_bytes_);
             if (!impl->rollback_mgr_->create_rollback_point(block_num)) {
-               wlog("Failed to create transaction history checkpoint at block ${block}",
-                    ("block", block_num));
+               impl->record_history_gap(block_num, "failed to create accepted-block checkpoint");
                return;
             }
             impl->rollback_mgr_->cleanup_irreversible_rollback_points(irreversible_block_num);
             impl->rollback_mgr_->cleanup_old_rollback_points(
                impl->max_retained_blocks_, impl->min_checkpoint_free_bytes_);
-         });
+             })) {
+            my->record_history_gap(block_num, "history queue full before accepted-block checkpoint");
+         }
       });
 
    ilog("Transaction history plugin started successfully");
@@ -654,8 +694,7 @@ void transaction_history_plugin_impl::ensure_chain_parent(
              {"_internal_last_accepted_block_num", std::to_string(parent_block_num)},
              {"_internal_last_accepted_block_id", parent_block_id}
           }, {})) {
-         history_healthy_ = false;
-         elog("Failed to initialize transaction history chain identity; recording disabled");
+         record_history_gap(parent_block_num, "failed to initialize chain identity");
       }
       return;
    }
@@ -664,8 +703,7 @@ void transaction_history_plugin_impl::ensure_chain_parent(
    try {
       stored_num = std::stoul(stored_num_text);
    } catch (...) {
-      history_healthy_ = false;
-      elog("Invalid accepted block number in transaction history database; recording disabled");
+      record_history_gap(parent_block_num, "invalid accepted block number in history database");
       return;
    }
 
@@ -674,18 +712,8 @@ void transaction_history_plugin_impl::ensure_chain_parent(
    }
 
    if (stored_num < parent_block_num) {
-      // The plugin was disabled or the history database was behind while the
-      // chain advanced. Preserve the existing gap and establish a new baseline.
-      wlog("Transaction history gap detected: database accepted block ${db_block}, "
-           "chain parent ${chain_block}; continuing from the current chain",
-           ("db_block", stored_num)("chain_block", parent_block_num));
-      if (!db_->batch_write({
-             {"_internal_last_accepted_block_num", std::to_string(parent_block_num)},
-             {"_internal_last_accepted_block_id", parent_block_id}
-          }, {})) {
-         history_healthy_ = false;
-         elog("Failed to update transaction history chain baseline; recording disabled");
-      }
+      record_history_gap(stored_num + 1,
+                         "chain advanced beyond the persisted history baseline");
       return;
    }
 
@@ -694,20 +722,14 @@ void transaction_history_plugin_impl::ensure_chain_parent(
         ("db_block", stored_num)("parent_block", parent_block_num));
 
    if (!rollback_mgr_->rollback_to_block(parent_block_num)) {
-      history_healthy_ = false;
-      elog("No usable transaction history checkpoint for fork parent block ${block}; "
-           "recording disabled to avoid mixing branches",
-           ("block", parent_block_num));
+      record_history_gap(parent_block_num, "no usable checkpoint for fork parent");
       return;
    }
 
    std::string restored_id;
    if (!db_->get("_internal_last_accepted_block_id", restored_id) ||
        restored_id != parent_block_id) {
-      history_healthy_ = false;
-      elog("Transaction history checkpoint at block ${block} belongs to a different branch; "
-           "recording disabled",
-           ("block", parent_block_num));
+      record_history_gap(parent_block_num, "fork checkpoint belongs to a different branch");
       return;
    }
 
@@ -746,6 +768,7 @@ void transaction_history_plugin_impl::applied_transaction(
       transactions_failed_++;
       elog("Failed to measure transaction ${id} trace size: ${error}",
            ("id", trace->id)("error", e.what()));
+      record_history_gap(block_num, "failed to measure retained transaction history size");
       return;
    }
 
@@ -753,11 +776,12 @@ void transaction_history_plugin_impl::applied_transaction(
       transactions_failed_++;
       wlog("Dropping transaction ${id} history trace of ${size} bytes; limit is ${limit}",
            ("id", trace->id)("size", retained_trace_bytes)("limit", max_trace_size_));
+      record_history_gap(block_num, "transaction history trace exceeds configured size limit");
       return;
    }
 
    // Process transaction asynchronously to avoid blocking main chain
-   worker_->enqueue_task_with_size(retained_trace_bytes,
+   if (!worker_->try_enqueue_task_with_size(retained_trace_bytes,
       [this, trace, packed, block_num, block_time, last_irreversible_block]() {
       auto start_time = fc::time_point::now();
 
@@ -997,6 +1021,7 @@ void transaction_history_plugin_impl::applied_transaction(
             transactions_failed_++;
             wlog("Dropping transaction ${id} history because its record exceeds the write batch byte limit",
                  ("id", trace->id));
+            record_history_gap(result.block_num, "transaction history write exceeds configured batch limit");
             return;
          }
          EOS_ASSERT(append_write(block_key, trx_key), chain::plugin_exception,
@@ -1081,9 +1106,10 @@ void transaction_history_plugin_impl::applied_transaction(
 
          // The transaction record, block index, account indexes, sequence
          // cursors, and database height must become visible atomically.
-         if (!db_->batch_write(writes, {})) {
-            elog("Failed to atomically store transaction history for ${id} at block ${block}",
-                 ("id", trace->id)("block", result.block_num));
+         if (!batch_write_with_retry(writes, {})) {
+            transactions_failed_++;
+            record_history_gap(result.block_num,
+                               "failed to atomically store transaction " + trace->id.str());
             return;
          }
 
@@ -1109,13 +1135,53 @@ void transaction_history_plugin_impl::applied_transaction(
 
       } catch (const std::exception& e) {
          transactions_failed_++;
+         record_history_gap(block_num, std::string("transaction history processing exception: ") + e.what());
          elog("Error processing transaction ${id}: ${what}",
               ("id", trace->id)("what", e.what()));
       } catch (...) {
          transactions_failed_++;
+         record_history_gap(block_num, "unknown transaction history processing exception");
          elog("Unknown error processing transaction ${id}", ("id", trace->id));
       }
-   });
+      })) {
+      transactions_failed_++;
+      record_history_gap(block_num, "history queue byte or task budget exhausted");
+   }
+}
+
+void transaction_history_plugin_impl::record_history_gap(uint32_t block_num,
+                                                          const std::string& reason) {
+   bool expected = true;
+   if (!history_healthy_.compare_exchange_strong(expected, false)) {
+      return;
+   }
+
+   history_gap_block_ = block_num;
+   const std::string bounded_reason = reason.substr(0, 512);
+   if (!db_->batch_write({
+          {"_internal_history_gap_block", std::to_string(block_num)},
+          {"_internal_history_gap_reason", bounded_reason}
+       }, {})) {
+      elog("Failed to persist transaction history gap marker at block ${block}",
+           ("block", block_num));
+   }
+   elog("Transaction history became incomplete at block ${block}: ${reason}; recording disabled",
+        ("block", block_num)("reason", bounded_reason));
+}
+
+bool transaction_history_plugin_impl::batch_write_with_retry(
+   const std::vector<std::pair<std::string, std::string>>& writes,
+   const std::vector<std::string>& deletes) {
+   constexpr uint32_t max_attempts = 3;
+   for (uint32_t attempt = 1; attempt <= max_attempts; ++attempt) {
+      if (db_->batch_write(writes, deletes)) {
+         return true;
+      }
+      if (attempt != max_attempts) {
+         std::this_thread::sleep_for(std::chrono::milliseconds(5u << (attempt - 1)));
+      }
+   }
+   return false;
 }
 
 bool transaction_history_plugin_impl::filter_action(const eosio::chain::action_trace& action_trace) const {
@@ -1632,7 +1698,15 @@ read_only::get_performance_metrics_result read_only::get_performance_metrics(con
    if (history && history->get_db_manager()) {
       std::string metrics_json = history->get_db_manager()->get_performance_metrics();
       try {
-         result.metrics = fc::json::from_string(metrics_json);
+         fc::variant parsed = fc::json::from_string(metrics_json);
+         fc::mutable_variant_object metrics(std::move(parsed.get_object()));
+         metrics["history_healthy"] = history->my->history_healthy_.load();
+         metrics["history_gap_block"] = history->my->history_gap_block_.load();
+         metrics["history_queue_tasks"] = history->my->worker_->pending_tasks();
+         metrics["history_queue_bytes"] = history->my->worker_->pending_bytes();
+         metrics["transactions_processed"] = history->my->transactions_processed_.load();
+         metrics["transactions_failed"] = history->my->transactions_failed_.load();
+         result.metrics = std::move(metrics);
          result.success = true;
       } catch (const std::exception& e) {
          result.success = false;

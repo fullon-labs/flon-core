@@ -3046,9 +3046,9 @@ bool producer_plugin_impl::produce_block() {
    const signed_block_ptr new_b = chain.head().block();
    if (_update_produced_block_metrics) {
       producer_plugin::produced_block_metrics metrics;
-      metrics.unapplied_transactions_total = _unapplied_transactions.size();
-      metrics.subjective_bill_account_size_total = chain.get_subjective_billing().get_account_cache_size();
-      metrics.scheduled_trxs_total = chain.db().get_index<generated_transaction_multi_index, by_delay>().size();
+      metrics.unapplied_transactions = _unapplied_transactions.size();
+      metrics.subjective_bill_account_size = chain.get_subjective_billing().get_account_cache_size();
+      metrics.scheduled_trxs = chain.db().get_index<generated_transaction_multi_index, by_delay>().size();
       metrics.trxs_produced_total = new_b->transactions.size();
       metrics.cpu_usage_us = br.total_cpu_usage_us;
       metrics.total_elapsed_time_us = br.total_elapsed_time.count();

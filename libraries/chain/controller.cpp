@@ -788,9 +788,14 @@ struct building_block {
                // compute the action_mroot and transaction_mroot
                auto [transaction_mroot, action_mroot] = std::visit(
                   overloaded{[&](digests_t& trx_receipts) {
-                                // calculate_merkle takes 3.2ms for 50,000 digests (legacy version took 11.1ms)
-                                return std::make_pair(calculate_merkle(trx_receipts),
-                                                      calculate_merkle(*action_receipts.digests_s));
+                                // Reuse the controller executor for both roots.
+                                // calculate_merkle itself stays allocation-free and no longer
+                                // creates two or four temporary std::async threads per root.
+                                auto trx_merkle_fut =
+                                   post_async_task(ioc, [&]() { return calculate_merkle(trx_receipts); });
+                                auto action_merkle_fut =
+                                   post_async_task(ioc, [&]() { return calculate_merkle(*action_receipts.digests_s); });
+                                return std::make_pair(trx_merkle_fut.get(), action_merkle_fut.get());
                              },
                              [&](const checksum256_type& trx_checksum) {
                                 return std::make_pair(trx_checksum,

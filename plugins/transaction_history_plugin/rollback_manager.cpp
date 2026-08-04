@@ -15,7 +15,20 @@ rollback_manager::~rollback_manager() {
 }
 
 bool rollback_manager::create_rollback_point(uint32_t block_num) {
+   if (rollback_points_.find(block_num) != rollback_points_.end()) {
+      return true;
+   }
    try {
+      // A directory without loaded rollback metadata is stale (for example,
+      // after interruption between checkpoint creation and metadata commit).
+      std::error_code stale_error;
+      std::filesystem::remove_all(db_->get_checkpoint_path(block_num), stale_error);
+      if (stale_error) {
+         elog("Failed to remove stale checkpoint for block ${block}: ${error}",
+              ("block", block_num)("error", stale_error.message()));
+         return false;
+      }
+
       // Create checkpoint in RocksDB
       if (!db_->create_checkpoint(block_num)) {
          return false;
@@ -161,6 +174,10 @@ std::optional<uint32_t> rollback_manager::get_latest_rollback_point() const {
    }
 
    return rollback_points_.rbegin()->first;
+}
+
+bool rollback_manager::has_rollback_point(uint32_t block_num) const {
+   return rollback_points_.find(block_num) != rollback_points_.end();
 }
 
 std::string rollback_manager::get_rollback_key(uint32_t block_num) const {

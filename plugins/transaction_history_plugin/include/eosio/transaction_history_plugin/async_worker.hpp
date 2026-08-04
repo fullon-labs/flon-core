@@ -22,7 +22,7 @@ namespace eosio {
 class async_worker {
 public:
    using task_type = std::function<void()>;
-   static constexpr size_t max_pending_tasks = 10000;
+   static constexpr size_t max_pending_tasks = 10000; // bounded admission
    static constexpr size_t max_pending_bytes = 256 * 1024 * 1024;
 
    async_worker();
@@ -81,8 +81,13 @@ public:
     */
    template<typename F, typename... Args>
    bool try_enqueue_task(F&& f, Args&&... args) {
-      return try_enqueue(
-         task_type(std::bind(std::forward<F>(f), std::forward<Args>(args)...)), 0);
+      return try_enqueue_task_with_size(0, std::forward<F>(f), std::forward<Args>(args)...);
+   }
+
+   template<typename F, typename... Args>
+   bool try_enqueue_task_with_size(size_t task_size, F&& f, Args&&... args) {
+      return try_enqueue(task_type(std::bind(std::forward<F>(f), std::forward<Args>(args)...)),
+                         task_size);
    }
 
    /**

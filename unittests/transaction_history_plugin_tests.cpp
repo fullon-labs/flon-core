@@ -147,6 +147,13 @@ BOOST_AUTO_TEST_CASE(async_worker_task_execution) {
 }
 
 BOOST_AUTO_TEST_CASE(async_worker_queue_limits) {
+   async_worker nonblocking_byte_limited_worker;
+   BOOST_REQUIRE(nonblocking_byte_limited_worker.try_enqueue_task_with_size(
+      async_worker::max_pending_bytes, [] {}));
+   BOOST_CHECK(!nonblocking_byte_limited_worker.try_enqueue_task_with_size(1, [] {}));
+   nonblocking_byte_limited_worker.start();
+   nonblocking_byte_limited_worker.stop();
+
    async_worker byte_limited_worker;
    auto future = byte_limited_worker.enqueue_task_with_size(
       async_worker::max_pending_bytes, [] {});
@@ -198,6 +205,8 @@ BOOST_AUTO_TEST_CASE(rollback_manager_operations) {
       BOOST_CHECK(manager.create_rollback_point(100));
       BOOST_CHECK(manager.create_rollback_point(200));
       BOOST_CHECK(manager.create_rollback_point(300));
+      BOOST_CHECK(manager.has_rollback_point(100));
+      BOOST_CHECK(!manager.has_rollback_point(400));
 
       // Test getting latest rollback point
       auto latest = manager.get_latest_rollback_point();

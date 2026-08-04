@@ -945,7 +945,11 @@ bool rocksdb_manager::create_checkpoint(uint32_t block_num) {
    }
 
    std::unique_ptr<rocksdb::Checkpoint> checkpoint(raw_checkpoint);
-   status = checkpoint->CreateCheckpoint(checkpoint_path);
+   // WriteOptions keeps WAL enabled. Allow a bounded amount of WAL to be
+   // captured by the checkpoint so every block does not force a memtable
+   // flush; RocksDB still flushes once the live WAL exceeds this threshold.
+   constexpr uint64_t checkpoint_wal_flush_threshold = 64ull * 1024 * 1024;
+   status = checkpoint->CreateCheckpoint(checkpoint_path, checkpoint_wal_flush_threshold);
 
    if (!status.ok()) {
       elog("Failed to create checkpoint for block ${block}: ${error}",
