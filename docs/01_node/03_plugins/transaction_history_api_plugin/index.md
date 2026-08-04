@@ -8,3 +8,9 @@ plugin = eosio::transaction_history_api_plugin
 ```
 
 It exposes the compatible `/v1/history/get_transaction`, `/v1/history/get_actions`, `/v1/history/get_transaction_count`, `/v1/history/get_key_accounts`, and `/v1/history/get_controlled_accounts` endpoints. Use the HTTP plugin's API-category controls and trusted listener configuration when exposing these endpoints.
+
+History requests are admitted before entering the application queue and are
+bounded by `http-max-history-requests-in-flight` and
+`http-history-requests-per-second`. Transaction ID prefixes must contain at
+least eight hexadecimal characters and are rejected when more than one stored
+transaction matches.

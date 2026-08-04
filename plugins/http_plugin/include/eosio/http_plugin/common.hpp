@@ -27,8 +27,11 @@
 #include <boost/asio/basic_stream_socket.hpp>
 #include <boost/asio/detail/config.hpp>
 
+#include <algorithm>
 #include <atomic>
+#include <chrono>
 #include <map>
+#include <mutex>
 #include <optional>
 #include <regex>
 #include <set>
@@ -121,6 +124,8 @@ struct http_plugin_state {
    std::atomic<int32_t> requests_in_flight{0};
    size_t max_bytes_in_flight = 0;
    int32_t max_requests_in_flight = 1024;
+   int32_t max_history_requests_in_flight = 4;
+   uint32_t history_requests_per_second = 5;
    fc::microseconds max_response_time{30 * 1000};
 
    bool validate_host = true;
@@ -137,6 +142,10 @@ struct http_plugin_state {
 
    fc::logger& logger;
    std::function<void(http_plugin::metrics)> update_metrics;
+   std::mutex history_admission_mutex;
+   int32_t history_requests_in_flight = 0;
+   double history_request_tokens = 5.0;
+   std::chrono::steady_clock::time_point history_token_time = std::chrono::steady_clock::now();
 
    bool try_reserve_bytes(size_t amount) {
       size_t current = bytes_in_flight.load(std::memory_order_relaxed);
@@ -152,6 +161,38 @@ struct http_plugin_state {
 
    void release_bytes(size_t amount) {
       bytes_in_flight.fetch_sub(amount, std::memory_order_acq_rel);
+   }
+
+   bool try_reserve_api_request(api_category category) {
+      if (category != api_category::history_ro) return true;
+
+      std::lock_guard<std::mutex> lock(history_admission_mutex);
+      const auto now = std::chrono::steady_clock::now();
+      const double elapsed = std::chrono::duration<double>(now - history_token_time).count();
+      history_token_time = now;
+      history_request_tokens = std::min<double>(
+         history_requests_per_second,
+         history_request_tokens + elapsed * history_requests_per_second);
+      if (history_requests_in_flight >= max_history_requests_in_flight ||
+          history_request_tokens < 1.0) {
+         return false;
+      }
+      --history_request_tokens;
+      ++history_requests_in_flight;
+      return true;
+   }
+
+   void release_api_request(api_category category) {
+      if (category != api_category::history_ro) return;
+      std::lock_guard<std::mutex> lock(history_admission_mutex);
+      --history_requests_in_flight;
+   }
+
+   void reset_history_admission() {
+      std::lock_guard<std::mutex> lock(history_admission_mutex);
+      history_requests_in_flight = 0;
+      history_request_tokens = history_requests_per_second;
+      history_token_time = std::chrono::steady_clock::now();
    }
 
    fc::logger& get_logger() { return logger; }

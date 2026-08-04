@@ -134,6 +134,27 @@ void rollback_manager::cleanup_old_rollback_points(uint32_t keep_blocks,
    }
 }
 
+void rollback_manager::cleanup_irreversible_rollback_points(uint32_t irreversible_block_num) {
+   auto cleanup_it = rollback_points_.begin();
+   while (cleanup_it != rollback_points_.end() && cleanup_it->first < irreversible_block_num) {
+      const std::string checkpoint_path = db_->get_checkpoint_path(cleanup_it->first);
+      std::error_code remove_error;
+      std::filesystem::remove_all(checkpoint_path, remove_error);
+      if (remove_error) {
+         wlog("Failed to remove irreversible checkpoint ${path}: ${error}",
+              ("path", checkpoint_path)("error", remove_error.message()));
+         break;
+      }
+
+      const std::string key = get_rollback_key(cleanup_it->first);
+      if (!db_->remove(key)) {
+         wlog("Failed to remove rollback metadata ${key}", ("key", key));
+         break;
+      }
+      cleanup_it = rollback_points_.erase(cleanup_it);
+   }
+}
+
 std::optional<uint32_t> rollback_manager::get_latest_rollback_point() const {
    if (rollback_points_.empty()) {
       return {};

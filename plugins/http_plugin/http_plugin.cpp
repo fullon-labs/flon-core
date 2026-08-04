@@ -154,13 +154,19 @@ namespace eosio {
             handler.content_type = content_type;
             handler.category = entry.category;
             handler.unix_socket_only = entry.unix_socket_only;
+            const auto category = entry.category;
             auto next_ptr = std::make_shared<url_handler>(std::move(entry.handler));
-            handler.fn = [my=std::move(my), priority, to_queue, next_ptr=std::move(next_ptr)]
+            handler.fn = [my=std::move(my), priority, to_queue, category, next_ptr=std::move(next_ptr)]
                        ( detail::abstract_conn_ptr conn, string&& r, string&& b, url_response_callback&& then ) {
                const size_t body_size = b.size();
                auto state = my->plugin_state;
                if (!state->try_reserve_bytes(body_size)) {
                   conn->send_busy_response("Too many bytes in flight while queueing request body");
+                  return;
+               }
+               if (!state->try_reserve_api_request(category)) {
+                  state->release_bytes(body_size);
+                  conn->send_busy_response("Transaction history API rate or concurrency limit exceeded");
                   return;
                }
 
@@ -174,9 +180,11 @@ namespace eosio {
                   };
                   app().executor().post( priority, to_queue,
                      [next_ptr, conn=std::move(conn), r=std::move(r), b=std::move(b),
-                      wrapped_then=std::move(wrapped_then), state, body_size]() mutable {
+                      wrapped_then=std::move(wrapped_then), state, body_size, category]() mutable {
                         auto release_body = fc::make_scoped_exit(
                            [state, body_size] { state->release_bytes(body_size); });
+                        auto release_request = fc::make_scoped_exit(
+                           [state, category] { state->release_api_request(category); });
                         try {
                            if( app().is_quiting() ) return;
                            (*next_ptr)(std::move(r), std::move(b), std::move(wrapped_then));
@@ -185,6 +193,7 @@ namespace eosio {
                         }
                      });
                } catch(...) {
+                  state->release_api_request(category);
                   state->release_bytes(body_size);
                   throw;
                }
@@ -208,7 +217,8 @@ namespace eosio {
             handler.content_type = content_type;
             handler.category = entry.category;
             handler.unix_socket_only = entry.unix_socket_only;
-            handler.fn = [next=std::move(entry.handler), state=my->plugin_state]
+            const auto category = entry.category;
+            handler.fn = [next=std::move(entry.handler), state=my->plugin_state, category]
                          ( const detail::abstract_conn_ptr& conn, string&& r, string&& b,
                            url_response_callback&& then ) mutable {
                const size_t body_size = b.size();
@@ -216,8 +226,15 @@ namespace eosio {
                   conn->send_busy_response("Too many bytes in flight while handling request body");
                   return;
                }
+               if (!state->try_reserve_api_request(category)) {
+                  state->release_bytes(body_size);
+                  conn->send_busy_response("Transaction history API rate or concurrency limit exceeded");
+                  return;
+               }
                auto release_body = fc::make_scoped_exit(
                   [state, body_size] { state->release_bytes(body_size); });
+               auto release_request = fc::make_scoped_exit(
+                  [state, category] { state->release_api_request(category); });
                try {
                   next(std::move(r), std::move(b), std::move(then));
                } catch( ... ) {
@@ -395,6 +412,10 @@ namespace eosio {
              "Maximum size in megabytes http_plugin should use for processing http requests. -1 for unlimited. 503 error response when exceeded." )
             ("http-max-in-flight-requests", bpo::value<int32_t>()->default_value(my->plugin_state->max_requests_in_flight),
              "Maximum number of requests http_plugin should use for processing http requests. 503 error response when exceeded." )
+            ("http-max-history-requests-in-flight", bpo::value<int32_t>()->default_value(my->plugin_state->max_history_requests_in_flight),
+             "Maximum number of transaction history requests queued or executing on the application thread." )
+            ("http-history-requests-per-second", bpo::value<uint32_t>()->default_value(my->plugin_state->history_requests_per_second),
+             "Token-bucket rate limit shared by all transaction history HTTP endpoints." )
             ("http-max-response-time-ms", bpo::value<int64_t>()->default_value(15),
              "Maximum time on main thread for processing a request, -1 for unlimited")
             ("verbose-http-errors", bpo::bool_switch()->default_value(false),
@@ -432,6 +453,15 @@ namespace eosio {
          EOS_ASSERT(my->plugin_state->max_requests_in_flight >= -1,
                     chain::plugin_config_exception,
                     "http-max-in-flight-requests must be -1 or non-negative");
+         my->plugin_state->max_history_requests_in_flight =
+            options.at("http-max-history-requests-in-flight").as<int32_t>();
+         my->plugin_state->history_requests_per_second =
+            options.at("http-history-requests-per-second").as<uint32_t>();
+         EOS_ASSERT(my->plugin_state->max_history_requests_in_flight > 0 &&
+                    my->plugin_state->history_requests_per_second > 0,
+                    chain::plugin_config_exception,
+                    "transaction history HTTP admission limits must be greater than zero");
+         my->plugin_state->reset_history_admission();
          int64_t max_reponse_time_ms = options.at("http-max-response-time-ms").as<int64_t>();
          EOS_ASSERT( max_reponse_time_ms == -1 || max_reponse_time_ms >= 0, chain::plugin_config_exception,
                      "http-max-response-time-ms must be -1, or non-negative: ${m}", ("m", max_reponse_time_ms) );

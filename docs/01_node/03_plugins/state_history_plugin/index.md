@@ -54,6 +54,13 @@ Config Options for eosio::state_history_plugin:
                                         number of most recent blocks
 ```
 
+Each client request is limited to 1 MiB, 4096 fork positions, and 4096 send
+credits. Additional acknowledgement credits saturate at the same limit, which
+keeps per-session memory and main-thread work bounded.
+
+When a Unix socket is used, its parent directory must be private to the node
+user (for example, mode `0700`).
+
 ## How-To Guides
 
 * [How to fast start without history on existing chains](10_how-to-fast-start-without-old-history.md)

@@ -95,6 +95,10 @@ The `transaction_history_api_plugin` provides the following REST API endpoints:
 ### GET /v1/transaction_history/get_transaction
 Retrieves detailed information about a specific transaction.
 
+IDs may be full transaction IDs or hexadecimal prefixes of at least eight
+characters. Ambiguous prefixes are rejected instead of returning an arbitrary
+matching transaction.
+
 **Parameters:**
 ```json
 {
@@ -164,6 +168,7 @@ Gets accounts controlled by a specific account.
 - Database writes, fork checks, and checkpoints are processed by one ordered worker so their chain-event order is preserved
 - The queue has task-count and retained-byte limits; when full it applies backpressure to the chain thread instead of consuming unbounded memory
 - Monitoring and maintenance work is skipped when it cannot be enqueued without blocking the ordered worker
+- HTTP history work is admitted before the application queue with a configurable concurrency and token-bucket rate limit; individual key scans yield after 20 ms
 
 ### Storage Optimization
 - RocksDB is configured with optimized settings for write-heavy workloads
@@ -181,7 +186,7 @@ The plugin implements a robust rollback mechanism using RocksDB checkpoints:
 
 1. **Checkpoint Creation**: For each accepted block, a checkpoint is created by the ordered history writer after that block's transactions are persisted. Checkpoints are stored in a sibling `*_checkpoints` directory, outside the live RocksDB directory.
 2. **Rollback Execution**: When a rollback is needed, the database is restored from the appropriate checkpoint
-3. **Cleanup**: Old checkpoints are automatically cleaned up, including after restart, to prevent excessive disk usage
+3. **Cleanup**: Checkpoints below the irreversible boundary are removed, while configured count and free-space limits cap the remaining reversible checkpoints
 
 ## Snapshot Recovery
 

@@ -48,6 +48,30 @@ BOOST_AUTO_TEST_CASE(bytes_in_flight_reservation_is_atomic_and_bounded) {
    BOOST_CHECK_EQUAL(state.bytes_in_flight.load(), 0u);
 }
 
+BOOST_AUTO_TEST_CASE(history_api_admission_is_rate_and_concurrency_bounded) {
+   fc::logger log;
+   http_plugin_state state(log);
+   state.max_history_requests_in_flight = 2;
+   state.history_requests_per_second = 2;
+   state.reset_history_admission();
+
+   BOOST_REQUIRE(state.try_reserve_api_request(api_category::history_ro));
+   BOOST_REQUIRE(state.try_reserve_api_request(api_category::history_ro));
+   BOOST_CHECK(!state.try_reserve_api_request(api_category::history_ro));
+   state.release_api_request(api_category::history_ro);
+   state.release_api_request(api_category::history_ro);
+
+   // Releasing concurrency does not replenish the rate-limit tokens.
+   BOOST_CHECK(!state.try_reserve_api_request(api_category::history_ro));
+   BOOST_CHECK(state.try_reserve_api_request(api_category::chain_ro));
+
+   state.max_history_requests_in_flight = 1;
+   state.reset_history_admission();
+   BOOST_REQUIRE(state.try_reserve_api_request(api_category::history_ro));
+   BOOST_CHECK(!state.try_reserve_api_request(api_category::history_ro));
+   state.release_api_request(api_category::history_ro);
+}
+
 // -------------------------------------------------------------------------
 // this class handles some basic http requests.
 // -------------------------------------------------------------------------
@@ -600,6 +624,10 @@ BOOST_FIXTURE_TEST_CASE(unix_socket_only_api, http_plugin_test_fixture) {
    const auto socket_permissions = std::filesystem::status(socket_path).permissions();
    BOOST_CHECK(socket_permissions ==
                (std::filesystem::perms::owner_read | std::filesystem::perms::owner_write));
+   const auto parent_permissions = std::filesystem::status(data_dir).permissions();
+   BOOST_CHECK((parent_permissions &
+                (std::filesystem::perms::group_all | std::filesystem::perms::others_all)) ==
+               std::filesystem::perms::none);
 
    BOOST_CHECK_EQUAL(http_response_for("127.0.0.1:8892", "/v1/node/get_supported_apis").body(),
                      R"({"apis":[]})");

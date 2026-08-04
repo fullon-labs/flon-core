@@ -8,6 +8,7 @@
 #include <future>
 #include <vector>
 #include <stdexcept>
+#include <type_traits>
 
 namespace eosio {
 
@@ -47,7 +48,7 @@ public:
     */
    template<typename F, typename... Args>
    auto enqueue_task(F&& f, Args&&... args)
-       -> std::future<typename std::result_of<F(Args...)>::type> {
+       -> std::future<std::invoke_result_t<F, Args...>> {
 
       return enqueue_task_with_size(0, std::forward<F>(f), std::forward<Args>(args)...);
    }
@@ -58,9 +59,9 @@ public:
     */
    template<typename F, typename... Args>
    auto enqueue_task_with_size(size_t task_size, F&& f, Args&&... args)
-       -> std::future<typename std::result_of<F(Args...)>::type> {
+       -> std::future<std::invoke_result_t<F, Args...>> {
 
-      using return_type = typename std::result_of<F(Args...)>::type;
+      using return_type = std::invoke_result_t<F, Args...>;
 
       auto task = std::make_shared<std::packaged_task<return_type()>>(
          std::bind(std::forward<F>(f), std::forward<Args>(args)...)

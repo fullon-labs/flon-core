@@ -80,6 +80,12 @@ BOOST_AUTO_TEST_CASE(rocksdb_manager_json_validation_and_cleanup) {
    BOOST_REQUIRE(manager.put_object("trx:from", history_record(100)));
    BOOST_REQUIRE(manager.put_object("acc:after", history_record(101)));
    BOOST_REQUIRE(manager.put("trx:invalid", "not-json"));
+   std::vector<std::pair<std::string, std::string>> invalid_records;
+   invalid_records.reserve(10005);
+   for (size_t i = 0; i < 10005; ++i) {
+      invalid_records.emplace_back("trx:invalid-batch-" + std::to_string(i), "not-json");
+   }
+   BOOST_REQUIRE(manager.batch_write(invalid_records));
    BOOST_REQUIRE(manager.update_last_block_number(101));
 
    BOOST_REQUIRE(manager.validate_and_repair_database());
@@ -90,6 +96,14 @@ BOOST_AUTO_TEST_CASE(rocksdb_manager_json_validation_and_cleanup) {
    BOOST_CHECK(manager.get("trx:from", value));
    BOOST_CHECK(manager.get("acc:after", value));
    BOOST_CHECK(!manager.get("trx:invalid", value));
+   auto iterator = std::unique_ptr<rocksdb::Iterator>(manager.new_iterator());
+   size_t invalid_records_remaining = 0;
+   for (iterator->Seek("trx:invalid-batch-");
+        iterator->Valid() && iterator->key().starts_with("trx:invalid-batch-");
+        iterator->Next()) {
+      ++invalid_records_remaining;
+   }
+   BOOST_CHECK_EQUAL(invalid_records_remaining, 0u);
 
    BOOST_REQUIRE(manager.clear_from_block(100));
    BOOST_CHECK(manager.get("trx:before", value));
@@ -240,6 +254,27 @@ BOOST_AUTO_TEST_CASE(rocksdb_manager_checkpoint_rollback_preserves_database) {
    BOOST_CHECK(std::filesystem::exists(checkpoint_path / "CURRENT"));
 
    manager.close();
+}
+
+BOOST_AUTO_TEST_CASE(rollback_manager_removes_only_irreversible_checkpoints) {
+   fc::temp_directory temp_dir;
+   auto db = std::make_shared<rocksdb_manager>();
+   BOOST_REQUIRE(db->open((temp_dir.path() / "history").string()));
+
+   rollback_manager manager(db);
+   BOOST_REQUIRE(manager.create_rollback_point(100));
+   BOOST_REQUIRE(manager.create_rollback_point(200));
+   BOOST_REQUIRE(manager.create_rollback_point(300));
+   manager.cleanup_irreversible_rollback_points(250);
+
+   BOOST_CHECK(!std::filesystem::exists(db->get_checkpoint_path(100)));
+   BOOST_CHECK(!std::filesystem::exists(db->get_checkpoint_path(200)));
+   BOOST_CHECK(std::filesystem::exists(db->get_checkpoint_path(300)));
+   const auto latest = manager.get_latest_rollback_point();
+   BOOST_REQUIRE(latest.has_value());
+   BOOST_CHECK_EQUAL(*latest, 300u);
+
+   db->close();
 }
 
 BOOST_AUTO_TEST_CASE(rocksdb_manager_recovers_interrupted_rollback_swap) {

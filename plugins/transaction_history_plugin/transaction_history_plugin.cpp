@@ -112,7 +112,7 @@ public:
    uint64_t min_checkpoint_free_bytes_ = 5ull * 1024 * 1024 * 1024;
    static constexpr uint32_t MAX_API_RESULTS = 1000;
    static constexpr uint64_t MAX_COUNT_SCAN_KEYS = 1000000;
-   static constexpr int64_t API_SCAN_TIME_US = 100000;
+   static constexpr int64_t API_SCAN_TIME_US = 20000;
 
    // Statistics for monitoring
    std::atomic<uint64_t> transactions_processed_{0};
@@ -380,10 +380,6 @@ void transaction_history_plugin::plugin_initialize(const variables_map& options)
       std::string compression_info = my->db_->get_compression_info();
       ilog("Database compression status: ${info}", ("info", compression_info));
 
-      // Construct after RocksDB is open so persisted rollback points can be
-      // loaded and old external checkpoints remain subject to retention.
-      my->rollback_mgr_ = std::make_unique<rollback_manager>(my->db_);
-
       ilog("Transaction history plugin initialized with database at: ${path}",
            ("path", my->db_path_));
 
@@ -460,6 +456,81 @@ void transaction_history_plugin::plugin_startup() {
       }
    }
 
+   // A height alone cannot prove that the history database belongs to the
+   // active branch. Verify the persisted accepted-block identity before any
+   // new transaction is recorded. Snapshot/replay can make old branch
+   // checkpoints actively dangerous, so discard unverified history rather
+   // than allowing the first block_start event to restore it.
+   const std::string chain_head_id = chain.head().id().str();
+   std::string stored_accepted_num;
+   std::string stored_accepted_id;
+   bool has_chain_identity = my->db_->get("_internal_last_accepted_block_num", stored_accepted_num) &&
+                             my->db_->get("_internal_last_accepted_block_id", stored_accepted_id);
+   bool database_was_empty = db_last_block == 0;
+   if (database_was_empty) {
+      std::unique_ptr<rocksdb::Iterator> iterator(my->db_->new_iterator());
+      EOS_ASSERT(iterator, chain::plugin_exception, "Transaction history database is not open");
+      for (iterator->SeekToFirst(); iterator->Valid(); iterator->Next()) {
+         const auto key = iterator->key();
+         if (key != "_internal_compression_enabled" &&
+             key != "_internal_last_block_number") {
+            database_was_empty = false;
+            break;
+         }
+      }
+   }
+   // A database with records but no branch identity predates the safety
+   // marker and cannot be proven compatible. Only a database that was empty
+   // before startup repair may establish a new baseline without clearing.
+   bool chain_identity_matches = !has_chain_identity && database_was_empty;
+   if (has_chain_identity) {
+      try {
+         const uint32_t stored_num = std::stoul(stored_accepted_num);
+         if (stored_num == chain_head_block) {
+            chain_identity_matches = stored_accepted_id == chain_head_id;
+         } else if (stored_num <= chain_head_block && stored_num >= earliest_available) {
+            const auto active_id = chain.chain_block_id_for_num(stored_num);
+            chain_identity_matches = active_id && active_id->str() == stored_accepted_id;
+         } else if (stored_num < earliest_available && !is_snapshot_load && !is_replay) {
+            // A normal pruned-node restart may be unable to verify an old but
+            // otherwise valid baseline. Preserve it and let the live gap logic
+            // advance the identity on the next block.
+            chain_identity_matches = true;
+         } else {
+            chain_identity_matches = false;
+         }
+      } catch (...) {
+         chain_identity_matches = false;
+      }
+   }
+
+   if (!chain_identity_matches) {
+      if (my->auto_repair_enabled_) {
+         wlog("Transaction history belongs to an unverified chain branch; clearing history and rollback checkpoints");
+         EOS_ASSERT(my->db_->clear_all_data(), chain::plugin_exception,
+                    "Failed to clear transaction history from an incompatible chain branch");
+         EOS_ASSERT(my->db_->batch_write({
+              {"_internal_last_block_number", std::to_string(chain_head_block)},
+              {"_internal_last_accepted_block_num", std::to_string(chain_head_block)},
+              {"_internal_last_accepted_block_id", chain_head_id}
+           }, {}), chain::plugin_exception,
+           "Failed to establish transaction history chain baseline");
+      } else {
+         my->history_healthy_ = false;
+         elog("Transaction history chain identity does not match the active chain; recording disabled");
+      }
+   } else if (!has_chain_identity) {
+      EOS_ASSERT(my->db_->batch_write({
+           {"_internal_last_accepted_block_num", std::to_string(chain_head_block)},
+           {"_internal_last_accepted_block_id", chain_head_id}
+        }, {}), chain::plugin_exception,
+        "Failed to initialize transaction history chain baseline");
+   }
+
+   // Load rollback metadata only after startup repair has finalized the active
+   // branch and removed any incompatible external checkpoints.
+   my->rollback_mgr_ = std::make_unique<rollback_manager>(my->db_);
+
    // Log final database statistics
    std::string db_stats = my->db_->get_database_stats();
    dlog("Transaction history database statistics: ${stats}", ("stats", db_stats));
@@ -492,7 +563,8 @@ void transaction_history_plugin::plugin_startup() {
       [&](const eosio::chain::block_signal_params& event) {
          const uint32_t block_num = std::get<0>(event)->block_num();
          const std::string block_id = std::get<1>(event).str();
-         my->worker_->enqueue_task([impl = my.get(), block_num, block_id]() {
+         const uint32_t irreversible_block_num = chain.last_irreversible_block_num();
+         my->worker_->enqueue_task([impl = my.get(), block_num, block_id, irreversible_block_num]() {
             if (!impl->history_healthy_.load()) {
                return;
             }
@@ -515,6 +587,7 @@ void transaction_history_plugin::plugin_startup() {
                     ("block", block_num));
                return;
             }
+            impl->rollback_mgr_->cleanup_irreversible_rollback_points(irreversible_block_num);
             impl->rollback_mgr_->cleanup_old_rollback_points(
                impl->max_retained_blocks_, impl->min_checkpoint_free_bytes_);
          });
@@ -1171,8 +1244,13 @@ read_only::get_transaction_result read_only::get_transaction(const get_transacti
       const std::string prefix = "trx:" + normalized;
       iterator->Seek(prefix);
       if (iterator->Valid() && iterator->key().starts_with(prefix)) {
+         const std::string stored_value = iterator->value().ToString();
+         iterator->Next();
+         EOS_ASSERT(!(iterator->Valid() && iterator->key().starts_with(prefix)),
+                    chain::transaction_id_type_exception,
+                    "Transaction ID prefix ${id} is ambiguous", ("id", params.id));
          try {
-            fc::from_variant(fc::json::from_string(iterator->value().ToString()), result);
+            fc::from_variant(fc::json::from_string(stored_value), result);
             found = true;
          } catch (...) {
             found = false;
@@ -1196,6 +1274,10 @@ read_only::get_transaction_result read_only::get_transaction(const get_transacti
             }
             if (id.str().compare(0, normalized.size(), normalized) != 0) continue;
 
+            EOS_ASSERT(!found, chain::transaction_id_type_exception,
+                       "Transaction ID prefix ${id} is ambiguous in block ${block_num}",
+                       ("id", params.id)("block_num", *params.block_num_hint));
+
             result.id = id;
             result.block_num = *params.block_num_hint;
             result.block_time = block->timestamp;
@@ -1208,7 +1290,6 @@ read_only::get_transaction_result read_only::get_transaction(const get_transacti
             }
             result.trx = std::move(transaction_value);
             found = true;
-            break;
          }
       }
    }

@@ -50,7 +50,13 @@ Config Options for eosio::http_plugin:
                                         should use for processing http
                                         requests. 503 error response when
                                         exceeded.
-  --http-max-response-time-ms arg (=30) Maximum time for processing a request,
+  --http-max-history-requests-in-flight arg (=4)
+                                        Maximum number of transaction-history
+                                        requests queued or executing.
+  --http-history-requests-per-second arg (=5)
+                                        Shared token-bucket rate limit for
+                                        transaction-history endpoints.
+  --http-max-response-time-ms arg (=15) Maximum time for processing a request,
                                         -1 for unlimited
   --verbose-http-errors                 Append the error log to HTTP responses
   --http-validate-host arg (=1)         If set to false, then any incoming
@@ -66,6 +72,11 @@ Config Options for eosio::http_plugin:
                                         connections alive, even if client
                                         requests.
 ```
+
+Unix sockets are created with mode `0600`. Their parent directory must be
+accessible only by the node user (for example, mode `0700`); startup refuses an
+existing group- or world-accessible parent. A newly created parent directory is
+made private automatically.
 
 ## Dependencies
 

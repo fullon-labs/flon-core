@@ -1,8 +1,6 @@
 #pragma once
 
 #include <fc/log/logger.hpp>
-#include <fc/scoped_exit.hpp>
-
 #include <boost/asio/deadline_timer.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/ip/v6_only.hpp>
@@ -145,17 +143,12 @@ struct listener : listener_base<Protocol>, std::enable_shared_from_this<listener
 /// fc::listener objects. If port is not specified or none of the resolved address can be listened, an std::system_error
 /// with std::errc::bad_address error code will be thrown.
 ///
-/// For Unix socket, this function will temporary change current working directory to the parent of the specified \c
-/// address (i.e. socket file path), listen on the filename component of the path, and then restore the working
-/// directory before return. This is the workaround for the socket file paths limitation which is around 100 characters.
+/// For Unix sockets, the parent directory must be private to the node user. The
+/// full normalized path is used so listener creation never changes the
+/// process-wide current working directory.
 ///
 /// The lifetime of the created listener objects is controlled by \c executor, the created objects will be destroyed
 /// when \c executor.stop() is called.
-///
-/// @note
-/// This function is not thread safe for Unix socket because it will temporarily change working directory without any
-/// lock. Any code which depends the current working directory (such as opening files with relative paths) in other
-/// threads should be protected.
 ///
 /// @tparam Protocol either \c boost::asio::ip::tcp or \c boost::asio::local::stream_protocol
 /// @throws std::system_error or boost::system::system_error
@@ -229,18 +222,32 @@ void create_listener(Executor& executor, logger& logger, boost::posix_time::time
       static_assert(std::is_same_v<Protocol, stream_protocol>);
 
       namespace fs       = std::filesystem;
-      auto     cwd       = fs::current_path();
-      fs::path sock_path = address;
+      fs::path requested_path = fs::absolute(address).lexically_normal();
+      const bool parent_existed = fs::exists(requested_path.parent_path());
+      fs::create_directories(requested_path.parent_path());
+      if (!parent_existed) {
+         // create_directories honors the process umask and commonly creates a
+         // world-traversable directory. A newly created socket directory has
+         // no compatibility constraints, so make it private immediately.
+         fs::permissions(requested_path.parent_path(), fs::perms::owner_all,
+                         fs::perm_options::replace);
+      }
+      const fs::path private_parent = fs::weakly_canonical(requested_path.parent_path());
+      const fs::path sock_path = private_parent / requested_path.filename();
 
-      fs::create_directories(sock_path.parent_path());
-      // The maximum length of the socket path is defined by sockaddr_un::sun_path. On Linux,
-      // according to unix(7), it is 108 bytes. On FreeBSD, according to unix(4), it is 104 bytes.
-      // Therefore, we create the unix socket with the relative path to its parent path to avoid the
-      // problem.
-      fs::current_path(sock_path.parent_path());
-      auto restore = fc::make_scoped_exit([cwd] { fs::current_path(cwd); });
+      const auto parent_permissions = fs::status(private_parent).permissions();
+      const auto unsafe_permissions = fs::perms::group_all | fs::perms::others_all;
+      if ((parent_permissions & unsafe_permissions) != fs::perms::none) {
+         fc_elog(logger,
+                 "Refusing Unix socket ${addr}: parent directory ${parent} must not be accessible by group or others",
+                 ("addr", sock_path.string())("parent", private_parent.string()));
+         throw std::system_error(std::make_error_code(std::errc::permission_denied));
+      }
 
-      stream_protocol::endpoint endpoint{ sock_path.filename().string() };
+      // Using the full path avoids the process-global chdir race. Paths longer
+      // than the platform sockaddr_un limit fail explicitly during endpoint
+      // construction instead of affecting unrelated relative file operations.
+      stream_protocol::endpoint endpoint{ sock_path.string() };
 
       boost::system::error_code ec;
       stream_protocol::socket   test_socket(executor);
@@ -257,13 +264,11 @@ void create_listener(Executor& executor, logger& logger, boost::posix_time::time
       }
 
       auto listener = std::make_shared<fc::listener<stream_protocol, Executor, CreateSession>>(
-            executor, logger, accept_timeout, address, endpoint, extra_listening_log_info, create_session);
+            executor, logger, accept_timeout, sock_path.string(), endpoint,
+            extra_listening_log_info, create_session);
       // Unix-socket-only APIs may protect signing keys. Do not rely on the
       // process umask: restrict every HTTP Unix socket to its owner.
-      // The process is currently inside the socket's parent directory; use the
-      // endpoint filename so relative addresses such as ../node.sock cannot
-      // resolve against the parent directory twice.
-      fs::permissions(sock_path.filename(),
+      fs::permissions(sock_path,
                       fs::perms::owner_read | fs::perms::owner_write,
                       fs::perm_options::replace);
       listener->log_listening(endpoint, address);

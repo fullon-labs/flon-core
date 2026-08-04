@@ -2,6 +2,7 @@
 #include <fc/log/logger.hpp>
 #include <fc/io/json.hpp>
 #include <rocksdb/utilities/checkpoint.h>
+#include <rocksdb/version.h>
 #include <filesystem>
 #include <fstream>
 #include <thread>
@@ -149,8 +150,19 @@ bool rocksdb_manager::open(const std::string& db_path, bool enable_compression) 
    // Check if database already exists to warn about compression changes
    bool db_exists = std::filesystem::exists(db_path + "/CURRENT");
 
-   rocksdb::DB* raw_db = nullptr;
-   rocksdb::Status status = rocksdb::DB::Open(options_, db_path, &raw_db);
+   const auto open_database = [&]() {
+#if ROCKSDB_MAJOR >= 11
+      return rocksdb::DB::Open(options_, db_path, &db_);
+#else
+      rocksdb::DB* raw_db = nullptr;
+      rocksdb::Status open_status = rocksdb::DB::Open(options_, db_path, &raw_db);
+      if (open_status.ok()) {
+         db_.reset(raw_db);
+      }
+      return open_status;
+#endif
+   };
+   rocksdb::Status status = open_database();
    if (!status.ok()) {
       const auto database_path = std::filesystem::absolute(db_path).lexically_normal();
       const auto backup_path = database_path.parent_path() /
@@ -162,7 +174,7 @@ bool rocksdb_manager::open(const std::string& db_path, bool enable_compression) 
             sync_directory(database_path.parent_path());
             wlog("Restoring rollback backup after replacement database failed to open: ${error}",
                  ("error", status.ToString()));
-            status = rocksdb::DB::Open(options_, db_path, &raw_db);
+            status = open_database();
          } catch (const std::exception& recovery_error) {
             elog("Failed to restore rollback backup after open error: ${error}",
                  ("error", recovery_error.what()));
@@ -174,7 +186,6 @@ bool rocksdb_manager::open(const std::string& db_path, bool enable_compression) 
       return false;
    }
 
-   db_.reset(raw_db);
    is_open_ = true;
    {
       std::lock_guard<std::mutex> lock(stats_cache_mutex_);
@@ -673,7 +684,24 @@ bool rocksdb_manager::validate_and_repair_database() {
       size_t orphaned_data_found = 0;
 
       std::unique_ptr<rocksdb::Iterator> it(db_->NewIterator(rocksdb::ReadOptions()));
-      std::vector<std::string> keys_to_delete;
+      rocksdb::WriteBatch repair_batch;
+      constexpr size_t max_repair_batch_keys = 10000;
+      constexpr size_t max_repair_batch_bytes = 16 * 1024 * 1024;
+      size_t repair_batch_keys = 0;
+      size_t repair_batch_bytes = 0;
+      const auto flush_repairs = [&]() -> bool {
+         if (repair_batch_keys == 0) return true;
+         const rocksdb::Status status = db_->Write(rocksdb::WriteOptions(), &repair_batch);
+         if (!status.ok()) {
+            elog("Failed to remove invalid keys: ${error}", ("error", status.ToString()));
+            return false;
+         }
+         repairs_made = true;
+         repair_batch.Clear();
+         repair_batch_keys = 0;
+         repair_batch_bytes = 0;
+         return true;
+      };
 
       uint32_t last_recorded_block = get_last_block_number();
       uint32_t highest_block_found = 0;
@@ -734,26 +762,17 @@ bool rocksdb_manager::validate_and_repair_database() {
 
          // Mark invalid keys for deletion
          if (!key_is_valid) {
-            keys_to_delete.push_back(key);
+            repair_batch.Delete(key);
+            ++repair_batch_keys;
+            repair_batch_bytes += key.size();
+            if ((repair_batch_keys >= max_repair_batch_keys ||
+                 repair_batch_bytes >= max_repair_batch_bytes) && !flush_repairs()) {
+               return false;
+            }
          }
       }
 
-      // Clean up invalid keys
-      if (!keys_to_delete.empty()) {
-         ilog("Removing ${count} invalid database entries", ("count", keys_to_delete.size()));
-
-         rocksdb::WriteBatch batch;
-         for (const auto& key : keys_to_delete) {
-            batch.Delete(key);
-         }
-
-         rocksdb::Status status = db_->Write(rocksdb::WriteOptions(), &batch);
-         if (status.ok()) {
-            repairs_made = true;
-         } else {
-            elog("Failed to remove invalid keys: ${error}", ("error", status.ToString()));
-         }
-      }
+      if (!flush_repairs()) return false;
 
       // Update last block number if we found a higher valid block
       if (highest_block_found > last_recorded_block) {

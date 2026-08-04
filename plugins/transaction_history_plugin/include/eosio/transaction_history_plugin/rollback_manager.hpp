@@ -52,6 +52,9 @@ public:
    void cleanup_old_rollback_points(uint32_t keep_blocks = 1000,
                                     uint64_t min_free_bytes = 0);
 
+   /** Remove checkpoints older than the irreversible boundary. */
+   void cleanup_irreversible_rollback_points(uint32_t irreversible_block_num);
+
    /**
     * @brief Get the most recent rollback point
     * @return Block number of latest rollback point, or empty if none exist

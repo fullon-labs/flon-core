@@ -11,6 +11,7 @@
 #include <boost/asio/local/stream_protocol.hpp>
 #include <boost/asio/error.hpp>
 #include <boost/beast/websocket.hpp>
+#include <algorithm>
 #include <memory>
 
 extern const char* const state_history_plugin_abi;
@@ -124,6 +125,7 @@ private:
             stream.next_layer().set_option(boost::asio::ip::tcp::no_delay(true));
          stream.next_layer().set_option(boost::asio::socket_base::send_buffer_size(1024*1024));
          stream.write_buffer_bytes(512*1024);
+         stream.read_message_max(max_request_bytes);
          stream.set_option(boost::beast::websocket::stream_base::decorator([](boost::beast::websocket::response_type& res) {
             res.set(boost::beast::http::field::server, "state_history/" + app().version_string());
          }));
@@ -151,6 +153,12 @@ private:
                      self.queued_status_requests.emplace_back(std::is_same_v<GetStatusRequestV0orV1, get_status_request_v1>);
                   },
                   [&self]<typename GetBlocksRequestV0orV1, typename = std::enable_if_t<std::is_base_of_v<get_blocks_request_v0, GetBlocksRequestV0orV1>>>(const GetBlocksRequestV0orV1& gbr) {
+                     EOS_ASSERT(gbr.have_positions.size() <= self.max_have_positions,
+                                chain::plugin_exception,
+                                "too many state history have_positions entries");
+                     EOS_ASSERT(gbr.max_messages_in_flight <= self.max_send_credits,
+                                chain::plugin_exception,
+                                "state history max_messages_in_flight exceeds the server limit");
                      self.current_blocks_request_v1_finality.reset();
                      self.current_blocks_request = gbr;
                      if constexpr(std::is_same_v<GetBlocksRequestV0orV1, get_blocks_request_v1>)
@@ -165,7 +173,10 @@ private:
                      self.current_blocks_request.have_positions.clear();
                   },
                   [&self](const get_blocks_ack_request_v0& gbar0) {
-                     self.send_credits += gbar0.num_messages;
+                     const uint64_t new_credits = static_cast<uint64_t>(self.send_credits) +
+                                                  gbar0.num_messages;
+                     self.send_credits = static_cast<uint32_t>(
+                        std::min<uint64_t>(new_credits, self.max_send_credits));
                   }
                }, req);
                co_return;
@@ -317,6 +328,9 @@ private:
    std::atomic_flag                  has_logged_exception;  //left as atomic_flag for useful test_and_set() interface
 
    ///these items must only ever be touched on the main thread
+   static constexpr size_t             max_request_bytes = 1024 * 1024;
+   static constexpr size_t             max_have_positions = 4096;
+   static constexpr uint32_t           max_send_credits = 4096;
    static constexpr size_t             max_queued_status_requests = 128;
    std::deque<bool>                  queued_status_requests;  //false for v0, true for v1
 
