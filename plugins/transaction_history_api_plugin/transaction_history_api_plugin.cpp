@@ -2,18 +2,10 @@
 #include <eosio/chain/exceptions.hpp>
 #include <eosio/http_plugin/macros.hpp>
 #include <fc/io/json.hpp>
-#include <set>
 
 namespace eosio {
 
 using namespace eosio;
-
-namespace {
-   std::set<std::string>& registered_history_api_names() {
-      static std::set<std::string> names;
-      return names;
-   }
-}
 
 static auto _transaction_history_api_plugin = application::register_plugin<transaction_history_api_plugin>();
 
@@ -151,11 +143,9 @@ parse_params<transaction_history_apis::read_only::get_performance_metrics_params
 
 void transaction_history_api_plugin::register_history_routes(http_plugin& http, const std::string& api_name,
                                                               const transaction_history_apis::read_only& history_mgr) {
-   auto& registered_names = registered_history_api_names();
-   if (registered_names.count(api_name)) {
+   if (registered_history_api_names_.count(api_name)) {
       return;
    }
-   registered_names.insert(api_name);
 
    http.add_api({
       CALL_WITH_400(api_name, history_mgr, get_transaction,
@@ -180,6 +170,7 @@ void transaction_history_api_plugin::register_history_routes(http_plugin& http, 
          INVOKE_R_R_OPTIONAL(history_mgr, get_performance_metrics, transaction_history_apis::read_only::get_performance_metrics_params), 200),
 
    }, appbase::exec_queue::read_only);
+   registered_history_api_names_.insert(api_name);
 }
 
 void transaction_history_api_plugin::plugin_startup() {

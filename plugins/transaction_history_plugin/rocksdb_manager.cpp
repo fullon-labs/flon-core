@@ -687,6 +687,10 @@ bool rocksdb_manager::validate_and_repair_database() {
       rocksdb::WriteBatch repair_batch;
       constexpr size_t max_repair_batch_keys = 10000;
       constexpr size_t max_repair_batch_bytes = 16 * 1024 * 1024;
+      // Keep validation consistent with the plugin's accepted write limit. A
+      // corrupt database can otherwise force an unbounded allocation through
+      // Slice::ToString() before the record is rejected.
+      constexpr size_t max_history_record_bytes = 256 * 1024 * 1024;
       size_t repair_batch_keys = 0;
       size_t repair_batch_bytes = 0;
       const auto flush_repairs = [&]() -> bool {
@@ -709,7 +713,6 @@ bool rocksdb_manager::validate_and_repair_database() {
       // Scan all keys for validation
       for (it->SeekToFirst(); it->Valid(); it->Next()) {
          std::string key = it->key().ToString();
-         std::string value = it->value().ToString();
 
          // Skip internal keys from validation
          if (key.find("_internal_") == 0) {
@@ -721,7 +724,9 @@ bool rocksdb_manager::validate_and_repair_database() {
 
          if (key.find("trx:") == 0) {
             // Validate transaction data
-            if (extract_json_block_num(value, key_block_num)) {
+            const auto value = it->value();
+            if (value.size() <= max_history_record_bytes &&
+                extract_json_block_num(value.ToString(), key_block_num)) {
                highest_block_found = std::max(highest_block_found, key_block_num);
             } else {
                key_is_valid = false;
@@ -729,7 +734,9 @@ bool rocksdb_manager::validate_and_repair_database() {
             }
          } else if (key.find("acc:") == 0) {
             // Validate account action data
-            if (extract_json_block_num(value, key_block_num)) {
+            const auto value = it->value();
+            if (value.size() <= max_history_record_bytes &&
+                extract_json_block_num(value.ToString(), key_block_num)) {
                highest_block_found = std::max(highest_block_found, key_block_num);
             } else {
                key_is_valid = false;
@@ -1286,13 +1293,11 @@ std::string rocksdb_manager::get_tuning_recommendations() const {
 
    try {
       // Get current configuration
-      std::string memtable_size, level0_files, background_jobs;
-      db_->GetProperty("rocksdb.cur-size-all-mem-tables", &memtable_size);
+      std::string level0_files;
       db_->GetProperty("rocksdb.num-files-at-level0", &level0_files);
 
-      uint64_t current_memtable = 0, current_l0_files = 0;
+      uint64_t current_l0_files = 0;
       try {
-         current_memtable = std::stoull(memtable_size);
          current_l0_files = std::stoull(level0_files);
       } catch (...) {}
 
@@ -1350,7 +1355,8 @@ std::string rocksdb_manager::get_tuning_recommendations() const {
 
       // Background jobs optimization
       size_t cpu_cores = std::thread::hardware_concurrency();
-      size_t recommended_bg_jobs = std::min(cpu_cores / 2, static_cast<size_t>(6));
+      size_t recommended_bg_jobs = std::max(static_cast<size_t>(1),
+         std::min(cpu_cores / 2, static_cast<size_t>(6)));
       config_recommendations["background_jobs"] = fc::mutable_variant_object()
          ("current", options_.max_background_jobs)
          ("recommended", recommended_bg_jobs)

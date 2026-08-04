@@ -5,7 +5,14 @@
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/ip/v6_only.hpp>
 #include <boost/asio/local/stream_protocol.hpp>
+#include <cerrno>
 #include <filesystem>
+#include <system_error>
+
+#ifndef _WIN32
+#include <sys/stat.h>
+#include <unistd.h>
+#endif
 
 namespace fc {
 
@@ -223,18 +230,40 @@ void create_listener(Executor& executor, logger& logger, boost::posix_time::time
 
       namespace fs       = std::filesystem;
       fs::path requested_path = fs::absolute(address).lexically_normal();
-      const bool parent_existed = fs::exists(requested_path.parent_path());
-      fs::create_directories(requested_path.parent_path());
-      if (!parent_existed) {
-         // create_directories honors the process umask and commonly creates a
-         // world-traversable directory. A newly created socket directory has
-         // no compatibility constraints, so make it private immediately.
-         fs::permissions(requested_path.parent_path(), fs::perms::owner_all,
-                         fs::perm_options::replace);
+      const fs::path requested_parent = requested_path.parent_path();
+      if (!fs::exists(requested_parent)) {
+#ifndef _WIN32
+         // Create the socket directory with its final mode. create_directories
+         // followed by chmod leaves a window where another local user can
+         // traverse the directory and race socket creation.
+         if (::mkdir(requested_parent.c_str(), S_IRWXU) != 0 && errno != EEXIST) {
+            const int mkdir_errno = errno;
+            throw std::system_error(mkdir_errno, std::generic_category(),
+                                    "unable to create private Unix socket directory " + requested_parent.string());
+         }
+#else
+         fs::create_directory(requested_parent);
+         fs::permissions(requested_parent, fs::perms::owner_all, fs::perm_options::replace);
+#endif
       }
       const fs::path private_parent = fs::weakly_canonical(requested_path.parent_path());
       const fs::path sock_path = private_parent / requested_path.filename();
 
+#ifndef _WIN32
+      struct stat parent_stat {};
+      if (::stat(private_parent.c_str(), &parent_stat) != 0) {
+         const int stat_errno = errno;
+         throw std::system_error(stat_errno, std::generic_category(),
+                                 "unable to inspect Unix socket directory " + private_parent.string());
+      }
+      if (!S_ISDIR(parent_stat.st_mode) || parent_stat.st_uid != ::geteuid() ||
+          (parent_stat.st_mode & (S_IRWXG | S_IRWXO)) != 0) {
+         fc_elog(logger,
+                 "Refusing Unix socket ${addr}: parent directory ${parent} must be owned by the node user and inaccessible to group or others",
+                 ("addr", sock_path.string())("parent", private_parent.string()));
+         throw std::system_error(std::make_error_code(std::errc::permission_denied));
+      }
+#else
       const auto parent_permissions = fs::status(private_parent).permissions();
       const auto unsafe_permissions = fs::perms::group_all | fs::perms::others_all;
       if ((parent_permissions & unsafe_permissions) != fs::perms::none) {
@@ -243,6 +272,7 @@ void create_listener(Executor& executor, logger& logger, boost::posix_time::time
                  ("addr", sock_path.string())("parent", private_parent.string()));
          throw std::system_error(std::make_error_code(std::errc::permission_denied));
       }
+#endif
 
       // Using the full path avoids the process-global chdir race. Paths longer
       // than the platform sockaddr_un limit fail explicitly during endpoint

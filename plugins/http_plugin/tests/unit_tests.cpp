@@ -635,6 +635,26 @@ BOOST_FIXTURE_TEST_CASE(unix_socket_only_api, http_plugin_test_fixture) {
                      R"({"apis":["/sensitive"]})");
 }
 
+BOOST_AUTO_TEST_CASE(unix_socket_rejects_untrusted_parent) {
+   fc::temp_directory dir;
+   auto data_dir = dir.path() / "shared";
+   std::filesystem::create_directory(data_dir);
+   std::filesystem::permissions(data_dir,
+                                std::filesystem::perms::owner_all |
+                                   std::filesystem::perms::group_read |
+                                   std::filesystem::perms::group_exec,
+                                std::filesystem::perm_options::replace);
+
+   net::io_context ioc;
+   auto logger = fc::logger::get();
+   BOOST_CHECK_THROW(
+      fc::create_listener<boost::asio::local::stream_protocol>(
+         ioc, logger, boost::posix_time::milliseconds(100),
+         (data_dir / "trusted.sock").string(), "", [](auto&&) {}),
+      std::system_error);
+   BOOST_CHECK(!std::filesystem::exists(data_dir / "trusted.sock"));
+}
+
 
 bool on_loopback(std::initializer_list<const char*> args){
    appbase::scoped_app app;

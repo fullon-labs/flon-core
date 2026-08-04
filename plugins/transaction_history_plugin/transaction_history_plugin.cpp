@@ -278,6 +278,12 @@ void transaction_history_plugin::plugin_initialize(const variables_map& options)
                  my->max_actions_per_tx_ > 0 && my->max_account_indexes_per_tx_ > 0 &&
                  my->max_write_batch_bytes_ > 0 && my->max_api_response_bytes_ > 0,
                  eosio::chain::plugin_exception, "transaction history limits must be greater than zero");
+      EOS_ASSERT(my->max_trace_size_ <= async_worker::max_pending_bytes &&
+                 my->max_write_batch_bytes_ <= async_worker::max_pending_bytes &&
+                 my->max_api_response_bytes_ <= async_worker::max_pending_bytes,
+                 eosio::chain::plugin_exception,
+                 "transaction history trace, write batch, and API response limits cannot exceed the memory safety cap of ${max} bytes",
+                 ("max", async_worker::max_pending_bytes));
 
       auto parse_filters = [](const std::vector<std::string>& values,
                               std::set<transaction_history_plugin_impl::filter_entry>& output,
@@ -1506,7 +1512,6 @@ read_only::get_transaction_count_result read_only::get_transaction_count(const g
 }
 
 read_only::get_key_accounts_result read_only::get_key_accounts(const get_key_accounts_params& params) const {
-   auto database_lock = history->my->db_->acquire_read_lock();
    get_key_accounts_result result;
    std::set<eosio::chain::name> accounts;
    const auto deadline = fc::time_point::now() +
@@ -1552,7 +1557,6 @@ read_only::get_key_accounts_result read_only::get_key_accounts(const get_key_acc
 }
 
 read_only::get_controlled_accounts_result read_only::get_controlled_accounts(const get_controlled_accounts_params& params) const {
-   auto database_lock = history->my->db_->acquire_read_lock();
    get_controlled_accounts_result result;
    std::set<eosio::chain::name> accounts;
    const auto deadline = fc::time_point::now() +
