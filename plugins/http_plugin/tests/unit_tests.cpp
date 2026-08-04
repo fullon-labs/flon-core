@@ -49,6 +49,35 @@ BOOST_AUTO_TEST_CASE(bytes_in_flight_reservation_is_atomic_and_bounded) {
    BOOST_CHECK(!state.try_reserve_bytes(1));
    state.release_bytes(10);
    BOOST_CHECK_EQUAL(state.bytes_in_flight.load(), 0u);
+
+   constexpr int contender_count = 32;
+   state.max_bytes_in_flight = 1;
+   std::promise<void> start_promise;
+   auto start = start_promise.get_future().share();
+   std::atomic<int> attempted{0};
+   std::atomic<int> admitted{0};
+   std::vector<std::thread> contenders;
+   contenders.reserve(contender_count);
+   for (int i = 0; i < contender_count; ++i) {
+      contenders.emplace_back([&]() {
+         start.wait();
+         const bool reserved = state.try_reserve_bytes(1);
+         attempted.fetch_add(1, std::memory_order_release);
+         if (reserved) {
+            admitted.fetch_add(1, std::memory_order_relaxed);
+            while (attempted.load(std::memory_order_acquire) != contender_count) {
+               std::this_thread::yield();
+            }
+            state.release_bytes(1);
+         }
+      });
+   }
+   start_promise.set_value();
+   for (auto& contender : contenders) {
+      contender.join();
+   }
+   BOOST_CHECK_EQUAL(admitted.load(), 1);
+   BOOST_CHECK_EQUAL(state.bytes_in_flight.load(), 0u);
 }
 
 BOOST_AUTO_TEST_CASE(history_api_admission_is_rate_and_concurrency_bounded) {

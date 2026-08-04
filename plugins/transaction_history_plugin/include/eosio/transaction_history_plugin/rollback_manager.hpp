@@ -5,6 +5,7 @@
 #include <string>
 #include <map>
 #include <memory>
+#include <atomic>
 
 namespace eosio {
 
@@ -60,15 +61,19 @@ public:
     * @return Block number of latest rollback point, or empty if none exist
     */
    std::optional<uint32_t> get_latest_rollback_point() const;
+   size_t rollback_point_count() const;
    bool has_rollback_point(uint32_t block_num) const;
 
 private:
    std::shared_ptr<rocksdb_manager> db_;
    std::map<uint32_t, rollback_info> rollback_points_;
+   std::atomic<size_t> rollback_point_count_{0};
+   std::atomic<uint32_t> latest_rollback_point_{0};
 
    std::string get_rollback_key(uint32_t block_num) const;
    bool save_rollback_info(const rollback_info& info);
    bool load_rollback_points();
+   void refresh_summary();
 };
 
 } // namespace eosio

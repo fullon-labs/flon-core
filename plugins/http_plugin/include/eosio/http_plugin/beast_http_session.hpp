@@ -281,15 +281,6 @@ public:
                     static_cast<unsigned int>(http::status::service_unavailable) );
    }
    
-   virtual std::string verify_max_bytes_in_flight(size_t extra_bytes) final {
-      auto bytes_in_flight_size = plugin_state_->bytes_in_flight.load() + extra_bytes;
-      if(bytes_in_flight_size > plugin_state_->max_bytes_in_flight) {
-         fc_dlog(plugin_state_->get_logger(), "503 - too many bytes in flight: ${bytes}", ("bytes", bytes_in_flight_size));
-         return "Too many bytes in flight: " + std::to_string( bytes_in_flight_size );
-      }
-      return {};
-   }
-
 public:
    beast_http_session(Socket&& socket, std::shared_ptr<http_plugin_state> plugin_state, std::string remote_endpoint,
                       api_category_set categories, const std::string& local_address)
@@ -512,17 +503,19 @@ public:
       }
    }
 
-   void increment_bytes_in_flight(size_t sz) {
-      plugin_state_->bytes_in_flight += sz;
-   }
-
-   void decrement_bytes_in_flight(size_t sz) {
-      plugin_state_->bytes_in_flight -= sz;
-   }
-
    virtual void send_response(std::string&& json, unsigned int code) final {
       auto payload_size = json.size();
-      increment_bytes_in_flight(payload_size);
+      if (!plugin_state_->try_reserve_bytes(payload_size)) {
+         fc_dlog(plugin_state_->get_logger(),
+                 "HTTP response rejected by byte budget: ${bytes} bytes",
+                 ("bytes", payload_size));
+         if (code != static_cast<unsigned int>(http::status::service_unavailable)) {
+            send_busy_response("HTTP response memory budget exhausted");
+         } else {
+            do_eof();
+         }
+         return;
+      }
       write_begin_ = steady_clock::now();
       auto dt = write_begin_ - handle_begin_;
       handle_time_us_ += std::chrono::duration_cast<std::chrono::microseconds>(dt).count();
@@ -539,13 +532,18 @@ public:
                ("ep", remote_endpoint_)("b", to_log_string(*res_)) );
 
       // Write the response
-      http::async_write(
-         socket_,
-         *res_,
-         [self = this->shared_from_this(), payload_size, close](beast::error_code ec, std::size_t bytes_transferred) {
-            self->decrement_bytes_in_flight(payload_size);
-            self->on_write(ec, bytes_transferred, close);
-         });
+      try {
+         http::async_write(
+            socket_,
+            *res_,
+            [self = this->shared_from_this(), payload_size, close](beast::error_code ec, std::size_t bytes_transferred) {
+               self->plugin_state_->release_bytes(payload_size);
+               self->on_write(ec, bytes_transferred, close);
+            });
+      } catch (...) {
+         plugin_state_->release_bytes(payload_size);
+         throw;
+      }
    }
 
    void run_session() {

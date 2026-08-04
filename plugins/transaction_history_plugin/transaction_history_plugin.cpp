@@ -1704,6 +1704,11 @@ read_only::get_performance_metrics_result read_only::get_performance_metrics(con
          metrics["history_gap_block"] = history->my->history_gap_block_.load();
          metrics["history_queue_tasks"] = history->my->worker_->pending_tasks();
          metrics["history_queue_bytes"] = history->my->worker_->pending_bytes();
+         if (history->my->rollback_mgr_) {
+            metrics["history_checkpoint_count"] = history->my->rollback_mgr_->rollback_point_count();
+            metrics["history_latest_checkpoint_block"] =
+               history->my->rollback_mgr_->get_latest_rollback_point().value_or(0);
+         }
          metrics["transactions_processed"] = history->my->transactions_processed_.load();
          metrics["transactions_failed"] = history->my->transactions_failed_.load();
          result.metrics = std::move(metrics);

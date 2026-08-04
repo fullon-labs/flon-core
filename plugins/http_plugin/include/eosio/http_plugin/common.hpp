@@ -59,7 +59,6 @@ namespace detail {
 */
 struct abstract_conn {
    virtual ~abstract_conn() = default;
-   virtual std::string verify_max_bytes_in_flight(size_t extra_bytes) = 0;
    virtual void send_busy_response(std::string&& what) = 0;
    virtual void handle_exception() = 0;
 
@@ -219,25 +218,25 @@ inline auto make_http_response_handler(http_plugin_state& plugin_state, detail::
    return [&plugin_state,
            session_ptr{std::move(session_ptr)}, content_type](int code, std::optional<fc::variant> response) mutable {
       auto payload_size = detail::in_flight_sizeof(response);
-      plugin_state.bytes_in_flight += payload_size;
+      if (!plugin_state.try_reserve_bytes(payload_size)) {
+         response.reset();
+         boost::asio::dispatch(plugin_state.thread_pool.get_executor(),
+            [session_ptr{std::move(session_ptr)}]() mutable {
+               session_ptr->send_busy_response("HTTP response memory budget exhausted");
+            });
+         return;
+      }
 
       // post back to an HTTP thread to allow the response handler to be called from any thread
       boost::asio::dispatch(plugin_state.thread_pool.get_executor(),
                         [&plugin_state, session_ptr{std::move(session_ptr)}, code, payload_size, response = std::move(response), content_type]() {
-                           auto on_exit = fc::scoped_exit<std::function<void()>>([&](){plugin_state.bytes_in_flight -= payload_size;});
-
-                           if(auto error_str = session_ptr->verify_max_bytes_in_flight(0); !error_str.empty()) {
-                              session_ptr->send_busy_response(std::move(error_str));
-                              return;
-                           }
+                           auto on_exit = fc::scoped_exit<std::function<void()>>(
+                              [&](){ plugin_state.release_bytes(payload_size); });
 
                            try {
                               if (response.has_value()) {
                                  std::string json = (content_type == http_content_type::plaintext) ? response->as_string() : fc::json::to_string(*response, fc::time_point::maximum());
-                                 if (auto error_str = session_ptr->verify_max_bytes_in_flight(json.size()); error_str.empty())
-                                    session_ptr->send_response(std::move(json), code);
-                                 else
-                                    session_ptr->send_busy_response(std::move(error_str));
+                                 session_ptr->send_response(std::move(json), code);
                               } else {
                                  session_ptr->send_response("{}", code);
                               }

@@ -1,10 +1,13 @@
 #include <eosio/transaction_history_plugin/rocksdb_manager.hpp>
 #include <fc/log/logger.hpp>
 #include <fc/io/json.hpp>
+#include <fc/scoped_exit.hpp>
 #include <rocksdb/utilities/checkpoint.h>
 #include <rocksdb/version.h>
 #include <filesystem>
 #include <fstream>
+#include <memory>
+#include <stdexcept>
 #include <thread>
 #ifndef _WIN32
 #include <fcntl.h>
@@ -842,7 +845,8 @@ bool rocksdb_manager::compact_database() {
 
       double reduction_percent = 0.0;
       if (size_before > 0) {
-         reduction_percent = ((double)(size_before - size_after) / size_before) * 100.0;
+         reduction_percent = ((static_cast<double>(size_before) - static_cast<double>(size_after)) /
+                              static_cast<double>(size_before)) * 100.0;
       }
 
       ilog("Database compaction completed: size reduced from ${before} to ${after} bytes (${percent}% reduction)",
@@ -1179,7 +1183,7 @@ std::string rocksdb_manager::get_size_breakdown() const {
       }
 
       // Sample and estimate data type distribution
-      rocksdb::Iterator* it = db_->NewIterator(rocksdb::ReadOptions());
+      std::unique_ptr<rocksdb::Iterator> it(db_->NewIterator(rocksdb::ReadOptions()));
       uint64_t transaction_entries = 0;
       uint64_t account_entries = 0;
       uint64_t block_entries = 0;
@@ -1200,7 +1204,9 @@ std::string rocksdb_manager::get_size_breakdown() const {
          }
       }
 
-      delete it;
+      if (!it->status().ok()) {
+         throw std::runtime_error("RocksDB size sampling failed: " + it->status().ToString());
+      }
 
       // Estimate total distribution based on sample
       if (sample_count > 0) {
@@ -1237,6 +1243,12 @@ bool rocksdb_manager::health_check() const {
          elog("Health check failed: write test failed - ${error}", ("error", write_status.ToString()));
          return false;
       }
+      bool cleanup_required = true;
+      auto cleanup = fc::scoped_exit<std::function<void()>>([&]() {
+         if (cleanup_required) {
+            db_->Delete(rocksdb::WriteOptions(), test_key);
+         }
+      });
 
       // Test basic read operation
       std::string read_value;
@@ -1267,6 +1279,7 @@ bool rocksdb_manager::health_check() const {
          elog("Health check failed: delete verification failed");
          return false;
       }
+      cleanup_required = false;
 
       // Check for background errors
       std::string bg_errors;
@@ -1456,7 +1469,7 @@ std::string rocksdb_manager::analyze_key_distribution() const {
    fc::mutable_variant_object analysis;
 
    try {
-      rocksdb::Iterator* it = db_->NewIterator(rocksdb::ReadOptions());
+      std::unique_ptr<rocksdb::Iterator> it(db_->NewIterator(rocksdb::ReadOptions()));
 
       // Distribution counters
       std::map<std::string, uint64_t> prefix_counts;
@@ -1507,7 +1520,9 @@ std::string rocksdb_manager::analyze_key_distribution() const {
          }
       }
 
-      delete it;
+      if (!it->status().ok()) {
+         throw std::runtime_error("RocksDB key distribution scan failed: " + it->status().ToString());
+      }
 
       // Generate analysis results
       fc::mutable_variant_object prefix_analysis;

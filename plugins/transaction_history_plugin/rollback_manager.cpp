@@ -45,11 +45,13 @@ bool rollback_manager::create_rollback_point(uint32_t block_num) {
       if (!save_rollback_info(info)) {
          elog("Failed to save rollback info for block ${block}", ("block", block_num));
          rollback_points_.erase(block_num);
+         refresh_summary();
          std::error_code cleanup_error;
          std::filesystem::remove_all(info.checkpoint_path, cleanup_error);
          return false;
       }
 
+      refresh_summary();
       dlog("Created rollback point for block ${block}", ("block", block_num));
       return true;
 
@@ -98,6 +100,7 @@ bool rollback_manager::rollback_to_block(uint32_t block_num) {
       }
 
       rollback_points_.erase(upper, rollback_points_.end());
+      refresh_summary();
 
       ilog("Successfully rolled back to block ${block}", ("block", block_num));
       return true;
@@ -142,12 +145,14 @@ void rollback_manager::cleanup_old_rollback_points(uint32_t keep_blocks,
       ++removed;
    }
    if (removed != 0) {
+      refresh_summary();
       dlog("Cleaned up ${removed} rollback points; keeping ${count} points with ${bytes} bytes free",
            ("removed", removed)("count", rollback_points_.size())("bytes", free_bytes));
    }
 }
 
 void rollback_manager::cleanup_irreversible_rollback_points(uint32_t irreversible_block_num) {
+   bool removed = false;
    auto cleanup_it = rollback_points_.begin();
    while (cleanup_it != rollback_points_.end() && cleanup_it->first < irreversible_block_num) {
       const std::string checkpoint_path = db_->get_checkpoint_path(cleanup_it->first);
@@ -165,15 +170,23 @@ void rollback_manager::cleanup_irreversible_rollback_points(uint32_t irreversibl
          break;
       }
       cleanup_it = rollback_points_.erase(cleanup_it);
+      removed = true;
+   }
+   if (removed) {
+      refresh_summary();
    }
 }
 
 std::optional<uint32_t> rollback_manager::get_latest_rollback_point() const {
-   if (rollback_points_.empty()) {
+   if (rollback_point_count_.load(std::memory_order_acquire) == 0) {
       return {};
    }
+   const auto latest = latest_rollback_point_.load(std::memory_order_acquire);
+   return latest;
+}
 
-   return rollback_points_.rbegin()->first;
+size_t rollback_manager::rollback_point_count() const {
+   return rollback_point_count_.load(std::memory_order_acquire);
 }
 
 bool rollback_manager::has_rollback_point(uint32_t block_num) const {
@@ -195,6 +208,7 @@ bool rollback_manager::save_rollback_info(const rollback_info& info) {
 
 bool rollback_manager::load_rollback_points() {
    rollback_points_.clear();
+   refresh_summary();
    if (!db_) {
       return false;
    }
@@ -228,12 +242,21 @@ bool rollback_manager::load_rollback_points() {
          info.checkpoint_path = checkpoint_path;
          rollback_points_[info.block_num] = std::move(info);
       }
+      refresh_summary();
       return true;
    } catch (const std::exception& e) {
       elog("Failed to load rollback points: ${error}", ("error", e.what()));
       rollback_points_.clear();
+      refresh_summary();
       return false;
    }
+}
+
+void rollback_manager::refresh_summary() {
+   rollback_point_count_.store(rollback_points_.size(), std::memory_order_release);
+   latest_rollback_point_.store(
+      rollback_points_.empty() ? 0 : rollback_points_.rbegin()->first,
+      std::memory_order_release);
 }
 
 } // namespace eosio

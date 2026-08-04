@@ -207,6 +207,7 @@ BOOST_AUTO_TEST_CASE(rollback_manager_operations) {
       BOOST_CHECK(manager.create_rollback_point(300));
       BOOST_CHECK(manager.has_rollback_point(100));
       BOOST_CHECK(!manager.has_rollback_point(400));
+      BOOST_CHECK_EQUAL(manager.rollback_point_count(), 3u);
 
       // Test getting latest rollback point
       auto latest = manager.get_latest_rollback_point();
@@ -219,15 +220,18 @@ BOOST_AUTO_TEST_CASE(rollback_manager_operations) {
    auto latest = reloaded_manager.get_latest_rollback_point();
    BOOST_REQUIRE(latest.has_value());
    BOOST_CHECK_EQUAL(*latest, 300u);
+   BOOST_CHECK_EQUAL(reloaded_manager.rollback_point_count(), 3u);
 
    BOOST_REQUIRE(reloaded_manager.rollback_to_block(200));
    rollback_manager after_rollback(db);
    latest = after_rollback.get_latest_rollback_point();
    BOOST_REQUIRE(latest.has_value());
    BOOST_CHECK_EQUAL(*latest, 200u);
+   BOOST_CHECK_EQUAL(after_rollback.rollback_point_count(), 2u);
 
    // Test cleanup
    after_rollback.cleanup_old_rollback_points(1);
+   BOOST_CHECK_EQUAL(after_rollback.rollback_point_count(), 1u);
 
    db->close();
 }
@@ -282,6 +286,7 @@ BOOST_AUTO_TEST_CASE(rollback_manager_removes_only_irreversible_checkpoints) {
    const auto latest = manager.get_latest_rollback_point();
    BOOST_REQUIRE(latest.has_value());
    BOOST_CHECK_EQUAL(*latest, 300u);
+   BOOST_CHECK_EQUAL(manager.rollback_point_count(), 1u);
 
    db->close();
 }
@@ -417,9 +422,11 @@ BOOST_AUTO_TEST_CASE(rollback_manager_edge_cases) {
    // Test cleanup with zero retention
    manager.cleanup_old_rollback_points(0);
 
-   // Test getting rollback point after cleanup
-   manager.get_latest_rollback_point();
-   // May not have a value after cleanup - this is expected behavior
+   // Cleanup always retains the newest point so rollback remains possible.
+   BOOST_CHECK_EQUAL(manager.rollback_point_count(), 1u);
+   auto latest = manager.get_latest_rollback_point();
+   BOOST_REQUIRE(latest.has_value());
+   BOOST_CHECK_EQUAL(*latest, 101u);
 
    db->close();
    std::filesystem::remove_all(test_path);
