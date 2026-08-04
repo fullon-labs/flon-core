@@ -472,6 +472,10 @@ BOOST_AUTO_TEST_CASE(invalid_category_addresses) {
                                  "http-category-address", "--http-category-address", "chain_ro,localhost:8889"})
                   .contains("--plugin=eosio::chain_api_plugin is required"));
 
+   BOOST_TEST(app_log({test_name, "--plugin=eosio::http_plugin", "--http-server-address",
+                                 "http-category-address", "--http-category-address", "sign_transaction,./sign.sock"})
+                  .contains("--plugin=eosio::sign_transaction_api_plugin is required"));
+
    BOOST_TEST(app_log({test_name, "--plugin=eosio::chain_api_plugin", "--http-category-address",
                                  "chain_ro,localhost:8889"})
                   .contains("http-server-address must be set as `http-category-address`"));

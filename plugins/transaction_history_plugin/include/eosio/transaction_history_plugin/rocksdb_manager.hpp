@@ -193,6 +193,10 @@ public:
    database_read_lock acquire_read_lock() const { return database_read_lock(db_lifecycle_mutex_); }
 
 private:
+   bool open_unlocked(const std::string& db_path, bool enable_compression,
+                      bool recover_interrupted_swap);
+   void close_unlocked();
+
    std::unique_ptr<rocksdb::DB> db_;
    rocksdb::Options options_;
    std::string db_path_;
@@ -227,6 +231,7 @@ public:
     */
    template<typename T>
    bool put_object(const std::string& key, const T& obj) {
+      if (!db_) return false;
       try {
          fc::variant var;
          fc::to_variant(obj, var);
@@ -248,6 +253,7 @@ public:
     */
    template<typename T>
    bool get_object(const std::string& key, T& obj) {
+      if (!db_) return false;
       try {
          std::string value;
          rocksdb::Status status = db_->Get(rocksdb::ReadOptions(), key, &value);
@@ -326,7 +332,8 @@ public:
     * @return true if successful, false otherwise
     */
    bool batch_write(const std::vector<std::pair<std::string, std::string>>& writes,
-                   const std::vector<std::string>& deletes = {});
+                   const std::vector<std::string>& deletes = {},
+                   bool sync = false);
 
 private:
    // Database instance and configuration

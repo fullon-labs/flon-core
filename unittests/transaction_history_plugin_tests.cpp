@@ -269,6 +269,32 @@ BOOST_AUTO_TEST_CASE(rocksdb_manager_checkpoint_rollback_preserves_database) {
    manager.close();
 }
 
+BOOST_AUTO_TEST_CASE(rocksdb_manager_rollback_excludes_live_queries) {
+   fc::temp_directory temp_dir;
+   rocksdb_manager manager;
+   BOOST_REQUIRE(manager.open((temp_dir.path() / "history").string()));
+   BOOST_REQUIRE(manager.put("value", "at-checkpoint"));
+   BOOST_REQUIRE(manager.create_checkpoint(42));
+   BOOST_REQUIRE(manager.put("value", "after-checkpoint"));
+
+   auto query_lock = manager.acquire_read_lock();
+   std::promise<void> rollback_started;
+   auto rollback_started_future = rollback_started.get_future();
+   auto rollback = std::async(std::launch::async, [&] {
+      rollback_started.set_value();
+      return manager.rollback_to_block(42);
+   });
+   rollback_started_future.wait();
+   BOOST_CHECK(rollback.wait_for(std::chrono::milliseconds(50)) == std::future_status::timeout);
+
+   query_lock.unlock();
+   BOOST_REQUIRE(rollback.get());
+   std::string value;
+   BOOST_REQUIRE(manager.get("value", value));
+   BOOST_CHECK_EQUAL(value, "at-checkpoint");
+   manager.close();
+}
+
 BOOST_AUTO_TEST_CASE(rollback_manager_removes_only_irreversible_checkpoints) {
    fc::temp_directory temp_dir;
    auto db = std::make_shared<rocksdb_manager>();
@@ -288,6 +314,24 @@ BOOST_AUTO_TEST_CASE(rollback_manager_removes_only_irreversible_checkpoints) {
    BOOST_CHECK_EQUAL(*latest, 300u);
    BOOST_CHECK_EQUAL(manager.rollback_point_count(), 1u);
 
+   db->close();
+}
+
+BOOST_AUTO_TEST_CASE(rollback_manager_preserves_reversible_checkpoint_floor) {
+   fc::temp_directory temp_dir;
+   auto db = std::make_shared<rocksdb_manager>();
+   BOOST_REQUIRE(db->open((temp_dir.path() / "history").string()));
+
+   rollback_manager manager(db);
+   BOOST_REQUIRE(manager.create_rollback_point(100));
+   BOOST_REQUIRE(manager.create_rollback_point(200));
+   BOOST_REQUIRE(manager.create_rollback_point(300));
+   manager.cleanup_old_rollback_points(1, 0, 200);
+
+   BOOST_CHECK(!manager.has_rollback_point(100));
+   BOOST_CHECK(manager.has_rollback_point(200));
+   BOOST_CHECK(manager.has_rollback_point(300));
+   BOOST_CHECK_EQUAL(manager.rollback_point_count(), 2u);
    db->close();
 }
 

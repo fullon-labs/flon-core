@@ -140,7 +140,8 @@ public:
    void ensure_chain_parent(uint32_t parent_block_num, const std::string& parent_block_id);
    void record_history_gap(uint32_t block_num, const std::string& reason);
    bool batch_write_with_retry(const std::vector<std::pair<std::string, std::string>>& writes,
-                               const std::vector<std::string>& deletes = {});
+                               const std::vector<std::string>& deletes = {},
+                               bool sync = false);
    void check_data_size_warnings(uint32_t current_block_num, uint32_t lib_block_num);
    bool filter_action(const eosio::chain::action_trace& action_trace) const;
    uint64_t load_account_sequence(const eosio::chain::name& account) const;
@@ -365,19 +366,16 @@ void transaction_history_plugin::plugin_initialize(const variables_map& options)
       // Handle force clean option
       if (my->force_clean_enabled_) {
          ilog("Force clean enabled: clearing all transaction history data");
-         if (!my->db_->clear_all_data()) {
-            wlog("Failed to perform force clean of transaction history database");
-         } else {
-            ilog("Force clean completed successfully");
-         }
+         EOS_ASSERT(my->db_->clear_all_data(), chain::plugin_exception,
+                    "Failed to perform requested transaction history force clean");
+         ilog("Force clean completed successfully");
       }
 
       // Validate database integrity if requested
       if (my->validate_on_startup_enabled_) {
          ilog("Validating database integrity on startup...");
-         if (!my->db_->validate_and_repair_database()) {
-            wlog("Database validation encountered issues, but continuing startup");
-         }
+         EOS_ASSERT(my->db_->validate_and_repair_database(), chain::plugin_exception,
+                    "Transaction history validation or repair failed during startup");
       }
 
       // Perform compaction if requested
@@ -429,7 +427,8 @@ void transaction_history_plugin::plugin_startup() {
          is_replay = true;
          ilog("Detected replay: head block ${head} is behind LIB ${lib}",
               ("head", chain_head_block)("lib", lib_num));
-      } else if (earliest_available > 1 && chain_head_block - earliest_available < 1000) {
+      } else if (earliest_available > 1 && chain_head_block >= earliest_available &&
+                 chain_head_block - earliest_available < 1000) {
          is_replay = true;
          ilog("Detected potential replay: small range between earliest (${earliest}) and head (${head})",
               ("earliest", earliest_available)("head", chain_head_block));
@@ -448,8 +447,8 @@ void transaction_history_plugin::plugin_startup() {
    if (my->auto_repair_enabled_) {
       if (!my->db_->check_and_repair_database_state(chain_head_block, is_snapshot_load, is_replay)) {
          elog("Failed to initialize transaction history database state");
-         // Continue anyway, but warn user
-         wlog("Transaction history plugin will continue, but data consistency may be affected");
+         my->history_healthy_ = false;
+         my->history_gap_block_ = chain_head_block;
       }
    } else {
       // Just check but don't repair - provide detailed warnings
@@ -515,6 +514,9 @@ void transaction_history_plugin::plugin_startup() {
             break;
          }
       }
+      EOS_ASSERT(iterator->status().ok(), chain::plugin_exception,
+                 "Failed to scan transaction history during startup: ${error}",
+                 ("error", iterator->status().ToString()));
    }
    // A database with records but no branch identity predates the safety
    // marker and cannot be proven compatible. Only a database that was empty
@@ -625,15 +627,20 @@ void transaction_history_plugin::plugin_startup() {
                return;
             }
 
+            // Reclaim checkpoints below LIB before creating the next one, but
+            // never sacrifice a checkpoint in the reversible fork window for
+            // a configured count or free-space target.
+            impl->rollback_mgr_->cleanup_irreversible_rollback_points(irreversible_block_num);
             impl->rollback_mgr_->cleanup_old_rollback_points(
-               impl->max_retained_blocks_, impl->min_checkpoint_free_bytes_);
+               impl->max_retained_blocks_, impl->min_checkpoint_free_bytes_,
+               irreversible_block_num);
             if (!impl->rollback_mgr_->create_rollback_point(block_num)) {
                impl->record_history_gap(block_num, "failed to create accepted-block checkpoint");
                return;
             }
-            impl->rollback_mgr_->cleanup_irreversible_rollback_points(irreversible_block_num);
             impl->rollback_mgr_->cleanup_old_rollback_points(
-               impl->max_retained_blocks_, impl->min_checkpoint_free_bytes_);
+               impl->max_retained_blocks_, impl->min_checkpoint_free_bytes_,
+               irreversible_block_num);
              })) {
             my->record_history_gap(block_num, "history queue full before accepted-block checkpoint");
          }
@@ -1158,12 +1165,17 @@ void transaction_history_plugin_impl::record_history_gap(uint32_t block_num,
 
    history_gap_block_ = block_num;
    const std::string bounded_reason = reason.substr(0, 512);
-   if (!db_->batch_write({
+   auto database_lock = db_->acquire_read_lock();
+   if (!batch_write_with_retry({
           {"_internal_history_gap_block", std::to_string(block_num)},
           {"_internal_history_gap_reason", bounded_reason}
-       }, {})) {
+       }, {}, true)) {
       elog("Failed to persist transaction history gap marker at block ${block}",
            ("block", block_num));
+      // Continuing the node would make a later restart treat an incomplete
+      // history database as healthy. Stop cleanly so operators cannot miss the
+      // undurable safety marker.
+      app().quit();
    }
    elog("Transaction history became incomplete at block ${block}: ${reason}; recording disabled",
         ("block", block_num)("reason", bounded_reason));
@@ -1171,10 +1183,11 @@ void transaction_history_plugin_impl::record_history_gap(uint32_t block_num,
 
 bool transaction_history_plugin_impl::batch_write_with_retry(
    const std::vector<std::pair<std::string, std::string>>& writes,
-   const std::vector<std::string>& deletes) {
+   const std::vector<std::string>& deletes,
+   bool sync) {
    constexpr uint32_t max_attempts = 3;
    for (uint32_t attempt = 1; attempt <= max_attempts; ++attempt) {
-      if (db_->batch_write(writes, deletes)) {
+      if (db_->batch_write(writes, deletes, sync)) {
          return true;
       }
       if (attempt != max_attempts) {
@@ -1328,6 +1341,9 @@ read_only::get_transaction_result read_only::get_transaction(const get_transacti
             found = false;
          }
       }
+      EOS_ASSERT(iterator->status().ok(), chain::plugin_exception,
+                 "Failed to scan transaction history: ${error}",
+                 ("error", iterator->status().ToString()));
    }
 
    auto& controller = history->my->chain_plug->chain();
@@ -1534,6 +1550,10 @@ read_only::get_actions_result read_only::get_actions(const get_actions_params& p
                     result.time_limit_exceeded_error.value_or(false);
    }
 
+   EOS_ASSERT(iterator->status().ok(), chain::plugin_exception,
+              "Failed to scan account history: ${error}",
+              ("error", iterator->status().ToString()));
+
    EOS_ASSERT(scanned <= transaction_history_plugin_impl::MAX_API_RESULTS * 4,
               chain::plugin_exception, "Too many invalid action index entries");
 
@@ -1573,6 +1593,10 @@ read_only::get_transaction_count_result read_only::get_transaction_count(const g
       EOS_ASSERT(fc::time_point::now() < deadline, chain::deadline_exception,
                  "get_transaction_count exceeded the query time limit");
    }
+
+   EOS_ASSERT(iterator->status().ok(), chain::plugin_exception,
+              "Failed to scan block transaction index: ${error}",
+              ("error", iterator->status().ToString()));
 
    return result;
 }

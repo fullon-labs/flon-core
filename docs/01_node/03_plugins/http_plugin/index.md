@@ -88,6 +88,18 @@ accessible only by the node user (for example, mode `0700`); startup refuses an
 existing group- or world-accessible parent. A newly created parent directory is
 made private automatically.
 
+When category-based listeners are enabled, signing endpoints use the dedicated
+`sign_transaction` category. Configure that category only on a trusted Unix
+socket; the endpoints also enforce the Unix-socket requirement at request time.
+Do not include `sign_transaction` on a TCP listener.
+
+```console
+plugin = eosio::sign_transaction_api_plugin
+http-server-address = http-category-address
+http-category-address = chain_ro,127.0.0.1:8888
+http-category-address = sign_transaction,./sign-transaction.sock
+```
+
 ## Dependencies
 
 None

@@ -4,6 +4,7 @@
 #include <fc/io/raw.hpp>
 #include <filesystem>
 #include <limits>
+#include <stdexcept>
 
 namespace eosio {
 
@@ -113,7 +114,8 @@ bool rollback_manager::rollback_to_block(uint32_t block_num) {
 }
 
 void rollback_manager::cleanup_old_rollback_points(uint32_t keep_blocks,
-                                                   uint64_t min_free_bytes) {
+                                                   uint64_t min_free_bytes,
+                                                   std::optional<uint32_t> oldest_required_block) {
    const auto checkpoint_root = std::filesystem::path(db_->get_checkpoint_path(0)).parent_path();
    const auto available_bytes = [&]() {
       std::error_code error;
@@ -127,6 +129,12 @@ void rollback_manager::cleanup_old_rollback_points(uint32_t keep_blocks,
           (rollback_points_.size() > keep_blocks ||
            (min_free_bytes != 0 && free_bytes < min_free_bytes))) {
       auto cleanup_it = rollback_points_.begin();
+      if (oldest_required_block && cleanup_it->first >= *oldest_required_block) {
+         dlog("Checkpoint cleanup stopped at required reversible block ${block}; "
+              "free space remains ${bytes} bytes",
+              ("block", cleanup_it->first)("bytes", free_bytes));
+         break;
+      }
       // Remove checkpoint directory
       std::string checkpoint_path = db_->get_checkpoint_path(cleanup_it->first);
       std::error_code remove_error;
@@ -139,7 +147,11 @@ void rollback_manager::cleanup_old_rollback_points(uint32_t keep_blocks,
 
       // Remove rollback info from database
       std::string key = get_rollback_key(cleanup_it->first);
-      db_->remove(key);
+      if (!db_->remove(key)) {
+         wlog("Failed to remove rollback metadata ${key}; cleanup will retry",
+              ("key", key));
+         break;
+      }
       rollback_points_.erase(cleanup_it);
       free_bytes = available_bytes();
       ++removed;
@@ -241,6 +253,10 @@ bool rollback_manager::load_rollback_points() {
 
          info.checkpoint_path = checkpoint_path;
          rollback_points_[info.block_num] = std::move(info);
+      }
+      if (!iterator->status().ok()) {
+         throw std::runtime_error("failed to scan rollback metadata: " +
+                                  iterator->status().ToString());
       }
       refresh_summary();
       return true;

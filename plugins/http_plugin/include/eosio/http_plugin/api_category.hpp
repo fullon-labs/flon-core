@@ -17,6 +17,7 @@ enum class api_category : uint32_t {
    prometheus   = 1 << 9,
    test_control = 1 << 10,
    history_ro   = 1 << 11,
+   sign_transaction = 1 << 12,
    node        = UINT32_MAX
 };
 

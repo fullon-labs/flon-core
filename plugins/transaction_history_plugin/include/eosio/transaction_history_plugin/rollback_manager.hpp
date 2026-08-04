@@ -6,6 +6,7 @@
 #include <map>
 #include <memory>
 #include <atomic>
+#include <optional>
 
 namespace eosio {
 
@@ -51,7 +52,8 @@ public:
     * @param keep_blocks Number of recent rollback points to keep
     */
    void cleanup_old_rollback_points(uint32_t keep_blocks = 1000,
-                                    uint64_t min_free_bytes = 0);
+                                    uint64_t min_free_bytes = 0,
+                                    std::optional<uint32_t> oldest_required_block = {});
 
    /** Remove checkpoints older than the irreversible boundary. */
    void cleanup_irreversible_rollback_points(uint32_t irreversible_block_num);

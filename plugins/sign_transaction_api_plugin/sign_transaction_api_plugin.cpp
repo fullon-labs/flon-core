@@ -41,8 +41,8 @@ void sign_transaction_api_plugin::plugin_initialize(const variables_map&) {}
           } \
        }}
 
-#define CHAIN_RW_CALL(call_name, http_response_code, params_type) CALL_WITH_400(sign_transaction, chain_rw, rw_api, sign_transaction_apis::read_write, call_name, http_response_code, params_type)
-#define CHAIN_RW_CALL_ASYNC(call_name, call_result, http_response_code, params_type) CALL_ASYNC_WITH_400(sign_transaction, chain_rw, rw_api, sign_transaction_apis::read_write, call_name, call_result, http_response_code, params_type)
+#define CHAIN_RW_CALL(call_name, http_response_code, params_type) CALL_WITH_400(sign_transaction, sign_transaction, rw_api, sign_transaction_apis::read_write, call_name, http_response_code, params_type)
+#define CHAIN_RW_CALL_ASYNC(call_name, call_result, http_response_code, params_type) CALL_ASYNC_WITH_400(sign_transaction, sign_transaction, rw_api, sign_transaction_apis::read_write, call_name, call_result, http_response_code, params_type)
 
 void sign_transaction_api_plugin::plugin_startup() {
    ilog( "starting sign_transaction_api_plugin" );

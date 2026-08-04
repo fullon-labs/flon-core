@@ -35,9 +35,11 @@ using namespace eosio;
 #define CALL_ASYNC(api_name, category, api_handle, call_name, call_result, INVOKE, http_response_code) \
 {std::string("/v1/" #api_name "/" #call_name), \
    api_category::category, \
-   [&api_handle](string&&, string&& body, url_response_callback&& cb) mutable { \
+   [&api_handle, &_http_plugin](string&&, string&& body, url_response_callback&& cb) mutable { \
       if (body.empty()) body = "{}"; \
-      auto next = [cb=std::move(cb), body=std::move(body)](const chain::next_function_variant<call_result>& result){ \
+      using http_fwd_t = std::function<chain::t_or_exception<call_result>()>; \
+      auto next = [&_http_plugin, cb=std::move(cb), body=std::move(body)] \
+                  (const chain::next_function_variant<call_result>& result) mutable { \
          if (std::holds_alternative<fc::exception_ptr>(result)) {\
             try {\
                std::get<fc::exception_ptr>(result)->dynamic_rethrow_exception();\
@@ -47,7 +49,20 @@ using namespace eosio;
          } else if (std::holds_alternative<call_result>(result)) { \
             cb(http_response_code, fc::variant(std::get<call_result>(result)));\
          } else { \
-            assert(0); \
+            _http_plugin.post_http_thread_pool( \
+               [cb=std::move(cb), body=std::move(body), \
+                http_fwd=std::get<http_fwd_t>(result)]() mutable { \
+                  try { \
+                     auto forwarded = http_fwd(); \
+                     if (std::holds_alternative<fc::exception_ptr>(forwarded)) { \
+                        std::get<fc::exception_ptr>(forwarded)->dynamic_rethrow_exception(); \
+                     } \
+                     cb(http_response_code, \
+                        fc::variant(std::get<call_result>(std::move(forwarded)))); \
+                  } catch (...) { \
+                     http_plugin::handle_exception(#api_name, #call_name, body, cb); \
+                  } \
+               }); \
          } \
       };\
       INVOKE\
@@ -92,8 +107,9 @@ void producer_api_plugin::plugin_startup() {
    ilog("starting producer_api_plugin");
    // lifetime of plugin is lifetime of application
    auto& producer = app().get_plugin<producer_plugin>();
+   auto& _http_plugin = app().get_plugin<http_plugin>();
 
-   app().get_plugin<http_plugin>().add_api({
+   _http_plugin.add_api({
        CALL_WITH_400(producer, producer_ro, producer, paused,
             INVOKE_R_V(producer, paused), 201),
        CALL_WITH_400(producer, producer_ro, producer, get_runtime_options,
@@ -119,7 +135,7 @@ void producer_api_plugin::plugin_startup() {
    }, appbase::exec_queue::read_only, appbase::priority::medium_high);
 
    // Not safe to run in parallel
-   app().get_plugin<http_plugin>().add_api({
+   _http_plugin.add_api({
        CALL_WITH_400(producer, producer_rw, producer, pause,
             INVOKE_V_V(producer, pause), 201),
        CALL_WITH_400(producer, producer_rw, producer, resume,

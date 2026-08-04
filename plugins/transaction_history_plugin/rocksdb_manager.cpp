@@ -3,6 +3,7 @@
 #include <fc/io/json.hpp>
 #include <fc/scoped_exit.hpp>
 #include <rocksdb/utilities/checkpoint.h>
+#include <rocksdb/statistics.h>
 #include <rocksdb/version.h>
 #include <filesystem>
 #include <fstream>
@@ -85,8 +86,15 @@ rocksdb_manager::rocksdb_manager() : is_open_(false) {
    options_.write_buffer_size = 64 * 1024 * 1024;  // 64MB
    options_.max_write_buffer_number = 3;
    options_.target_file_size_base = 64 * 1024 * 1024;  // 64MB
-   options_.max_background_jobs = 4;
-   options_.IncreaseParallelism(std::thread::hardware_concurrency());
+   const auto hardware_threads = std::max(1u, std::thread::hardware_concurrency());
+   const int background_jobs = static_cast<int>(
+      std::min(8u, std::max(1u, hardware_threads / 2)));
+   options_.IncreaseParallelism(background_jobs);
+   options_.max_background_jobs = background_jobs;
+   options_.statistics = rocksdb::CreateDBStatistics();
+   // Metrics are pulled by the plugin; periodic RocksDB LOG dumps add noise
+   // and can create avoidable I/O on busy nodes.
+   options_.stats_dump_period_sec = 0;
 }
 
 rocksdb_manager::~rocksdb_manager() {
@@ -99,6 +107,11 @@ bool rocksdb_manager::open(const std::string& db_path) {
 
 bool rocksdb_manager::open(const std::string& db_path, bool enable_compression) {
    std::unique_lock<std::shared_mutex> lifecycle_lock(db_lifecycle_mutex_);
+   return open_unlocked(db_path, enable_compression, true);
+}
+
+bool rocksdb_manager::open_unlocked(const std::string& db_path, bool enable_compression,
+                                    bool recover_interrupted_swap) {
    if (is_open_) {
       return true;
    }
@@ -127,7 +140,7 @@ bool rocksdb_manager::open(const std::string& db_path, bool enable_compression) 
                 std::filesystem::exists(path / "CURRENT");
       };
 
-      if (!complete(database_path) && complete(backup_path)) {
+      if (recover_interrupted_swap && !complete(database_path) && complete(backup_path)) {
          std::error_code ignored;
          std::filesystem::remove_all(database_path, ignored);
          std::filesystem::rename(backup_path, database_path);
@@ -135,7 +148,7 @@ bool rocksdb_manager::open(const std::string& db_path, bool enable_compression) 
          std::filesystem::remove_all(staging_path, ignored);
          wlog("Recovered transaction history database from interrupted rollback backup at ${path}",
               ("path", backup_path.string()));
-      } else if (!complete(database_path) && complete(staging_path)) {
+      } else if (recover_interrupted_swap && !complete(database_path) && complete(staging_path)) {
          std::error_code ignored;
          std::filesystem::remove_all(database_path, ignored);
          std::filesystem::rename(staging_path, database_path);
@@ -170,7 +183,7 @@ bool rocksdb_manager::open(const std::string& db_path, bool enable_compression) 
       const auto database_path = std::filesystem::absolute(db_path).lexically_normal();
       const auto backup_path = database_path.parent_path() /
          (database_path.filename().string() + ".rollback_backup");
-      if (std::filesystem::exists(backup_path / "CURRENT")) {
+      if (recover_interrupted_swap && std::filesystem::exists(backup_path / "CURRENT")) {
          try {
             std::filesystem::remove_all(database_path);
             std::filesystem::rename(backup_path, database_path);
@@ -232,15 +245,21 @@ bool rocksdb_manager::open(const std::string& db_path, bool enable_compression) 
       (database_path.filename().string() + ".rollback_backup");
    const auto staging_path = database_path.parent_path() /
       (database_path.filename().string() + ".rollback_staging");
-   std::error_code cleanup_error;
-   std::filesystem::remove_all(backup_path, cleanup_error);
-   cleanup_error.clear();
-   std::filesystem::remove_all(staging_path, cleanup_error);
+   if (recover_interrupted_swap) {
+      std::error_code cleanup_error;
+      std::filesystem::remove_all(backup_path, cleanup_error);
+      cleanup_error.clear();
+      std::filesystem::remove_all(staging_path, cleanup_error);
+   }
    return true;
 }
 
 void rocksdb_manager::close() {
    std::unique_lock<std::shared_mutex> lifecycle_lock(db_lifecycle_mutex_);
+   close_unlocked();
+}
+
+void rocksdb_manager::close_unlocked() {
    std::lock_guard<std::mutex> lock(stats_cache_mutex_);
    if (db_) {
       db_.reset();
@@ -527,6 +546,12 @@ bool rocksdb_manager::clear_from_block(uint32_t from_block_num) {
          }
       }
 
+      if (!it->status().ok()) {
+         elog("Failed while scanning database for block cleanup: ${error}",
+              ("error", it->status().ToString()));
+         return false;
+      }
+
       if (!flush()) return false;
       if (deleted != 0) {
          ilog("Database cleanup completed: cleared ${count} entries from block ${from_block} onwards "
@@ -584,6 +609,12 @@ bool rocksdb_manager::clear_all_data() {
                return false;
             }
          }
+      }
+
+      if (!it->status().ok()) {
+         elog("Failed while scanning database for force clean: ${error}",
+              ("error", it->status().ToString()));
+         return false;
       }
 
       if (!flush()) return false;
@@ -782,6 +813,12 @@ bool rocksdb_manager::validate_and_repair_database() {
          }
       }
 
+      if (!it->status().ok()) {
+         elog("Failed while scanning database for validation: ${error}",
+              ("error", it->status().ToString()));
+         return false;
+      }
+
       if (!flush_repairs()) return false;
 
       // Update last block number if we found a higher valid block
@@ -906,7 +943,8 @@ rocksdb::Iterator* rocksdb_manager::new_iterator() const {
 }
 
 bool rocksdb_manager::batch_write(const std::vector<std::pair<std::string, std::string>>& writes,
-                                 const std::vector<std::string>& deletes) {
+                                 const std::vector<std::string>& deletes,
+                                 bool sync) {
    if (!db_) return false;
 
    rocksdb::WriteBatch batch;
@@ -919,7 +957,9 @@ bool rocksdb_manager::batch_write(const std::vector<std::pair<std::string, std::
       batch.Delete(key);
    }
 
-   rocksdb::Status status = db_->Write(rocksdb::WriteOptions(), &batch);
+   rocksdb::WriteOptions write_options;
+   write_options.sync = sync;
+   rocksdb::Status status = db_->Write(write_options, &batch);
    if (!status.ok()) {
       elog("RocksDB batch write failed: ${error}", ("error", status.ToString()));
       return false;
@@ -974,6 +1014,7 @@ std::string rocksdb_manager::get_checkpoint_path(uint32_t block_num) const {
 }
 
 bool rocksdb_manager::rollback_to_block(uint32_t block_num) {
+   std::unique_lock<std::shared_mutex> lifecycle_lock(db_lifecycle_mutex_);
    if (!db_) return false;
 
    const std::filesystem::path checkpoint_path = get_checkpoint_path(block_num);
@@ -1018,7 +1059,10 @@ bool rocksdb_manager::rollback_to_block(uint32_t block_num) {
       return false;
    }
 
-   close();
+   // Keep API readers out for the complete close/swap/open sequence. Releasing
+   // this lock after close would let a new query dereference a null db_ or
+   // observe the filesystem between the two atomic renames.
+   close_unlocked();
    bool original_moved = false;
    bool replacement_installed = false;
 
@@ -1032,7 +1076,10 @@ bool rocksdb_manager::rollback_to_block(uint32_t block_num) {
       sync_directory(database_path.parent_path());
       replacement_installed = true;
 
-      if (!open(database_path.string(), compression_enabled)) {
+      // A failed replacement must be reported as a failed rollback. Normal
+      // startup recovery is deliberately disabled here because silently
+      // reopening the backup would otherwise make this operation return true.
+      if (!open_unlocked(database_path.string(), compression_enabled, false)) {
          throw std::runtime_error("failed to open restored checkpoint");
       }
 
@@ -1045,7 +1092,7 @@ bool rocksdb_manager::rollback_to_block(uint32_t block_num) {
       ilog("Successfully rolled back database to block ${block}", ("block", block_num));
       return true;
    } catch (const std::exception& e) {
-      close();
+      close_unlocked();
 
       std::error_code recovery_error;
       if (replacement_installed) {
@@ -1062,13 +1109,13 @@ bool rocksdb_manager::rollback_to_block(uint32_t block_num) {
       }
 
       if (original_moved && !recovery_error) {
-         if (!open(database_path.string(), compression_enabled)) {
+         if (!open_unlocked(database_path.string(), compression_enabled, false)) {
             elog("Failed to reopen original database after rollback failure");
          }
       } else if (!original_moved) {
          // The directory swap never started, so the original database is still
          // in place and only needs to be reopened.
-         if (!open(database_path.string(), compression_enabled)) {
+         if (!open_unlocked(database_path.string(), compression_enabled, false)) {
             elog("Failed to reopen database after rollback setup failure");
          }
       } else if (recovery_error) {
@@ -1098,16 +1145,14 @@ std::string rocksdb_manager::get_performance_metrics() const {
          metrics["rocksdb_internal_stats"] = stats_str;
       }
 
-      // Get operation statistics
-      std::string gets, puts, seeks;
-      if (db_->GetProperty("rocksdb.number.db.get", &gets)) {
-         metrics["total_gets"] = std::stoull(gets);
-      }
-      if (db_->GetProperty("rocksdb.number.db.put", &puts)) {
-         metrics["total_puts"] = std::stoull(puts);
-      }
-      if (db_->GetProperty("rocksdb.number.db.seek", &seeks)) {
-         metrics["total_seeks"] = std::stoull(seeks);
+      // These are ticker counters, not DB properties. Reading them through
+      // GetProperty silently produced no metrics on supported RocksDB builds.
+      if (options_.statistics) {
+         metrics["total_keys_read"] = options_.statistics->getTickerCount(rocksdb::NUMBER_KEYS_READ);
+         metrics["total_keys_written"] = options_.statistics->getTickerCount(rocksdb::NUMBER_KEYS_WRITTEN);
+         metrics["total_seeks"] = options_.statistics->getTickerCount(rocksdb::NUMBER_DB_SEEK);
+         metrics["bytes_read"] = options_.statistics->getTickerCount(rocksdb::BYTES_READ);
+         metrics["bytes_written"] = options_.statistics->getTickerCount(rocksdb::BYTES_WRITTEN);
       }
 
       // Get cache statistics
@@ -1137,8 +1182,8 @@ std::string rocksdb_manager::get_performance_metrics() const {
 
       // Performance health indicators
       uint64_t total_ops = 0;
-      if (metrics.find("total_gets") != metrics.end()) total_ops += metrics["total_gets"].as_uint64();
-      if (metrics.find("total_puts") != metrics.end()) total_ops += metrics["total_puts"].as_uint64();
+      if (metrics.find("total_keys_read") != metrics.end()) total_ops += metrics["total_keys_read"].as_uint64();
+      if (metrics.find("total_keys_written") != metrics.end()) total_ops += metrics["total_keys_written"].as_uint64();
 
       metrics["total_operations"] = total_ops;
       metrics["healthy"] = (metrics.find("background_errors") == metrics.end() ||
@@ -1855,8 +1900,7 @@ std::string rocksdb_manager::get_cache_analysis() const {
 
    try {
       // Block cache statistics
-      std::string cache_usage_str, cache_pinned_str, cache_capacity_str;
-      std::string cache_hits_str, cache_misses_str;
+      std::string cache_usage_str, cache_pinned_str;
 
       if (db_->GetProperty("rocksdb.block-cache-usage", &cache_usage_str)) {
          uint64_t cache_usage = std::stoull(cache_usage_str);
@@ -1872,11 +1916,9 @@ std::string rocksdb_manager::get_cache_analysis() const {
 
       // Cache hit/miss statistics
       uint64_t hits = 0, misses = 0;
-      if (db_->GetProperty("rocksdb.block-cache-hit", &cache_hits_str)) {
-         try { hits = std::stoull(cache_hits_str); } catch (...) {}
-      }
-      if (db_->GetProperty("rocksdb.block-cache-miss", &cache_misses_str)) {
-         try { misses = std::stoull(cache_misses_str); } catch (...) {}
+      if (options_.statistics) {
+         hits = options_.statistics->getTickerCount(rocksdb::BLOCK_CACHE_HIT);
+         misses = options_.statistics->getTickerCount(rocksdb::BLOCK_CACHE_MISS);
       }
 
       cache_analysis["cache_hits"] = hits;

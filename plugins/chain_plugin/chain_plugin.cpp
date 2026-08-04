@@ -2224,7 +2224,9 @@ static void push_recurse(read_write* rw, int index, const std::shared_ptr<read_w
          const auto& r = std::get<read_write::push_transaction_results>(result);
          results->emplace_back( r );
       } else {
-         assert(0);
+         results->emplace_back(read_write::push_transaction_results{
+            transaction_id_type(),
+            fc::mutable_variant_object("error", "Unexpected deferred push_transaction result")});
       }
 
       size_t next_index = index + 1;
@@ -2244,6 +2246,11 @@ void read_write::push_transactions(const read_write::push_transactions_params& p
       auto params_copy = std::make_shared<read_write::push_transactions_params>(params.begin(), params.end());
       auto result = std::make_shared<read_write::push_transactions_results>();
       result->reserve(params.size());
+
+      if (params.empty()) {
+         next(*result);
+         return;
+      }
 
       push_recurse(this, 0, params_copy, result, next);
    } catch ( boost::interprocess::bad_alloc& ) {

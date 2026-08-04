@@ -57,6 +57,7 @@ namespace eosio {
       if (name == "prometheus") return api_category::prometheus;
       if (name == "test_control") return api_category::test_control;
       if (name == "history_ro") return api_category::history_ro;
+      if (name == "sign_transaction") return api_category::sign_transaction;
       return api_category::unknown;
    }
 
@@ -74,6 +75,7 @@ namespace eosio {
       if (category == api_category::test_control) return "test_control";
       if (category == api_category::node) return "node";
       if (category == api_category::history_ro) return "history_ro";
+      if (category == api_category::sign_transaction) return "sign_transaction";
       // It's a programming error when the control flow reaches this point, 
       // please make sure all the category names are returned from above statements.
       assert(false && "No correspding category name for the category value");
@@ -101,6 +103,9 @@ namespace eosio {
          .contains(category))
          return "eosio::transaction_history_api_plugin";
 
+      if (category == api_category::sign_transaction)
+         return "eosio::sign_transaction_api_plugin";
+
 
       // It's a programming error when the control flow reaches this point, 
       // please make sure all the plugin names are returned from above statements.
@@ -111,7 +116,7 @@ namespace eosio {
    std::string category_names(api_category_set set) {
       if (set == api_category_set::all()) return "all";
       std::string result;
-      for (uint32_t i = 1; i <= static_cast<uint32_t>(api_category::history_ro); i<<=1) {
+      for (uint32_t i = 1; i <= static_cast<uint32_t>(api_category::sign_transaction); i<<=1) {
          if (set.contains(api_category(i))) {
             result += from_category(api_category(i));
             result += " ";
@@ -357,7 +362,7 @@ namespace eosio {
              "    in addition, unix socket path must starts with '/', './' or '../'. When relative path\n"
              "    is used, it is relative to the data path.\n\n"
              "    Valid categories include chain_ro, chain_rw, db_size, net_ro, net_rw, producer_ro\n"
-             "    producer_rw, snapshot, trace_api, prometheus, test_control, and history_ro.\n\n"
+             "    producer_rw, snapshot, trace_api, prometheus, test_control, history_ro, and sign_transaction.\n\n"
              "    A single `hostname:port` specification can be used by multiple categories\n" 
              "    However, two specifications having the same port with different hostname strings\n" 
              "    are always considered as configuration error regardless of whether they can be resolved\n"
