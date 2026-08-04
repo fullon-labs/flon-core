@@ -66,7 +66,13 @@ Config Options for eosio::net_plugin:
   --p2p-dedup-cache-expire-time-sec arg (=10)
                                         Maximum time to track transaction for
                                         duplicate optimization
-  --net-threads arg (=2)                Number of worker threads in net_plugin
+  --p2p-max-transactions-in-progress-mb arg (=100)
+                                        Maximum retained transaction memory
+                                        being processed for one peer, in MiB
+  --p2p-max-global-transactions-in-progress-mb arg (=256)
+                                        Maximum retained P2P transaction memory
+                                        being processed across all peers, in MiB
+  --net-threads arg (=4)                Number of worker threads in net_plugin
                                         thread pool
   --sync-fetch-span arg (=100)          number of blocks to retrieve in a chunk
                                         from any individual peer during

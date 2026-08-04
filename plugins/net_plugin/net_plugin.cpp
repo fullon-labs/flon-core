@@ -330,7 +330,8 @@ namespace eosio {
    constexpr auto     def_send_buffer_size_mb = 4;
    constexpr auto     def_send_buffer_size = 1024*1024*def_send_buffer_size_mb;
    constexpr auto     def_max_write_queue_size = def_send_buffer_size*10;
-   constexpr auto     def_max_trx_in_progress_size = 100*1024*1024; // 100 MB
+   constexpr uint64_t def_max_trx_in_progress_size = 100ull*1024*1024; // 100 MB per peer
+   constexpr uint64_t def_max_global_trx_in_progress_size = 256ull*1024*1024;
    constexpr auto     def_max_consecutive_immediate_connection_close = 9; // back off if client keeps closing
    constexpr auto     def_max_clients = 25; // 0 for unlimited clients
    constexpr auto     def_max_nodes_per_host = 1;
@@ -450,6 +451,10 @@ namespace eosio {
     public:
       uint16_t                                    thread_pool_size = 4;
       eosio::chain::named_thread_pool<struct net> thread_pool;
+      uint64_t                                    max_trx_in_progress_size = def_max_trx_in_progress_size;
+      uint64_t                                    max_global_trx_in_progress_size = def_max_global_trx_in_progress_size;
+      alignas(hardware_destructive_interference_sz)
+      std::atomic<uint64_t>                       global_trx_in_progress_size{0};
 
       std::atomic<uint32_t>            current_connection_id{0};
 
@@ -942,7 +947,7 @@ namespace eosio {
       uint32_t                sync_last_requested_block{0};
 
       alignas(hardware_destructive_interference_sz)
-      std::atomic<uint32_t>   trx_in_progress_size{0};
+      std::atomic<uint64_t>   trx_in_progress_size{0};
 
       fc::time_point          last_dropped_trx_msg_time;
       const uint32_t          connection_id;
@@ -3189,27 +3194,12 @@ namespace eosio {
          return true;
       }
 
-      const unsigned long trx_in_progress_sz = this->trx_in_progress_size.load();
-
       auto ds = pending_message_buffer.create_datastream();
       unsigned_int which{};
       fc::raw::unpack( ds, which );
       // shared_ptr<packed_transaction> needed here because packed_transaction_ptr is shared_ptr<const packed_transaction>
       std::shared_ptr<packed_transaction> ptr = std::make_shared<packed_transaction>();
       fc::raw::unpack( ds, *ptr );
-      if( trx_in_progress_sz > def_max_trx_in_progress_size) {
-         char reason[72];
-         snprintf(reason, 72, "Dropping trx, too many trx in progress %lu bytes", trx_in_progress_sz);
-         my_impl->producer_plug->log_failed_transaction(ptr->id(), ptr, reason);
-         if (fc::time_point::now() - fc::seconds(1) >= last_dropped_trx_msg_time) {
-            last_dropped_trx_msg_time = fc::time_point::now();
-            if (my_impl->increment_dropped_trxs) {
-               my_impl->increment_dropped_trxs();
-            }
-            peer_wlog(this, reason);
-         }
-         return true;
-      }
       bool have_trx = my_impl->dispatcher.have_txn( ptr->id() );
       my_impl->dispatcher.add_peer_txn( ptr->id(), ptr->expiration(), connection_id );
 
@@ -3760,10 +3750,61 @@ namespace eosio {
 
       peer_dlog( this, "received packed_transaction ${id}", ("id", tid) );
 
-      size_t trx_size = calc_trx_size( trx );
-      trx_in_progress_size += trx_size;
-      my_impl->chain_plug->accept_transaction( trx,
-         [weak = weak_from_this(), trx_size](const next_function_variant<transaction_trace_ptr>& result) mutable {
+      const uint64_t trx_size = calc_trx_size( trx );
+      const auto try_reserve = [](std::atomic<uint64_t>& counter, uint64_t limit, uint64_t amount) {
+         if (amount > limit) return false;
+         uint64_t current = counter.load(std::memory_order_relaxed);
+         while (current <= limit - amount) {
+            if (counter.compare_exchange_weak(current, current + amount,
+                                              std::memory_order_acq_rel,
+                                              std::memory_order_relaxed)) {
+               return true;
+            }
+         }
+         return false;
+      };
+
+      const auto log_budget_drop = [this, &tid, &trx](const char* reason) {
+         my_impl->producer_plug->log_failed_transaction(tid, trx, reason);
+         if (fc::time_point::now() - fc::seconds(1) >= last_dropped_trx_msg_time) {
+            last_dropped_trx_msg_time = fc::time_point::now();
+            if (my_impl->increment_dropped_trxs) my_impl->increment_dropped_trxs();
+            peer_wlog(this, "${reason}", ("reason", reason));
+         }
+      };
+
+      if (!try_reserve(trx_in_progress_size, my_impl->max_trx_in_progress_size, trx_size)) {
+         log_budget_drop("Dropping trx: per-peer transaction processing budget exhausted");
+         return;
+      }
+      if (!try_reserve(my_impl->global_trx_in_progress_size,
+                       my_impl->max_global_trx_in_progress_size, trx_size)) {
+         trx_in_progress_size.fetch_sub(trx_size, std::memory_order_acq_rel);
+         log_budget_drop("Dropping trx: global P2P transaction processing budget exhausted");
+         return;
+      }
+
+      auto impl = my_impl->shared_from_this();
+      std::shared_ptr<void> processing_reservation;
+      try {
+         processing_reservation = std::shared_ptr<void>(
+            nullptr, [weak = weak_from_this(), impl, trx_size](void*) {
+               if (auto conn = weak.lock()) {
+                  conn->trx_in_progress_size.fetch_sub(trx_size, std::memory_order_acq_rel);
+               }
+               impl->global_trx_in_progress_size.fetch_sub(trx_size, std::memory_order_acq_rel);
+            });
+      } catch (...) {
+         trx_in_progress_size.fetch_sub(trx_size, std::memory_order_acq_rel);
+         my_impl->global_trx_in_progress_size.fetch_sub(trx_size, std::memory_order_acq_rel);
+         throw;
+      }
+
+      try {
+         my_impl->chain_plug->accept_transaction( trx,
+         [processing_reservation{std::move(processing_reservation)}]
+         (const next_function_variant<transaction_trace_ptr>& result) mutable {
+         (void)processing_reservation;
          // next (this lambda) called from application thread
          if (std::holds_alternative<fc::exception_ptr>(result)) {
             fc_dlog( logger, "bad packed_transaction : ${m}", ("m", std::get<fc::exception_ptr>(result)->what()) );
@@ -3775,11 +3816,12 @@ namespace eosio {
                fc_ilog( logger, "bad packed_transaction : ${m}", ("m", trace->except->what()));
             }
          }
-         connection_ptr conn = weak.lock();
-         if( conn ) {
-            conn->trx_in_progress_size -= trx_size;
-         }
       });
+      } catch (...) {
+         // The callback owns the reservation. If registration failed it is
+         // destroyed during stack unwinding and releases both counters.
+         throw;
+      }
    }
 
    // called from connection strand
@@ -4060,7 +4102,9 @@ namespace eosio {
       case vote_result_t::duplicate: // do nothing
          break;
       default:
-         assert(false); // should never happen
+         fc_elog(vote_logger, "Ignoring vote with invalid result status ${status}",
+                 ("status", static_cast<uint32_t>(status)));
+         break;
       }
    }
 
@@ -4252,6 +4296,10 @@ namespace eosio {
          ( "connection-cleanup-period", bpo::value<int>()->default_value(def_conn_retry_wait), "number of seconds to wait before cleaning up dead connections")
          ( "max-cleanup-time-msec", bpo::value<uint32_t>()->default_value(10), "max connection cleanup time per cleanup call in milliseconds")
          ( "p2p-dedup-cache-expire-time-sec", bpo::value<uint32_t>()->default_value(10), "Maximum time to track transaction for duplicate optimization")
+         ( "p2p-max-transactions-in-progress-mb", bpo::value<uint32_t>()->default_value(100),
+           "Maximum retained transaction memory being processed for one peer, in MiB")
+         ( "p2p-max-global-transactions-in-progress-mb", bpo::value<uint32_t>()->default_value(256),
+           "Maximum retained P2P transaction memory being processed across all peers, in MiB")
          ( "net-threads", bpo::value<uint16_t>()->default_value(my->thread_pool_size),
            "Number of worker threads in net_plugin thread pool" )
          ( "sync-fetch-span", bpo::value<uint32_t>()->default_value(def_sync_fetch_span),
@@ -4294,6 +4342,13 @@ namespace eosio {
          resp_expected_period = def_resp_expected_wait;
          max_nodes_per_host = options.at( "p2p-max-nodes-per-host" ).as<int>();
          p2p_accept_transactions = options.at( "p2p-accept-transactions" ).as<bool>();
+         max_trx_in_progress_size =
+            static_cast<uint64_t>(options.at("p2p-max-transactions-in-progress-mb").as<uint32_t>()) * 1024 * 1024;
+         max_global_trx_in_progress_size =
+            static_cast<uint64_t>(options.at("p2p-max-global-transactions-in-progress-mb").as<uint32_t>()) * 1024 * 1024;
+         EOS_ASSERT(max_trx_in_progress_size > 0 && max_global_trx_in_progress_size > 0,
+                    chain::plugin_config_exception,
+                    "P2P transaction processing memory limits must be greater than zero");
 
          use_socket_read_watermark = options.at( "use-socket-read-watermark" ).as<bool>();
          keepalive_interval = std::chrono::milliseconds( options.at( "p2p-keepalive-interval-ms" ).as<int>() );

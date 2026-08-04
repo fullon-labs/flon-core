@@ -433,7 +433,8 @@ struct implicit_production_pause_vote_tracker {
          check = production_pause_vote_tracker::pause_check::both;
          break;
       default:
-         assert(false);
+         EOS_THROW(producer_exception, "invalid production pause vote tracking mode ${mode}",
+                   ("mode", static_cast<uint32_t>(vtm)));
       }
 
       return _vt.check_pause_status(now, check);
@@ -456,7 +457,9 @@ struct implicit_production_pause_vote_tracker {
       case vote_result_t::unknown_block:
          return;
       default:
-         assert(false); // should never happen
+         fc_elog(_log, "Ignoring vote with invalid result status ${status}",
+                 ("status", static_cast<uint32_t>(status)));
+         return;
       }
 
       if (!active_finalizer_auth && !pending_finalizer_auth) {
@@ -705,6 +708,12 @@ public:
    unapplied_transaction_queue                       _unapplied_transactions;
    alignas(hardware_destructive_interference_sz)
    std::atomic<int32_t>                              _max_transaction_time_ms; // modified by app thread, read by net_plugin thread pool
+   alignas(hardware_destructive_interference_sz)
+   std::atomic<uint64_t>                             _pending_key_recovery_bytes{0};
+   alignas(hardware_destructive_interference_sz)
+   std::atomic<uint32_t>                             _pending_key_recovery_tasks{0};
+   uint64_t                                          _max_pending_key_recovery_bytes = 256ull * 1024 * 1024;
+   uint32_t                                          _max_pending_key_recovery_tasks = 4096;
    alignas(hardware_destructive_interference_sz)
    std::atomic<uint32_t>                             _received_block{0};       // modified by net_plugin thread pool
    implicit_production_pause_vote_tracker            _implicit_pause_vote_tracker;
@@ -1075,9 +1084,71 @@ public:
          };
       }
 
+      // Key recovery runs outside the application thread and used to have an
+      // unbounded asio queue. Bound both retained memory and task overhead so
+      // an input burst cannot consume all RAM or indefinitely delay valid
+      // transactions. Keep the reservation until the application-thread
+      // continuation has consumed the recovered metadata.
+      const uint64_t recovery_bytes = static_cast<uint64_t>(trx->get_estimated_size()) + 512;
+      uint32_t pending_tasks = _pending_key_recovery_tasks.load(std::memory_order_relaxed);
+      bool task_reserved = false;
+      while (pending_tasks < _max_pending_key_recovery_tasks) {
+         if (_pending_key_recovery_tasks.compare_exchange_weak(
+                pending_tasks, pending_tasks + 1,
+                std::memory_order_acq_rel, std::memory_order_relaxed)) {
+            task_reserved = true;
+            break;
+         }
+      }
+
+      bool bytes_reserved = false;
+      if (task_reserved && recovery_bytes <= _max_pending_key_recovery_bytes) {
+         uint64_t pending_bytes = _pending_key_recovery_bytes.load(std::memory_order_relaxed);
+         while (pending_bytes <= _max_pending_key_recovery_bytes - recovery_bytes) {
+            if (_pending_key_recovery_bytes.compare_exchange_weak(
+                   pending_bytes, pending_bytes + recovery_bytes,
+                   std::memory_order_acq_rel, std::memory_order_relaxed)) {
+               bytes_reserved = true;
+               break;
+            }
+         }
+      }
+
+      if (!task_reserved || !bytes_reserved) {
+         if (task_reserved) {
+            _pending_key_recovery_tasks.fetch_sub(1, std::memory_order_acq_rel);
+         }
+         auto except_ptr = std::static_pointer_cast<fc::exception>(
+            std::make_shared<tx_resource_exhaustion>(FC_LOG_MESSAGE(
+               error,
+               "transaction ${id} rejected: signature recovery queue is full",
+               ("id", trx->id()))));
+         app().executor().post(
+            priority::low, exec_queue::read_write,
+            [next{std::move(next)}, except_ptr{std::move(except_ptr)}]() mutable {
+               next(std::move(except_ptr));
+            });
+         return;
+      }
+
+      std::shared_ptr<producer_plugin_impl> recovery_reservation;
+      try {
+         recovery_reservation = std::shared_ptr<producer_plugin_impl>(
+            this, [this, recovery_bytes](producer_plugin_impl*) {
+               _pending_key_recovery_bytes.fetch_sub(recovery_bytes, std::memory_order_acq_rel);
+               _pending_key_recovery_tasks.fetch_sub(1, std::memory_order_acq_rel);
+            });
+      } catch (...) {
+         _pending_key_recovery_bytes.fetch_sub(recovery_bytes, std::memory_order_acq_rel);
+         _pending_key_recovery_tasks.fetch_sub(1, std::memory_order_acq_rel);
+         throw;
+      }
+
       boost::asio::post(
               chain_plug->chain().get_thread_pool(), // use chain thread pool for key recovery
-              [this, trx{trx}, time_limit{max_trx_cpu_usage}, trx_type, is_transient, next{std::move(next)}, api_trx, return_failure_traces]() mutable {
+              [this, trx{trx}, time_limit{max_trx_cpu_usage}, trx_type, is_transient,
+               next{std::move(next)}, api_trx, return_failure_traces,
+               recovery_reservation{std::move(recovery_reservation)}]() mutable {
 
                  chain::controller& chain = chain_plug->chain();
                  transaction_metadata_ptr trx_meta;
@@ -1088,7 +1159,8 @@ public:
                     // use read_write when read is likely fine; maintains previous behavior of next() always being called from the main thread
                     app().executor().post(
                             priority::low, exec_queue::read_write,
-                            [this, ex_ptr{std::current_exception()}, trx{std::move(trx)}, is_transient, next{std::move(next)}]() {
+                            [this, ex_ptr{std::current_exception()}, trx{std::move(trx)}, is_transient,
+                             next{std::move(next)}, recovery_reservation{std::move(recovery_reservation)}]() {
                                auto start       = fc::time_point::now();
                                auto idle_time   = _time_tracker.add_idle_time(start);
                                auto trx_tracker = _time_tracker.start_trx(is_transient, start);
@@ -1107,7 +1179,9 @@ public:
                  // key recovery complete, continue execution on the main thread
                  app().executor().post(
                          priority::low, exec_queue::read_write,
-                         [this, trx_meta{std::move(trx_meta)}, is_transient, next{std::move(next)}, api_trx, return_failure_traces]() {
+                         [this, trx_meta{std::move(trx_meta)}, is_transient, next{std::move(next)},
+                          api_trx, return_failure_traces,
+                          recovery_reservation{std::move(recovery_reservation)}]() {
                             auto start       = fc::time_point::now();
                             auto idle_time   = _time_tracker.add_idle_time(start);
                             auto trx_tracker = _time_tracker.start_trx(is_transient, start);
@@ -1344,6 +1418,10 @@ void producer_plugin::set_program_options(
           "Sets the time to return full subjective cpu for accounts")
          ("incoming-transaction-queue-size-mb", bpo::value<uint16_t>()->default_value( 1024 ),
           "Maximum size (in MiB) of the incoming transaction queue. Exceeding this value will subjectively drop transaction with resource exhaustion.")
+         ("incoming-transaction-recovery-queue-size-mb", bpo::value<uint32_t>()->default_value(256),
+          "Maximum retained transaction memory in the signature recovery and application continuation queues.")
+         ("incoming-transaction-recovery-queue-count", bpo::value<uint32_t>()->default_value(4096),
+          "Maximum number of transactions queued for signature recovery or application continuation.")
          ("disable-subjective-account-billing", boost::program_options::value<vector<string>>()->composing()->multitoken(),
           "Account which is excluded from subjective CPU billing")
          ("disable-subjective-p2p-billing", bpo::value<bool>()->default_value(true),
@@ -1458,12 +1536,21 @@ void producer_plugin_impl::plugin_initialize(const boost::program_options::varia
 
    _max_reversible_blocks = options.at("max-reversible-blocks").as<uint32_t>();
 
-   auto max_incoming_transaction_queue_size = options.at("incoming-transaction-queue-size-mb").as<uint16_t>() * 1024 * 1024;
+   const uint64_t max_incoming_transaction_queue_size =
+      static_cast<uint64_t>(options.at("incoming-transaction-queue-size-mb").as<uint16_t>()) * 1024 * 1024;
 
    EOS_ASSERT(max_incoming_transaction_queue_size > 0, plugin_config_exception,
               "incoming-transaction-queue-size-mb ${mb} must be greater than 0", ("mb", max_incoming_transaction_queue_size));
 
    _unapplied_transactions.set_max_transaction_queue_size(max_incoming_transaction_queue_size);
+
+   _max_pending_key_recovery_bytes =
+      static_cast<uint64_t>(options.at("incoming-transaction-recovery-queue-size-mb").as<uint32_t>()) * 1024 * 1024;
+   _max_pending_key_recovery_tasks =
+      options.at("incoming-transaction-recovery-queue-count").as<uint32_t>();
+   EOS_ASSERT(_max_pending_key_recovery_bytes > 0 && _max_pending_key_recovery_tasks > 0,
+              plugin_config_exception,
+              "incoming transaction recovery queue byte and count limits must be greater than zero");
 
    _disable_subjective_p2p_billing = options.at("disable-subjective-p2p-billing").as<bool>();
    _disable_subjective_api_billing = options.at("disable-subjective-api-billing").as<bool>();

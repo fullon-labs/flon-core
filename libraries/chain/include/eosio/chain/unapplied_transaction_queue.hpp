@@ -76,6 +76,8 @@ public:
 
    void clear() {
       queue.clear();
+      size_in_bytes = 0;
+      incoming_count = 0;
    }
 
    size_t incoming_size()const {
@@ -134,13 +136,27 @@ public:
 
    void add_forked( const transaction_metadata_ptr& trx ) {
       auto insert_itr = queue.insert( { trx, trx_enum_type::forked } );
-      if( insert_itr.second ) added( insert_itr.first );
+      if( insert_itr.second ) {
+         try {
+            added( insert_itr.first );
+         } catch (...) {
+            queue.erase( insert_itr.first );
+            throw;
+         }
+      }
    }
 
    void add_aborted( deque<transaction_metadata_ptr> aborted_trxs ) {
       for( auto& trx : aborted_trxs ) {
          auto insert_itr = queue.insert( { std::move( trx ), trx_enum_type::aborted } );
-         if( insert_itr.second ) added( insert_itr.first );
+         if( insert_itr.second ) {
+            try {
+               added( insert_itr.first );
+            } catch (...) {
+               queue.erase( insert_itr.first );
+               throw;
+            }
+         }
       }
    }
 
@@ -149,7 +165,14 @@ public:
       if( itr == queue.get<by_trx_id>().end() ) {
          auto insert_itr = queue.insert(
                { trx, api_trx ? trx_enum_type::incoming_api : trx_enum_type::incoming_p2p, return_failure_trace, std::move( next ) } );
-         if( insert_itr.second ) added( insert_itr.first );
+         if( insert_itr.second ) {
+            try {
+               added( insert_itr.first );
+            } catch (...) {
+               queue.erase( insert_itr.first );
+               throw;
+            }
+         }
       } else {
          if( itr->trx_meta == trx ) return; // same trx meta pointer
          if( next ) {
@@ -188,12 +211,14 @@ private:
    void added( Itr itr ) {
       auto size = calc_size( itr->trx_meta );
       if( itr->trx_type == trx_enum_type::incoming_p2p || itr->trx_type == trx_enum_type::incoming_api ) {
-         ++incoming_count;
-         EOS_ASSERT( size_in_bytes + size < max_transaction_queue_size, tx_resource_exhaustion,
+         EOS_ASSERT( size < max_transaction_queue_size &&
+                     size_in_bytes < max_transaction_queue_size - size,
+                     tx_resource_exhaustion,
                      "Transaction ${id}, size ${s} bytes would exceed configured "
                      "incoming-transaction-queue-size-mb ${qs}, current queue size ${cs} bytes",
                      ("id", itr->trx_meta->id())("s", size)("qs", max_transaction_queue_size/(1024*1024))
                      ("cs", size_in_bytes) );
+         ++incoming_count;
       }
       size_in_bytes += size;
    }
@@ -208,7 +233,8 @@ private:
 
    static uint64_t calc_size( const transaction_metadata_ptr& trx ) {
       // packed_trx caches unpacked transaction so double
-      return (trx->packed_trx()->get_unprunable_size() + trx->packed_trx()->get_prunable_size()) * 2 + sizeof( *trx );
+      return (static_cast<uint64_t>(trx->packed_trx()->get_unprunable_size()) +
+              static_cast<uint64_t>(trx->packed_trx()->get_prunable_size())) * 2 + sizeof( *trx );
    }
 
 };

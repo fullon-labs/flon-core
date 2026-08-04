@@ -102,6 +102,14 @@ Config Options for eosio::producer_plugin:
                                         transaction queue. Exceeding this value
                                         will subjectively drop transaction with
                                         resource exhaustion.
+  --incoming-transaction-recovery-queue-size-mb arg (=256)
+                                        Maximum retained transaction memory in
+                                        signature recovery and application
+                                        continuation queues.
+  --incoming-transaction-recovery-queue-count arg (=4096)
+                                        Maximum number of transactions queued
+                                        for signature recovery or application
+                                        continuation.
   --disable-subjective-account-billing arg
                                         Account which is excluded from
                                         subjective CPU billing

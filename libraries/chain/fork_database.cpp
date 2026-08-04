@@ -751,8 +751,9 @@ namespace eosio::chain {
             }
 
             default:
-               assert(0);
-               break;
+               EOS_THROW(fork_database_exception,
+                         "serialized fork database has invalid active implementation ${value}",
+                         ("value", static_cast<uint32_t>(in_use.load())));
             }
          } FC_CAPTURE_AND_RETHROW( (fork_db_file) );
          std::filesystem::remove( fork_db_file );
@@ -780,9 +781,13 @@ namespace eosio::chain {
          }
       } else if (in_use == in_use_t::both) {
          dlog("Switching forkdb from legacy, already both root ${rid}, forkdb root ${fid}", ("rid", root->id())("fid", fork_db_s.root()->id()));
-         assert(fork_db_s.root()->id() == root->id()); // should always set the same root
+         EOS_ASSERT(fork_db_s.root()->id() == root->id(), fork_database_exception,
+                    "savanna fork database root ${fork_root} does not match requested root ${root}",
+                    ("fork_root", fork_db_s.root()->id())("root", root->id()));
       } else {
-         assert(false);
+         EOS_THROW(fork_database_exception,
+                   "cannot switch from legacy fork database while active implementation is ${value}",
+                   ("value", static_cast<uint32_t>(in_use.load())));
       }
    }
 

@@ -68,6 +68,61 @@ using boost::program_options::variables_map;
 
 static auto _transaction_history_plugin = appbase::application::register_plugin<transaction_history_plugin>();
 
+namespace {
+
+size_t estimate_retained_trace_size(const eosio::chain::transaction_trace& trace,
+                                    const eosio::chain::packed_transaction_ptr& packed) {
+   // Exceptions contain nested dynamically allocated log data. They are rare
+   // on stored successful traces, so retain the exact serialized fallback for
+   // those cases while keeping the common path allocation-free.
+   const bool has_nested_exception = trace.except || trace.failed_dtrx_trace ||
+      std::any_of(trace.action_traces.begin(), trace.action_traces.end(),
+                  [](const auto& action_trace) { return action_trace.except.has_value(); });
+   if (has_nested_exception) {
+      size_t total = fc::raw::pack_size(trace);
+      if (packed) {
+         const size_t packed_size = packed->get_estimated_size();
+         if (packed_size > std::numeric_limits<size_t>::max() - total) {
+            throw std::overflow_error("retained transaction size overflow");
+         }
+         total += packed_size;
+      }
+      return total;
+   }
+
+   size_t total = sizeof(trace) + 1024; // shared ownership and allocator overhead
+   const auto add = [&total](size_t amount) {
+      if (amount > std::numeric_limits<size_t>::max() - total) {
+         throw std::overflow_error("retained transaction size overflow");
+      }
+      total += amount;
+   };
+   const auto add_elements = [&add](size_t count, size_t element_size) {
+      if (element_size != 0 && count > std::numeric_limits<size_t>::max() / element_size) {
+         throw std::overflow_error("retained transaction size overflow");
+      }
+      add(count * element_size);
+   };
+
+   add_elements(trace.action_traces.capacity(), sizeof(eosio::chain::action_trace));
+   add_elements(trace.gas_traces.capacity(), sizeof(eosio::chain::account_gas_trace));
+   for (const auto& action_trace : trace.action_traces) {
+      add_elements(action_trace.act.authorization.capacity(), sizeof(eosio::chain::permission_level));
+      add(action_trace.act.data.capacity());
+      add(action_trace.console.capacity());
+      add(action_trace.return_value.capacity());
+      add_elements(action_trace.account_ram_deltas.capacity(), sizeof(eosio::chain::account_delta));
+      if (action_trace.receipt) {
+         add_elements(action_trace.receipt->auth_sequence.capacity(),
+                      sizeof(decltype(action_trace.receipt->auth_sequence)::value_type));
+      }
+   }
+   if (packed) add(packed->get_estimated_size());
+   return total;
+}
+
+} // namespace
+
 class transaction_history_plugin_impl {
    friend class transaction_history_apis::read_only;  // Allow read_only to access private members
 
@@ -763,14 +818,7 @@ void transaction_history_plugin_impl::applied_transaction(
 
    size_t retained_trace_bytes = 0;
    try {
-      retained_trace_bytes = fc::raw::pack_size(*trace);
-      if (packed) {
-         const size_t packed_bytes = packed->get_estimated_size();
-         if (packed_bytes > std::numeric_limits<size_t>::max() - retained_trace_bytes) {
-            throw std::overflow_error("retained transaction size overflow");
-         }
-         retained_trace_bytes += packed_bytes;
-      }
+      retained_trace_bytes = estimate_retained_trace_size(*trace, packed);
    } catch (const std::exception& e) {
       transactions_failed_++;
       elog("Failed to measure transaction ${id} trace size: ${error}",
@@ -789,7 +837,7 @@ void transaction_history_plugin_impl::applied_transaction(
 
    // Process transaction asynchronously to avoid blocking main chain
    if (!worker_->try_enqueue_task_with_size(retained_trace_bytes,
-      [this, trace, packed, block_num, block_time, last_irreversible_block]() {
+      [this, trace, packed, block_num, block_time, last_irreversible_block, retained_trace_bytes]() {
       auto start_time = fc::time_point::now();
 
       try {
@@ -989,15 +1037,11 @@ void transaction_history_plugin_impl::applied_transaction(
          }
 
          // Convert action traces to variants with size monitoring
-         size_t total_size = 0;
+         const size_t total_size = retained_trace_bytes;
 
          for (const auto* action_trace : filtered_actions) {
             fc::variant action_var;
             fc::to_variant(*action_trace, action_var);
-
-            size_t action_size = fc::raw::pack_size(action_var);
-            total_size += action_size;
-
             result.traces.push_back(action_var);
          }
 

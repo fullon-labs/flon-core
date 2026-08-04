@@ -430,4 +430,29 @@ BOOST_AUTO_TEST_CASE( unapplied_transaction_queue_incoming_count ) try {
 
 } FC_LOG_AND_RETHROW() /// unapplied_transaction_queue_incoming_count
 
+BOOST_AUTO_TEST_CASE( unapplied_transaction_queue_limit_is_exception_safe ) try {
+   unapplied_transaction_queue q;
+   auto rejected = unique_trx_meta_data();
+
+   q.set_max_transaction_queue_size(1);
+   BOOST_CHECK_THROW(q.add_incoming(rejected, false, false, [](auto){}),
+                     tx_resource_exhaustion);
+   BOOST_CHECK(q.empty());
+   BOOST_CHECK_EQUAL(q.size(), 0u);
+   BOOST_CHECK_EQUAL(q.incoming_size(), 0u);
+
+   // A rejected insertion must not poison counters or leave the transaction
+   // behind. Raising the limit should allow normal operation immediately.
+   q.set_max_transaction_queue_size(1024 * 1024);
+   q.add_incoming(rejected, false, false, [](auto){});
+   BOOST_CHECK_EQUAL(q.size(), 1u);
+   BOOST_CHECK_EQUAL(q.incoming_size(), 1u);
+
+   q.clear();
+   BOOST_CHECK(q.empty());
+   BOOST_CHECK_EQUAL(q.incoming_size(), 0u);
+   q.add_incoming(unique_trx_meta_data(), false, false, [](auto){});
+   BOOST_CHECK_EQUAL(q.incoming_size(), 1u);
+} FC_LOG_AND_RETHROW() /// unapplied_transaction_queue_limit_is_exception_safe
+
 BOOST_AUTO_TEST_SUITE_END()

@@ -358,7 +358,9 @@ my_finalizers_t::fsi_map my_finalizers_t::load_finalizer_safety_info() {
          load_finalizer_safety_info_v1(res);
          break;
       default:
-         assert(0);
+         EOS_THROW(finalizer_safety_exception,
+                   "unsupported version ${version} in finalizer safety persistence file: ${path}",
+                   ("version", file_version)("path", persist_file_path));
       }
 
       if (verify_checksum) {

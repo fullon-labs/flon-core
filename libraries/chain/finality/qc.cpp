@@ -1,6 +1,7 @@
 #include <eosio/chain/finality/qc.hpp>
 #include <eosio/chain/finality/vote_message.hpp>
 #include <eosio/chain/block_header_state.hpp>
+#include <eosio/chain/exceptions.hpp>
 #include <fc/crypto/bls_utils.hpp>
 
 namespace eosio::chain {
@@ -300,8 +301,10 @@ qc_sig_t aggregating_qc_sig_t::extract_qc_sig_from_aggregating() const {
       qc_sig.weak_votes   = weak_votes.bitset;
       qc_sig.sig          = strong_votes.sig;
       qc_sig.sig.aggregate(weak_votes.sig);
-   } else
-      assert(0); // this should be called only when we have an aggregating_qc_sig_t with a quorum
+   } else {
+      EOS_THROW(finalizer_exception,
+                "cannot extract an aggregated QC signature before quorum is reached");
+   }
 
    return qc_sig;
 }

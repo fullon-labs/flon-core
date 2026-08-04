@@ -3,6 +3,7 @@
 #include <eosio/chain/thread_utils.hpp>
 #include <fc/time.hpp>
 #include <atomic>
+#include <stdexcept>
 
 namespace eosio {
 
@@ -193,7 +194,7 @@ public:
          process_vote_timing(latest_other_vote, status.other_vote);
          break;
       default:
-         assert(false);
+         throw std::invalid_argument("invalid production pause vote check mode");
       }
 
       return status;
