@@ -280,7 +280,9 @@ inline constexpr auto get_intrinsic_table() {
       "env.bls_fp_exp",
       "env.set_finalizers",
       "env.init_action_data_to_json",
-      "env.final_action_data_to_json"
+      "env.final_action_data_to_json",
+      "env.get_recent_block_id",
+      "env.get_last_irreversible_block_num"
    );
 }
 inline constexpr std::size_t find_intrinsic_index(std::string_view hf) {

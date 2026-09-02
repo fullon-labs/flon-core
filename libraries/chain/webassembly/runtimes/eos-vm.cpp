@@ -652,6 +652,10 @@ REGISTER_CF_HOST_FUNCTION( bls_fp_mod );
 REGISTER_CF_HOST_FUNCTION( bls_fp_mul );
 REGISTER_CF_HOST_FUNCTION( bls_fp_exp );
 
+// block_reference_data protocol feature
+REGISTER_LEGACY_CF_HOST_FUNCTION( get_recent_block_id );
+REGISTER_CF_HOST_FUNCTION( get_last_irreversible_block_num );
+
 } // namespace webassembly
 } // namespace chain
 } // namespace eosio

@@ -387,7 +387,19 @@ Enables new `init_action_data_to_json` intrinsic which initialize conversation f
 Enables new `final_action_data_to_json` intrinsic which finalize the conversation from action data to JSON compact format.
 */
             {}
-         } )         
+         } )
+         (  builtin_protocol_feature_t::block_reference_data, builtin_protocol_feature_spec {
+            "BLOCK_REFERENCE_DATA",
+            fc::variant("6fe9ee791b80476589a767b93d01ba778c5f774d366e8f377140d96cb7b3e28c").as<digest_type>(),
+            // SHA256 hash of the raw message below within the comment delimiters (exclude newline after /*) (do not modify message below).
+/*
+Builtin protocol feature: BLOCK_REFERENCE_DATA
+
+Enables new `get_recent_block_id` intrinsic which returns the full block ID for a recent completed block.
+Enables new `get_last_irreversible_block_num` intrinsic which returns the last irreversible block number.
+*/
+            {}
+         } )
    ;
 
 

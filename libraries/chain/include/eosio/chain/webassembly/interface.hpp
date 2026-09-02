@@ -577,6 +577,23 @@ namespace webassembly {
          uint32_t get_block_num() const;
 
          /**
+          * Returns the full ID of a recent completed block when it is still
+          * available in the consensus block summary ring.
+          *
+          * @param block_num - block number to look up; must be less than the current block number.
+          * @param block_id - receives the full block ID on success.
+          * @return true on success; false for zero, current/future, or overwritten block numbers.
+         */
+         bool get_recent_block_id(uint32_t block_num, legacy_ptr<block_id_type> block_id) const;
+
+         /**
+          * Returns the consensus last irreversible block number carried by the
+          * current block's parent state. This value is deterministic during
+          * production, validation, and replay.
+          */
+         uint32_t get_last_irreversible_block_num() const;
+
+         /**
           * Returns the transaction's publication time.
           *
           * @ingroup system
