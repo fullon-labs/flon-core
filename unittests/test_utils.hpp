@@ -165,6 +165,7 @@ void activate_protocol_features_set_bios_contract(appbase::scoped_app& app, chai
             // savanna
             feature_digests.push_back(*pfm.get_builtin_digest(builtin_protocol_feature_t::savanna));
             feature_digests.push_back(*pfm.get_builtin_digest(builtin_protocol_feature_t::action_data_to_json));
+            feature_digests.push_back(*pfm.get_builtin_digest(builtin_protocol_feature_t::block_reference_data));
 
             for (const auto feature_digest : feature_digests) {
                chain_plug->chain().preactivate_feature( feature_digest, false );

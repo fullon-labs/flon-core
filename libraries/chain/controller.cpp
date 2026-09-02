@@ -1327,6 +1327,7 @@ struct controller_impl {
       #endif//ENABLE_DEFERRED_TRANSACTION
       set_activation_handler<builtin_protocol_feature_t::savanna>();
       set_activation_handler<builtin_protocol_feature_t::action_data_to_json>();
+      set_activation_handler<builtin_protocol_feature_t::block_reference_data>();
 
       irreversible_block.connect([this](const block_signal_params& t) {
          const auto& [ block, id] = t;
@@ -6375,6 +6376,14 @@ void controller_impl::on_activation<builtin_protocol_feature_t::action_data_to_j
    db.modify( db.get<protocol_state_object>(), [&]( auto& ps ) {
       add_intrinsic_to_whitelist( ps.whitelisted_intrinsics, "init_action_data_to_json" );
       add_intrinsic_to_whitelist( ps.whitelisted_intrinsics, "final_action_data_to_json" );
+   } );
+}
+
+template<>
+void controller_impl::on_activation<builtin_protocol_feature_t::block_reference_data>() {
+   db.modify( db.get<protocol_state_object>(), [&]( auto& ps ) {
+      add_intrinsic_to_whitelist( ps.whitelisted_intrinsics, "get_recent_block_id" );
+      add_intrinsic_to_whitelist( ps.whitelisted_intrinsics, "get_last_irreversible_block_num" );
    } );
 }
 

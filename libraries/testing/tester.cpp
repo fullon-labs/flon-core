@@ -1451,6 +1451,7 @@ namespace eosio::testing {
       // savanna
       feature_digests.push_back(*pfm.get_builtin_digest(builtin_protocol_feature_t::savanna));
       feature_digests.push_back(*pfm.get_builtin_digest(builtin_protocol_feature_t::action_data_to_json));
+      feature_digests.push_back(*pfm.get_builtin_digest(builtin_protocol_feature_t::block_reference_data));
 
       preactivate_protocol_features( feature_digests );
    }

@@ -41,6 +41,7 @@ enum class builtin_protocol_feature_t : uint32_t {
    savanna = 24,
    // 25-99 reserved
    action_data_to_json = 100,
+   block_reference_data = 101,
    reserved_private_fork_protocol_features = 500000,
 };
 
