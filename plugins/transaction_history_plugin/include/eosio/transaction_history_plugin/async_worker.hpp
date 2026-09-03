@@ -22,10 +22,11 @@ namespace eosio {
 class async_worker {
 public:
    using task_type = std::function<void()>;
-   static constexpr size_t max_pending_tasks = 10000; // bounded admission
+   static constexpr size_t max_pending_tasks = 10000; // default bounded admission
    static constexpr size_t max_pending_bytes = 256 * 1024 * 1024;
 
-   async_worker();
+   explicit async_worker(size_t pending_task_limit = max_pending_tasks,
+                         size_t pending_byte_limit = max_pending_bytes);
    ~async_worker();
 
    /**
@@ -91,11 +92,34 @@ public:
    }
 
    /**
+    * @brief Enqueue a required task, waiting until bounded queue capacity is available
+    *
+    * Chain event producers use this method when dropping the task would make
+    * transaction history incomplete. Do not call it from the worker thread;
+    * optional tasks scheduled by a worker must continue to use try_enqueue_task.
+    *
+    * @return false only when the task exceeds the byte limit or the worker is stopping
+    */
+   template<typename F, typename... Args>
+   bool enqueue_task_with_backpressure(F&& f, Args&&... args) {
+      return enqueue_task_with_backpressure_and_size(
+         0, std::forward<F>(f), std::forward<Args>(args)...);
+   }
+
+   template<typename F, typename... Args>
+   bool enqueue_task_with_backpressure_and_size(size_t task_size, F&& f, Args&&... args) {
+      return enqueue_with_backpressure(
+         task_type(std::bind(std::forward<F>(f), std::forward<Args>(args)...)), task_size);
+   }
+
+   /**
     * @brief Get number of pending tasks
     * @return Number of tasks in queue
     */
    size_t pending_tasks() const;
    size_t pending_bytes() const;
+   size_t pending_task_limit() const;
+   size_t pending_byte_limit() const;
 
 private:
    struct queued_task {
@@ -104,11 +128,14 @@ private:
    };
 
    void enqueue(task_type task, size_t retained_bytes);
+   bool enqueue_with_backpressure(task_type task, size_t retained_bytes);
    bool try_enqueue(task_type task, size_t retained_bytes);
    void worker_thread();
 
    std::vector<std::thread> workers_;
    std::queue<queued_task> tasks_;
+   const size_t pending_task_limit_;
+   const size_t pending_byte_limit_;
    size_t pending_bytes_ = 0;
    mutable std::mutex queue_mutex_;
    std::condition_variable condition_;

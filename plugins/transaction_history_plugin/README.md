@@ -73,6 +73,16 @@ Transaction    Queue Tasks  Execute     Store Data
 - **Default**: 5368709120 (5GB)
 - **Description**: Minimum filesystem free space preserved while retaining checkpoints; oldest checkpoints are removed first
 
+### transaction-history-max-queue-tasks
+- **Type**: uint64
+- **Default**: 10000
+- **Description**: Maximum pending ordered history tasks. Required chain events wait for capacity instead of being dropped.
+
+### transaction-history-max-queue-bytes
+- **Type**: uint64
+- **Default**: 268435456 (256MB)
+- **Description**: Maximum estimated memory retained by pending history tasks. When full, replay or synchronization slows until the RocksDB writer catches up.
+
 ### transaction-history-compression
 - **Type**: bool
 - **Default**: true
@@ -266,6 +276,8 @@ plugin = eosio::transaction_history_api_plugin
 
 **Performance Issues**
 - Monitor the async worker queue size
+- Queue saturation applies backpressure and is not itself a data-loss condition
+- Increasing queue limits absorbs temporary storage latency but does not improve sustained RocksDB throughput
 - Adjust `transaction-history-max-retained-blocks` if needed
 - Consider storage I/O performance
 

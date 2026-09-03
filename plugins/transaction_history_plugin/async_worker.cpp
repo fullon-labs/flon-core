@@ -3,7 +3,13 @@
 
 namespace eosio {
 
-async_worker::async_worker() : stopping_(false) {
+async_worker::async_worker(size_t pending_task_limit, size_t pending_byte_limit)
+   : pending_task_limit_(pending_task_limit),
+     pending_byte_limit_(pending_byte_limit),
+     stopping_(false) {
+   if (pending_task_limit_ == 0 || pending_byte_limit_ == 0) {
+      throw std::invalid_argument("async_worker queue limits must be greater than zero");
+   }
 }
 
 async_worker::~async_worker() {
@@ -64,37 +70,56 @@ size_t async_worker::pending_bytes() const {
    return pending_bytes_;
 }
 
+size_t async_worker::pending_task_limit() const {
+   return pending_task_limit_;
+}
+
+size_t async_worker::pending_byte_limit() const {
+   return pending_byte_limit_;
+}
+
 void async_worker::enqueue(task_type task, size_t retained_bytes) {
-   if (retained_bytes > max_pending_bytes) {
+   if (retained_bytes > pending_byte_limit_) {
       throw std::runtime_error("task exceeds async_worker byte budget");
+   }
+
+   if (!enqueue_with_backpressure(std::move(task), retained_bytes)) {
+      throw std::runtime_error("enqueue on stopped async_worker");
+   }
+}
+
+bool async_worker::enqueue_with_backpressure(task_type task, size_t retained_bytes) {
+   if (retained_bytes > pending_byte_limit_) {
+      return false;
    }
 
    {
       std::unique_lock<std::mutex> lock(queue_mutex_);
       queue_not_full_.wait(lock, [this, retained_bytes] {
          return stopping_ ||
-                (tasks_.size() < max_pending_tasks &&
-                 pending_bytes_ <= max_pending_bytes - retained_bytes);
+                (tasks_.size() < pending_task_limit_ &&
+                 pending_bytes_ <= pending_byte_limit_ - retained_bytes);
       });
       if (stopping_) {
-         throw std::runtime_error("enqueue on stopped async_worker");
+         return false;
       }
       tasks_.push(queued_task{std::move(task), retained_bytes});
       pending_bytes_ += retained_bytes;
    }
 
    condition_.notify_one();
+   return true;
 }
 
 bool async_worker::try_enqueue(task_type task, size_t retained_bytes) {
-   if (retained_bytes > max_pending_bytes) {
+   if (retained_bytes > pending_byte_limit_) {
       return false;
    }
 
    {
       std::unique_lock<std::mutex> lock(queue_mutex_);
-      if (stopping_ || tasks_.size() >= max_pending_tasks ||
-          pending_bytes_ > max_pending_bytes - retained_bytes) {
+      if (stopping_ || tasks_.size() >= pending_task_limit_ ||
+          pending_bytes_ > pending_byte_limit_ - retained_bytes) {
          return false;
       }
       tasks_.push(queued_task{std::move(task), retained_bytes});

@@ -167,6 +167,8 @@ public:
    uint64_t max_write_batch_bytes_ = 64ull * 1024 * 1024;
    uint64_t max_api_response_bytes_ = 16ull * 1024 * 1024;
    uint64_t min_checkpoint_free_bytes_ = 5ull * 1024 * 1024 * 1024;
+   uint64_t max_queue_tasks_ = async_worker::max_pending_tasks;
+   uint64_t max_queue_bytes_ = async_worker::max_pending_bytes;
    static constexpr uint32_t MAX_API_RESULTS = 1000;
    static constexpr uint64_t MAX_COUNT_SCAN_KEYS = 1000000;
    static constexpr int64_t API_SCAN_TIME_US = 20000;
@@ -265,6 +267,10 @@ void transaction_history_plugin::set_program_options(options_description& cli, o
        "Maximum serialized action bytes returned by one history API request")
       ("transaction-history-min-checkpoint-free-space", bpo::value<uint64_t>()->default_value(5ull * 1024 * 1024 * 1024),
        "Minimum filesystem free bytes preserved while retaining rollback checkpoints")
+      ("transaction-history-max-queue-tasks", bpo::value<uint64_t>()->default_value(async_worker::max_pending_tasks),
+       "Maximum number of pending transaction-history tasks before chain processing applies backpressure")
+      ("transaction-history-max-queue-bytes", bpo::value<uint64_t>()->default_value(async_worker::max_pending_bytes),
+       "Maximum estimated bytes retained by pending transaction-history tasks before chain processing applies backpressure")
       ("transaction-history-filter-on", bpo::value<std::vector<std::string>>()->composing(),
        "Track actions which match account:action:actor. Actor may be blank to include all actors.")
       ("transaction-history-filter-out", bpo::value<std::vector<std::string>>()->composing(),
@@ -336,16 +342,23 @@ void transaction_history_plugin::plugin_initialize(const variables_map& options)
       my->max_write_batch_bytes_ = options.at("transaction-history-max-write-batch-size").as<uint64_t>();
       my->max_api_response_bytes_ = options.at("transaction-history-max-api-response-size").as<uint64_t>();
       my->min_checkpoint_free_bytes_ = options.at("transaction-history-min-checkpoint-free-space").as<uint64_t>();
+      my->max_queue_tasks_ = options.at("transaction-history-max-queue-tasks").as<uint64_t>();
+      my->max_queue_bytes_ = options.at("transaction-history-max-queue-bytes").as<uint64_t>();
       EOS_ASSERT(my->max_retained_blocks_ > 0 && my->max_trace_size_ > 0 &&
                  my->max_actions_per_tx_ > 0 && my->max_account_indexes_per_tx_ > 0 &&
-                 my->max_write_batch_bytes_ > 0 && my->max_api_response_bytes_ > 0,
+                 my->max_write_batch_bytes_ > 0 && my->max_api_response_bytes_ > 0 &&
+                 my->max_queue_tasks_ > 0 && my->max_queue_bytes_ > 0,
                  eosio::chain::plugin_exception, "transaction history limits must be greater than zero");
-      EOS_ASSERT(my->max_trace_size_ <= async_worker::max_pending_bytes &&
-                 my->max_write_batch_bytes_ <= async_worker::max_pending_bytes &&
-                 my->max_api_response_bytes_ <= async_worker::max_pending_bytes,
+      EOS_ASSERT(my->max_queue_tasks_ <= std::numeric_limits<size_t>::max() &&
+                 my->max_queue_bytes_ <= std::numeric_limits<size_t>::max(),
                  eosio::chain::plugin_exception,
-                 "transaction history trace, write batch, and API response limits cannot exceed the memory safety cap of ${max} bytes",
-                 ("max", async_worker::max_pending_bytes));
+                 "transaction history queue limits exceed this platform's addressable size");
+      EOS_ASSERT(my->max_trace_size_ <= my->max_queue_bytes_ &&
+                 my->max_write_batch_bytes_ <= my->max_queue_bytes_ &&
+                 my->max_api_response_bytes_ <= my->max_queue_bytes_,
+                 eosio::chain::plugin_exception,
+                 "transaction history trace, write batch, and API response limits cannot exceed the queue memory limit of ${max} bytes",
+                 ("max", my->max_queue_bytes_));
 
       auto parse_filters = [](const std::vector<std::string>& values,
                               std::set<transaction_history_plugin_impl::filter_entry>& output,
@@ -404,15 +417,18 @@ void transaction_history_plugin::plugin_initialize(const variables_map& options)
       EOS_ASSERT(!my->db_path_.empty(), eosio::chain::plugin_exception,
                  "transaction-history-dir cannot be empty");
 
-      ilog("Transaction history monitoring: max trace size: ${trace_size} bytes, max retained blocks: ${blocks}, max actions per tx: ${actions}, compression: ${compression}",
+      ilog("Transaction history monitoring: max trace size: ${trace_size} bytes, max retained blocks: ${blocks}, max actions per tx: ${actions}, queue: ${queue_tasks} tasks/${queue_bytes} bytes, compression: ${compression}",
            ("trace_size", my->max_trace_size_)
            ("blocks", my->max_retained_blocks_)
            ("actions", my->max_actions_per_tx_)
+           ("queue_tasks", my->max_queue_tasks_)
+           ("queue_bytes", my->max_queue_bytes_)
            ("compression", my->compression_enabled_ ? "enabled" : "disabled"));
 
       // Initialize components
       my->db_ = std::make_shared<rocksdb_manager>();
-      my->worker_ = std::make_unique<async_worker>();
+      my->worker_ = std::make_unique<async_worker>(
+         static_cast<size_t>(my->max_queue_tasks_), static_cast<size_t>(my->max_queue_bytes_));
 
       if (!my->db_->open(my->db_path_, my->compression_enabled_)) {
          throw std::runtime_error("Failed to open transaction history database at: " + my->db_path_);
@@ -650,12 +666,17 @@ void transaction_history_plugin::plugin_startup() {
    // branch transaction reaches RocksDB.
    my->block_start_connection_ = chain.block_start().connect(
       [&](uint32_t) {
+         if (!my->history_healthy_.load()) {
+            return;
+         }
          const uint32_t parent_block_num = chain.head().block_num();
          const std::string parent_block_id = chain.head().id().str();
-         if (!my->worker_->try_enqueue_task([impl = my.get(), parent_block_num, parent_block_id]() {
+         if (!my->worker_->enqueue_task_with_backpressure([impl = my.get(), parent_block_num, parent_block_id]() {
                 impl->ensure_chain_parent(parent_block_num, parent_block_id);
              })) {
-            my->record_history_gap(parent_block_num, "history queue full before fork-parent check");
+            if (!app().is_quiting()) {
+               my->record_history_gap(parent_block_num, "history worker stopped before fork-parent check");
+            }
          }
       });
 
@@ -666,10 +687,13 @@ void transaction_history_plugin::plugin_startup() {
 
    my->accepted_block_connection_ = chain.accepted_block().connect(
       [&](const eosio::chain::block_signal_params& event) {
+         if (!my->history_healthy_.load()) {
+            return;
+         }
          const uint32_t block_num = std::get<0>(event)->block_num();
          const std::string block_id = std::get<1>(event).str();
          const uint32_t irreversible_block_num = chain.last_irreversible_block_num();
-         if (!my->worker_->try_enqueue_task([impl = my.get(), block_num, block_id, irreversible_block_num]() {
+         if (!my->worker_->enqueue_task_with_backpressure([impl = my.get(), block_num, block_id, irreversible_block_num]() {
             if (!impl->history_healthy_.load()) {
                return;
             }
@@ -697,7 +721,9 @@ void transaction_history_plugin::plugin_startup() {
                impl->max_retained_blocks_, impl->min_checkpoint_free_bytes_,
                irreversible_block_num);
              })) {
-            my->record_history_gap(block_num, "history queue full before accepted-block checkpoint");
+            if (!app().is_quiting()) {
+               my->record_history_gap(block_num, "history worker stopped before accepted-block checkpoint");
+            }
          }
       });
 
@@ -803,6 +829,7 @@ void transaction_history_plugin_impl::applied_transaction(
    const eosio::chain::transaction_trace_ptr& trace,
    const eosio::chain::packed_transaction_ptr& packed) {
    if (!trace || !trace->receipt) return;
+   if (!history_healthy_.load()) return;
 
    // Only process successful transactions to avoid storing failed ones
    if (trace->receipt->status != eosio::chain::transaction_receipt_header::executed &&
@@ -835,8 +862,10 @@ void transaction_history_plugin_impl::applied_transaction(
       return;
    }
 
-   // Process transaction asynchronously to avoid blocking main chain
-   if (!worker_->try_enqueue_task_with_size(retained_trace_bytes,
+   // Required history events apply bounded backpressure instead of being
+   // dropped. During replay this deliberately limits chain processing to the
+   // rate at which the ordered RocksDB writer can preserve complete history.
+   if (!worker_->enqueue_task_with_backpressure_and_size(retained_trace_bytes,
       [this, trace, packed, block_num, block_time, last_irreversible_block, retained_trace_bytes]() {
       auto start_time = fc::time_point::now();
 
@@ -1195,8 +1224,10 @@ void transaction_history_plugin_impl::applied_transaction(
          elog("Unknown error processing transaction ${id}", ("id", trace->id));
       }
       })) {
-      transactions_failed_++;
-      record_history_gap(block_num, "history queue byte or task budget exhausted");
+      if (!app().is_quiting()) {
+         transactions_failed_++;
+         record_history_gap(block_num, "history worker stopped or transaction exceeds queue byte limit");
+      }
    }
 }
 
@@ -1772,6 +1803,8 @@ read_only::get_performance_metrics_result read_only::get_performance_metrics(con
          metrics["history_gap_block"] = history->my->history_gap_block_.load();
          metrics["history_queue_tasks"] = history->my->worker_->pending_tasks();
          metrics["history_queue_bytes"] = history->my->worker_->pending_bytes();
+         metrics["history_queue_max_tasks"] = history->my->worker_->pending_task_limit();
+         metrics["history_queue_max_bytes"] = history->my->worker_->pending_byte_limit();
          if (history->my->rollback_mgr_) {
             metrics["history_checkpoint_count"] = history->my->rollback_mgr_->rollback_point_count();
             metrics["history_latest_checkpoint_block"] =

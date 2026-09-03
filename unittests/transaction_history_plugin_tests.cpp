@@ -11,6 +11,8 @@
 #include <atomic>
 #include <future>
 #include <map>
+#include <mutex>
+#include <vector>
 
 using namespace eosio;
 using namespace eosio::testing;
@@ -190,6 +192,70 @@ BOOST_AUTO_TEST_CASE(async_worker_queue_limits) {
    outer_future.get();
    BOOST_CHECK(!nested_enqueue_succeeded.load());
    count_limited_worker.stop();
+}
+
+BOOST_AUTO_TEST_CASE(async_worker_required_tasks_apply_backpressure) {
+   async_worker worker(1, 1024);
+   BOOST_CHECK_EQUAL(worker.pending_task_limit(), 1u);
+   BOOST_CHECK_EQUAL(worker.pending_byte_limit(), 1024u);
+
+   std::promise<void> outer_started;
+   auto outer_started_future = outer_started.get_future();
+   std::promise<void> release_outer;
+   auto release_outer_future = release_outer.get_future().share();
+   std::mutex order_mutex;
+   std::vector<int> execution_order;
+
+   worker.start();
+   auto outer = worker.enqueue_task([&] {
+      outer_started.set_value();
+      release_outer_future.wait();
+      std::lock_guard<std::mutex> lock(order_mutex);
+      execution_order.push_back(1);
+   });
+   outer_started_future.wait();
+
+   auto queued = worker.enqueue_task([&] {
+      std::lock_guard<std::mutex> lock(order_mutex);
+      execution_order.push_back(2);
+   });
+   BOOST_CHECK_EQUAL(worker.pending_tasks(), 1u);
+
+   auto producer = std::async(std::launch::async, [&] {
+      return worker.enqueue_task_with_backpressure([&] {
+         std::lock_guard<std::mutex> lock(order_mutex);
+         execution_order.push_back(3);
+      });
+   });
+   BOOST_CHECK(producer.wait_for(std::chrono::milliseconds(50)) == std::future_status::timeout);
+
+   release_outer.set_value();
+   BOOST_REQUIRE(producer.wait_for(std::chrono::seconds(2)) == std::future_status::ready);
+   BOOST_CHECK(producer.get());
+   outer.get();
+   queued.get();
+   worker.stop();
+
+   const std::vector<int> expected{1, 2, 3};
+   BOOST_CHECK_EQUAL_COLLECTIONS(execution_order.begin(), execution_order.end(),
+                                 expected.begin(), expected.end());
+}
+
+BOOST_AUTO_TEST_CASE(async_worker_backpressure_stops_cleanly) {
+   BOOST_CHECK_THROW(async_worker(0, 1), std::invalid_argument);
+   BOOST_CHECK_THROW(async_worker(1, 0), std::invalid_argument);
+
+   async_worker worker(1, 1);
+   BOOST_REQUIRE(worker.try_enqueue_task_with_size(1, [] {}));
+
+   auto producer = std::async(std::launch::async, [&] {
+      return worker.enqueue_task_with_backpressure_and_size(1, [] {});
+   });
+   BOOST_CHECK(producer.wait_for(std::chrono::milliseconds(50)) == std::future_status::timeout);
+
+   worker.stop();
+   BOOST_REQUIRE(producer.wait_for(std::chrono::seconds(2)) == std::future_status::ready);
+   BOOST_CHECK(!producer.get());
 }
 
 BOOST_AUTO_TEST_CASE(rollback_manager_operations) {
