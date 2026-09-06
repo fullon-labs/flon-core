@@ -36,10 +36,15 @@ void async_worker::start() {
         ("count", num_threads));
 }
 
-void async_worker::stop() {
+void async_worker::stop(bool drain) {
    {
       std::unique_lock<std::mutex> lock(queue_mutex_);
       stopping_ = true;
+      if (!drain) {
+         std::queue<queued_task> empty;
+         tasks_.swap(empty);
+         pending_bytes_ = 0;
+      }
    }
 
    condition_.notify_all();
@@ -53,7 +58,8 @@ void async_worker::stop() {
 
    workers_.clear();
 
-   // Clear remaining tasks
+   // A drained queue is already empty. Clear defensively so repeated stop()
+   // calls and non-draining shutdowns leave admission metrics at zero.
    std::queue<queued_task> empty;
    std::unique_lock<std::mutex> lock(queue_mutex_);
    tasks_.swap(empty);

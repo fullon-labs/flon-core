@@ -6,29 +6,26 @@ The `transaction_history_plugin` is a high-performance transaction history recor
 
 - **RocksDB Storage**: Uses RocksDB as the storage engine for optimal performance and reliability
 - **Asynchronous Processing**: All database operations are performed in separate worker threads to avoid blocking the main chain processing
-- **Rollback Support**: Implements checkpoint-based rollback mechanism to maintain consistency with chain state
+- **Rollback Support**: Stores a compact per-block undo record atomically with history data to maintain consistency with chain state
 - **Snapshot Recovery**: Supports rebuilding historical data when starting from a snapshot
 
 ## Architecture
 
 ### Components
 
-1. **rocksdb_manager**: Manages RocksDB database operations including read/write operations, batch operations, and checkpoint management.
+1. **rocksdb_manager**: Manages RocksDB reads, atomic block batches, undo records, and legacy checkpoints.
 
-2. **async_worker**: Provides asynchronous task execution using a thread pool to process database operations without blocking the main chain.
+2. **async_worker**: Provides one ordered history writer plus a separate maintenance worker, so validation and compaction do not delay block-history commits.
 
-3. **rollback_manager**: Handles rollback operations by managing checkpoints and coordinating with the RocksDB checkpoint mechanism.
+3. **rollback_manager**: Retains reversible undo points and supports legacy filesystem checkpoints during upgrades.
 
 4. **transaction_history_plugin**: Main plugin class that connects to chain signals and coordinates transaction history recording.
 
 ### Data Flow
 
 ```
-Chain Events → Plugin → Async Worker → RocksDB Storage
-     ↓              ↓         ↓              ↓
-Transaction    Queue Tasks  Execute     Store Data
-   Traces      in Thread    in Worker   with Keys
-              Pool         Threads
+Chain Events → Ordered Writer → Block WriteBatch → RocksDB Storage
+                         ↘ Maintenance Worker ↗
 ```
 
 ## Configuration Options
@@ -61,7 +58,7 @@ Transaction    Queue Tasks  Execute     Store Data
 ### transaction-history-max-write-batch-size
 - **Type**: uint64
 - **Default**: 67108864 (64MB)
-- **Description**: Maximum serialized key/value bytes committed by one atomic transaction-history batch
+- **Description**: Maximum serialized key/value bytes committed by one atomic block-history batch
 
 ### transaction-history-max-api-response-size
 - **Type**: uint64
@@ -71,7 +68,7 @@ Transaction    Queue Tasks  Execute     Store Data
 ### transaction-history-min-checkpoint-free-space
 - **Type**: uint64
 - **Default**: 5368709120 (5GB)
-- **Description**: Minimum filesystem free space preserved while retaining checkpoints; oldest checkpoints are removed first
+- **Description**: Minimum filesystem free space preserved while retaining rollback data; oldest undo records or legacy checkpoints are removed first
 
 ### transaction-history-max-queue-tasks
 - **Type**: uint64
@@ -82,6 +79,11 @@ Transaction    Queue Tasks  Execute     Store Data
 - **Type**: uint64
 - **Default**: 268435456 (256MB)
 - **Description**: Maximum estimated memory retained by pending history tasks. When full, replay or synchronization slows until the RocksDB writer catches up.
+
+### transaction-history-block-cache-size
+- **Type**: uint64
+- **Default**: 268435456 (256MB)
+- **Description**: RocksDB block cache capacity. Point lookups also use a whole-key Bloom filter.
 
 ### transaction-history-compression
 - **Type**: bool
@@ -172,20 +174,38 @@ Gets accounts controlled by a specific account.
 }
 ```
 
+### Diagnostic endpoints
+
+The following read-only endpoints accept an empty object and return sampled or
+property-based diagnostics without mutating the live database:
+
+- `/v1/transaction_history/get_database_stats`
+- `/v1/transaction_history/get_performance_metrics`
+- `/v1/transaction_history/get_optimization_suggestions`
+- `/v1/transaction_history/get_cache_analysis`
+- `/v1/transaction_history/get_maintenance_needs`
+
 ## Performance Considerations
 
 ### Asynchronous Processing
-- Database writes, fork checks, and checkpoints are processed by one ordered worker so their chain-event order is preserved
-- The queue has task-count and retained-byte limits and uses non-blocking admission from chain callbacks
-- If a required history event cannot be queued or stored, the plugin persists a gap marker, stops advancing accepted-block checkpoints, and exposes the degraded state through performance metrics
+- Transaction writes, fork checks, accepted-block commits, and undo-point registration are processed by one ordered worker so their chain-event order is preserved
+- Read-only health checks, validation, and sampled analysis run on a separate bounded maintenance worker
+- Each maintenance category is coalesced to one queued/running task; queued maintenance is cancelled during shutdown
+- Periodic maintenance is driven by accepted blocks, including blocks with no tracked transactions; long validation scans cooperatively yield to shutdown or fork rollback
+- The ordered writer queue has task-count and retained-byte limits and applies backpressure to required chain callbacks
+- If a required history event cannot be queued or stored, the plugin persists a gap marker, stops advancing accepted-block state, and exposes the degraded state through performance metrics
 - With automatic repair enabled, a persisted gap is cleared on restart and a new verified chain-head baseline is established; otherwise recording remains disabled until an operator repairs the database
-- Monitoring and maintenance work is skipped when it cannot be enqueued without blocking the ordered worker
+- Startup also compares the persisted accepted-block identity and height with the live chain head. A database that stopped cleanly but lagged behind the chain is rebuilt to a verified head baseline when automatic repair is enabled, or marked with an explicit history gap when it is disabled.
+- Live maintenance never repairs or deletes data. Repairs are performed during controlled startup before writer threads begin.
+- Live periodic maintenance does not force a full manual RocksDB compaction; RocksDB background compaction remains active and startup compaction stays operator-configurable.
 - HTTP history work is admitted before the application queue with a configurable concurrency and token-bucket rate limit; individual key scans yield after 20 ms
 
 ### Storage Optimization
 - RocksDB is configured with optimized settings for write-heavy workloads
+- History action references are resolved with batched RocksDB `MultiGet` calls and use an LRU block cache plus Bloom filter
 - Uses LZ4 compression to reduce storage space
-- Implements batch writes for improved performance
+- Commits every accepted block with one atomic RocksDB `WriteBatch`, including transaction records, indexes, sequence cursors, accepted-block identity, and its undo record
+- Schema v2 stores each full action once as `act:<global_sequence>`; `trx:` envelopes and `acc:` indexes reference it. Reads remain compatible with schema v1 records that embedded action traces.
 
 ### Memory Management
 - Uses efficient key-value storage patterns
@@ -194,11 +214,12 @@ Gets accounts controlled by a specific account.
 
 ## Rollback Mechanism
 
-The plugin implements a robust rollback mechanism using RocksDB checkpoints:
+The plugin implements rollback using block-level undo records:
 
-1. **Checkpoint Creation**: A startup checkpoint is created for the verified chain head, then each accepted block is checkpointed by the ordered history writer after its transactions are persisted. Checkpoints are stored in a sibling `*_checkpoints` directory, outside the live RocksDB directory. A bounded WAL threshold avoids forcing a memtable flush for every block.
-2. **Rollback Execution**: When a rollback is needed, the database is restored from the appropriate checkpoint
-3. **Cleanup**: Checkpoints below the irreversible boundary are removed, while configured count and free-space limits cap the remaining reversible checkpoints
+1. **Atomic Capture**: Every accepted-block batch captures overwritten internal values and append-only keys in `_internal_undo:<block>` in the same RocksDB commit. The verified startup head gets an empty baseline anchor.
+2. **Rollback Execution**: Undo records are applied newest-first until the requested target block, restoring metadata and deleting rows from the abandoned branch without closing or replacing the database.
+3. **Cleanup**: Undo records below the irreversible boundary are removed, while configured count and free-space limits cap reversible history.
+4. **Upgrade Compatibility**: Existing sibling `*_checkpoints` directories remain readable as a fallback, but new per-block filesystem checkpoints are no longer created.
 
 ## Snapshot Recovery
 

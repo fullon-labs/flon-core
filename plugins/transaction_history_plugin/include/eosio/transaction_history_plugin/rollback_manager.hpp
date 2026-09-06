@@ -13,20 +13,19 @@ namespace eosio {
 class rocksdb_manager;
 
 /**
- * @brief Information about a rollback checkpoint
+ * @brief Information about a rollback point
  */
 struct rollback_info {
-   uint32_t block_num;           ///< Block number of the checkpoint
-   fc::time_point timestamp;     ///< When the checkpoint was created
-   std::string checkpoint_path;  ///< Path to the checkpoint directory
+   uint32_t block_num;           ///< Block number of the rollback point
+   fc::time_point timestamp;     ///< When the rollback point was created
+   std::string checkpoint_path;  ///< Legacy checkpoint path; empty for undo records
 };
 
 /**
  * @brief Rollback Manager
  *
- * Manages rollback checkpoints for the transaction history database.
- * Uses RocksDB's checkpoint feature to create consistent snapshots
- * that can be used for rollback operations.
+ * Manages block-level undo points for the transaction history database and
+ * retains support for filesystem checkpoints created by earlier versions.
  */
 class rollback_manager {
 public:
@@ -34,8 +33,8 @@ public:
    ~rollback_manager();
 
    /**
-    * @brief Create a rollback checkpoint for a specific block
-    * @param block_num Block number to create checkpoint for
+    * @brief Register or create a rollback point for a specific block
+    * @param block_num Block number to create a rollback point for
     * @return true if successful, false otherwise
     */
    bool create_rollback_point(uint32_t block_num);
@@ -55,7 +54,7 @@ public:
                                     uint64_t min_free_bytes = 0,
                                     std::optional<uint32_t> oldest_required_block = {});
 
-   /** Remove checkpoints older than the irreversible boundary. */
+   /** Remove rollback points older than the irreversible boundary. */
    void cleanup_irreversible_rollback_points(uint32_t irreversible_block_num);
 
    /**

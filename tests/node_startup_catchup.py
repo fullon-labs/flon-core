@@ -67,7 +67,8 @@ try:
     specificExtraNodeArgs[pnodes+7] = f' --sync-fetch-span 2500 '
     specificExtraNodeArgs[pnodes+8] = f' --sync-fetch-span 6765 '
     specificExtraNodeArgs[pnodes+9] = f' --sync-fetch-span 28657 '
-    specificExtraNodeArgs[pnodes+10] = f' ' # default
+    # Exercise bounded disjoint-range prefetch across three peers.
+    specificExtraNodeArgs[pnodes+10] = f' --sync-fetch-parallelism 3 --sync-peer-limit 3 --sync-fetch-buffer-size-mb 64 '
     specificExtraNodeArgs[pnodes+11] = f' --sync-fetch-span 1 --read-mode irreversible '
     specificExtraNodeArgs[pnodes+12] = f' --sync-fetch-span 5 --read-mode irreversible '
     specificExtraNodeArgs[pnodes+13] = f' --sync-fetch-span 89 --read-mode irreversible '
@@ -219,11 +220,15 @@ try:
 
         # Verify not syncing ahead of sync-fetch-span
         sync_fetch_span = 1000 # default
+        sync_fetch_parallelism = 1 # default
         irreversible = False
         if catchupNode.nodeId in specificExtraNodeArgs:
             m = re.search(r"sync-fetch-span (\d+)", specificExtraNodeArgs[catchupNode.nodeId])
             if m is not None:
                 sync_fetch_span = int(m.group(1))
+            m = re.search(r"sync-fetch-parallelism (\d+)", specificExtraNodeArgs[catchupNode.nodeId])
+            if m is not None:
+                sync_fetch_parallelism = int(m.group(1))
             irreversible = re.search(r"irreversible", specificExtraNodeArgs[catchupNode.nodeId]) is not None
         Print(f"Verify request span for sync-fetch-span {sync_fetch_span} of {catchupNode.data_dir}")
         lines = catchupNode.linesInLog("requesting range")
@@ -234,7 +239,7 @@ try:
                 endBlockNum=int(m.group(2))
                 fhead=int(m.group(3))
                 libNum=int(m.group(4))
-                if endBlockNum-startBlockNum > sync_fetch_span:
+                if endBlockNum-startBlockNum+1 > sync_fetch_span:
                     errorExit(f"Requested range exceeds sync-fetch-span {sync_fetch_span}: {line}")
                 if irreversible:
                     # for now just use a larger tolerance, later when the logs include calculated lib this can be more precise
@@ -242,8 +247,8 @@ try:
                     if endBlockNum > fhead and fhead > libNum and endBlockNum - fhead > (sync_fetch_span*10):
                         errorExit(f"Requested range too far head of fork head {fhead} in irreversible mode, sync-fetch-span {sync_fetch_span}: {line}")
                 else:
-                    if endBlockNum > fhead and fhead > libNum and endBlockNum - fhead > (sync_fetch_span*2-1):
-                        errorExit(f"Requested range too far head of fork head {fhead} sync-fetch-span {sync_fetch_span}: {line}")
+                    if endBlockNum > fhead and fhead > libNum and endBlockNum - fhead > (sync_fetch_span*sync_fetch_parallelism*2-1):
+                        errorExit(f"Requested range too far head of fork head {fhead} sync-fetch-span {sync_fetch_span}, parallelism {sync_fetch_parallelism}: {line}")
 
         # See https://github.com/AntelopeIO/fullon/issues/81 for fix to reduce the number of expected unlinkable blocks
         # Test verifies LIB is advancing, check to see that not too many unlinkable block exceptions are generated

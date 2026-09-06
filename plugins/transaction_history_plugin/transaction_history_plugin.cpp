@@ -45,6 +45,7 @@
 #include <eosio/chain/permission_object.hpp>
 #include <fc/io/json.hpp>
 #include <fc/crypto/sha256.hpp>
+#include <fc/scoped_exit.hpp>
 
 #include <boost/algorithm/string.hpp>
 #include <boost/signals2/connection.hpp>
@@ -54,6 +55,7 @@
 #include <chrono>
 #include <filesystem>
 #include <iomanip>
+#include <iterator>
 #include <limits>
 #include <mutex>
 #include <set>
@@ -121,6 +123,12 @@ size_t estimate_retained_trace_size(const eosio::chain::transaction_trace& trace
    return total;
 }
 
+void update_atomic_max(std::atomic<uint64_t>& target, uint64_t value) {
+   uint64_t current = target.load(std::memory_order_relaxed);
+   while (current < value &&
+          !target.compare_exchange_weak(current, value, std::memory_order_relaxed)) {}
+}
+
 } // namespace
 
 class transaction_history_plugin_impl {
@@ -130,6 +138,7 @@ public:
    eosio::chain_plugin* chain_plug = nullptr;
    std::shared_ptr<rocksdb_manager> db_;
    std::unique_ptr<async_worker> worker_;
+   std::unique_ptr<async_worker> maintenance_worker_;
    std::unique_ptr<rollback_manager> rollback_mgr_;
 
    boost::signals2::scoped_connection applied_transaction_connection_;
@@ -169,6 +178,7 @@ public:
    uint64_t min_checkpoint_free_bytes_ = 5ull * 1024 * 1024 * 1024;
    uint64_t max_queue_tasks_ = async_worker::max_pending_tasks;
    uint64_t max_queue_bytes_ = async_worker::max_pending_bytes;
+   uint64_t block_cache_bytes_ = 256ull * 1024 * 1024;
    static constexpr uint32_t MAX_API_RESULTS = 1000;
    static constexpr uint64_t MAX_COUNT_SCAN_KEYS = 1000000;
    static constexpr int64_t API_SCAN_TIME_US = 20000;
@@ -179,6 +189,23 @@ public:
    std::atomic<uint64_t> total_processing_time_us_{0};
    std::atomic<bool> history_healthy_{true};
    std::atomic<uint32_t> history_gap_block_{0};
+   std::atomic<bool> health_task_pending_{false};
+   std::atomic<bool> maintenance_task_pending_{false};
+   std::atomic<bool> analysis_task_pending_{false};
+   std::atomic<uint64_t> maintenance_generation_{0};
+   std::atomic<uint64_t> maintenance_tasks_coalesced_{0};
+   std::atomic<uint64_t> maintenance_tasks_skipped_{0};
+   std::atomic<uint64_t> accepted_block_batches_{0};
+   std::atomic<uint64_t> accepted_block_batch_bytes_{0};
+   std::atomic<uint64_t> accepted_block_batch_time_us_{0};
+   std::atomic<uint64_t> accepted_block_batch_max_us_{0};
+   std::atomic<uint64_t> checkpoints_created_{0};
+   std::atomic<uint64_t> checkpoint_time_us_{0};
+   std::atomic<uint64_t> checkpoint_max_us_{0};
+   std::atomic<uint64_t> checkpoint_cleanup_time_us_{0};
+   std::atomic<uint64_t> checkpoint_cleanup_max_us_{0};
+   std::atomic<uint64_t> history_reference_misses_{0};
+   std::atomic<uint64_t> history_read_errors_{0};
    fc::time_point startup_time_;
 
    // For monitoring and warnings
@@ -188,6 +215,16 @@ public:
    std::atomic<uint32_t> last_analysis_block_{0};
    std::mutex last_updated_block_mutex_;
    uint32_t last_updated_block_ = 0;
+   // Accessed only by the ordered history worker. Transaction records are
+   // staged until accepted_block so one RocksDB WriteBatch commits the whole
+   // block immediately before its rollback point is registered.
+   uint32_t pending_block_num_ = 0;
+   uint64_t pending_block_write_bytes_ = 0;
+   uint64_t pending_sequence_bytes_ = 0;
+   uint64_t pending_transactions_ = 0;
+   uint64_t pending_processing_time_us_ = 0;
+   std::vector<std::pair<std::string, std::string>> pending_block_writes_;
+   std::map<eosio::chain::name, uint64_t> pending_account_sequences_;
    const uint32_t warning_interval_ = 10000; // Warn every 10000 blocks
    const uint32_t health_check_interval_ = 50000; // Health check every 50000 blocks
    const uint32_t max_safe_pending_blocks_ = 5000; // Warn if pending blocks exceed this
@@ -199,12 +236,20 @@ public:
    bool batch_write_with_retry(const std::vector<std::pair<std::string, std::string>>& writes,
                                const std::vector<std::string>& deletes = {},
                                bool sync = false);
+   bool block_batch_write_with_retry(
+      uint32_t block_num,
+      const std::vector<std::pair<std::string, std::string>>& writes,
+      uint64_t& total_bytes);
    void check_data_size_warnings(uint32_t current_block_num, uint32_t lib_block_num);
+   void schedule_periodic_maintenance(uint32_t block_num, uint32_t lib_block_num);
    bool filter_action(const eosio::chain::action_trace& action_trace) const;
    uint64_t load_account_sequence(const eosio::chain::name& account) const;
+   bool commit_accepted_block(uint32_t block_num, const std::string& block_id);
+   void clear_pending_block();
 
    std::string make_transaction_key(const eosio::chain::transaction_id_type& id) const;
    std::string make_account_action_key(const eosio::chain::name& account, uint64_t seq) const;
+   std::string make_action_key(uint64_t global_sequence) const;
    std::string make_block_transaction_key(uint32_t block_num, const eosio::chain::transaction_id_type& id) const;
 };
 
@@ -242,11 +287,11 @@ void transaction_history_plugin::set_program_options(options_description& cli, o
       ("transaction-history-force-clean", bpo::value<bool>()->default_value(false),
        "Force clean transaction history database on startup (removes all existing data)")
       ("transaction-history-auto-compact", bpo::value<bool>()->default_value(false),
-       "Enable automatic database compaction for performance optimization")
+       "Run one full database compaction during controlled startup")
       ("transaction-history-validate-on-startup", bpo::value<bool>()->default_value(false),
        "Validate and repair database integrity on startup")
       ("transaction-history-maintenance-interval", bpo::value<uint32_t>()->default_value(100000),
-       "Interval in blocks for automatic database maintenance (compaction, validation)")
+       "Accepted-block interval for cancellable read-only database validation")
       ("transaction-history-detailed-monitoring", bpo::value<bool>()->default_value(false),
        "Enable detailed performance monitoring and statistics logging (may impact performance)")
       ("transaction-history-auto-tuning", bpo::value<bool>()->default_value(false),
@@ -254,7 +299,7 @@ void transaction_history_plugin::set_program_options(options_description& cli, o
       ("transaction-history-analysis-interval", bpo::value<uint32_t>()->default_value(500000),
        "Interval in blocks for comprehensive database analysis (distribution, optimization suggestions)")
       ("transaction-history-max-retained-blocks", bpo::value<uint32_t>()->default_value(1000),
-       "Maximum number of rollback checkpoints to retain")
+       "Maximum number of rollback points to retain")
       ("transaction-history-max-trace-size", bpo::value<uint32_t>()->default_value(10 * 1024 * 1024),
        "Maximum retained transaction trace size in bytes")
       ("transaction-history-max-actions-per-tx", bpo::value<uint32_t>()->default_value(1000),
@@ -266,11 +311,13 @@ void transaction_history_plugin::set_program_options(options_description& cli, o
       ("transaction-history-max-api-response-size", bpo::value<uint64_t>()->default_value(16ull * 1024 * 1024),
        "Maximum serialized action bytes returned by one history API request")
       ("transaction-history-min-checkpoint-free-space", bpo::value<uint64_t>()->default_value(5ull * 1024 * 1024 * 1024),
-       "Minimum filesystem free bytes preserved while retaining rollback checkpoints")
+       "Minimum filesystem free bytes preserved while retaining rollback data")
       ("transaction-history-max-queue-tasks", bpo::value<uint64_t>()->default_value(async_worker::max_pending_tasks),
        "Maximum number of pending transaction-history tasks before chain processing applies backpressure")
       ("transaction-history-max-queue-bytes", bpo::value<uint64_t>()->default_value(async_worker::max_pending_bytes),
        "Maximum estimated bytes retained by pending transaction-history tasks before chain processing applies backpressure")
+      ("transaction-history-block-cache-size", bpo::value<uint64_t>()->default_value(256ull * 1024 * 1024),
+       "RocksDB block cache capacity in bytes")
       ("transaction-history-filter-on", bpo::value<std::vector<std::string>>()->composing(),
        "Track actions which match account:action:actor. Actor may be blank to include all actors.")
       ("transaction-history-filter-out", bpo::value<std::vector<std::string>>()->composing(),
@@ -344,15 +391,18 @@ void transaction_history_plugin::plugin_initialize(const variables_map& options)
       my->min_checkpoint_free_bytes_ = options.at("transaction-history-min-checkpoint-free-space").as<uint64_t>();
       my->max_queue_tasks_ = options.at("transaction-history-max-queue-tasks").as<uint64_t>();
       my->max_queue_bytes_ = options.at("transaction-history-max-queue-bytes").as<uint64_t>();
+      my->block_cache_bytes_ = options.at("transaction-history-block-cache-size").as<uint64_t>();
       EOS_ASSERT(my->max_retained_blocks_ > 0 && my->max_trace_size_ > 0 &&
                  my->max_actions_per_tx_ > 0 && my->max_account_indexes_per_tx_ > 0 &&
                  my->max_write_batch_bytes_ > 0 && my->max_api_response_bytes_ > 0 &&
-                 my->max_queue_tasks_ > 0 && my->max_queue_bytes_ > 0,
+                 my->max_queue_tasks_ > 0 && my->max_queue_bytes_ > 0 &&
+                 my->block_cache_bytes_ > 0,
                  eosio::chain::plugin_exception, "transaction history limits must be greater than zero");
       EOS_ASSERT(my->max_queue_tasks_ <= std::numeric_limits<size_t>::max() &&
-                 my->max_queue_bytes_ <= std::numeric_limits<size_t>::max(),
+                 my->max_queue_bytes_ <= std::numeric_limits<size_t>::max() &&
+                 my->block_cache_bytes_ <= std::numeric_limits<size_t>::max(),
                  eosio::chain::plugin_exception,
-                 "transaction history queue limits exceed this platform's addressable size");
+                 "transaction history queue or cache limits exceed this platform's addressable size");
       EOS_ASSERT(my->max_trace_size_ <= my->max_queue_bytes_ &&
                  my->max_write_batch_bytes_ <= my->max_queue_bytes_ &&
                  my->max_api_response_bytes_ <= my->max_queue_bytes_,
@@ -426,9 +476,13 @@ void transaction_history_plugin::plugin_initialize(const variables_map& options)
            ("compression", my->compression_enabled_ ? "enabled" : "disabled"));
 
       // Initialize components
-      my->db_ = std::make_shared<rocksdb_manager>();
+      my->db_ = std::make_shared<rocksdb_manager>(static_cast<size_t>(my->block_cache_bytes_));
       my->worker_ = std::make_unique<async_worker>(
          static_cast<size_t>(my->max_queue_tasks_), static_cast<size_t>(my->max_queue_bytes_));
+      // Maintenance is deliberately isolated from the ordered history writer.
+      // Its tasks do not retain transaction traces, so a small bounded queue is
+      // enough to coalesce periodic work without delaying accepted blocks.
+      my->maintenance_worker_ = std::make_unique<async_worker>(8, 1);
 
       if (!my->db_->open(my->db_path_, my->compression_enabled_)) {
          throw std::runtime_error("Failed to open transaction history database at: " + my->db_path_);
@@ -474,37 +528,19 @@ void transaction_history_plugin::plugin_startup() {
 
    auto& chain = my->chain_plug->chain();
 
-   // Detect startup mode and handle database state accordingly
-   bool is_snapshot_load = false;
-   bool is_replay = false;
-
    uint32_t chain_head_block = chain.head().block_num();
    uint32_t earliest_available = chain.earliest_available_block_num();
    uint32_t lib_num = chain.last_irreversible_block_num();
-
-   // More reliable detection logic
-   // Check if we're loading from snapshot (significant gap between earliest and 1)
-   if (earliest_available > 1000 && chain_head_block >= earliest_available) {
-      is_snapshot_load = true;
-      ilog("Detected snapshot load: earliest available block is ${earliest}, head is ${head}",
-           ("earliest", earliest_available)("head", chain_head_block));
-   }
-
-   // Check for replay scenarios:
-   // 1. Head is significantly behind LIB (shouldn't happen in normal operation)
-   // 2. Large gap between earliest available and head when not loading from snapshot
-   if (!is_snapshot_load) {
-      if (chain_head_block < lib_num && lib_num - chain_head_block > 100) {
-         is_replay = true;
-         ilog("Detected replay: head block ${head} is behind LIB ${lib}",
-              ("head", chain_head_block)("lib", lib_num));
-      } else if (earliest_available > 1 && chain_head_block >= earliest_available &&
-                 chain_head_block - earliest_available < 1000) {
-         is_replay = true;
-         ilog("Detected potential replay: small range between earliest (${earliest}) and head (${head})",
-              ("earliest", earliest_available)("head", chain_head_block));
-      }
-   }
+   // Startup mode is explicit application state. Inferring snapshot/replay
+   // from the retained block range misclassifies ordinary pruned nodes and can
+   // route a healthy database through destructive repair logic.
+   const auto& app_options = app().get_options();
+   const bool is_snapshot_load = app_options.count("snapshot") != 0;
+   const bool is_replay =
+      (app_options.count("replay-blockchain") != 0 &&
+       app_options.at("replay-blockchain").as<bool>()) ||
+      (app_options.count("hard-replay-blockchain") != 0 &&
+       app_options.at("hard-replay-blockchain").as<bool>());
 
    // Get current database state for logging
    uint32_t db_last_block = my->db_->get_last_block_number();
@@ -516,11 +552,10 @@ void transaction_history_plugin::plugin_startup() {
 
    // Initialize database state based on startup conditions
    if (my->auto_repair_enabled_) {
-      if (!my->db_->check_and_repair_database_state(chain_head_block, is_snapshot_load, is_replay)) {
-         elog("Failed to initialize transaction history database state");
-         my->history_healthy_ = false;
-         my->history_gap_block_ = chain_head_block;
-      }
+      EOS_ASSERT(my->db_->check_and_repair_database_state(
+                    chain_head_block, is_snapshot_load, is_replay),
+                 chain::plugin_exception,
+                 "Failed to initialize transaction history database state");
    } else {
       // Just check but don't repair - provide detailed warnings
       if (is_snapshot_load && db_last_block > chain_head_block) {
@@ -573,6 +608,7 @@ void transaction_history_plugin::plugin_startup() {
    std::string stored_accepted_id;
    bool has_chain_identity = my->db_->get("_internal_last_accepted_block_num", stored_accepted_num) &&
                              my->db_->get("_internal_last_accepted_block_id", stored_accepted_id);
+   std::optional<uint32_t> stored_accepted_block_num;
    bool database_was_empty = db_last_block == 0;
    if (database_was_empty) {
       std::unique_ptr<rocksdb::Iterator> iterator(my->db_->new_iterator());
@@ -596,15 +632,16 @@ void transaction_history_plugin::plugin_startup() {
    if (has_chain_identity) {
       try {
          const uint32_t stored_num = std::stoul(stored_accepted_num);
+         stored_accepted_block_num = stored_num;
          if (stored_num == chain_head_block) {
             chain_identity_matches = stored_accepted_id == chain_head_id;
          } else if (stored_num <= chain_head_block && stored_num >= earliest_available) {
             const auto active_id = chain.chain_block_id_for_num(stored_num);
             chain_identity_matches = active_id && active_id->str() == stored_accepted_id;
          } else if (stored_num < earliest_available && !is_snapshot_load && !is_replay) {
-            // A normal pruned-node restart may be unable to verify an old but
-            // otherwise valid baseline. Preserve it and let the live gap logic
-            // advance the identity on the next block.
+            // A normal pruned-node restart cannot verify this old branch
+            // prefix. Treat it as provisionally matching so the explicit
+            // startup-gap branch below can rebuild or disable recording.
             chain_identity_matches = true;
          } else {
             chain_identity_matches = false;
@@ -616,7 +653,7 @@ void transaction_history_plugin::plugin_startup() {
 
    if (!chain_identity_matches) {
       if (my->auto_repair_enabled_) {
-         wlog("Transaction history belongs to an unverified chain branch; clearing history and rollback checkpoints");
+         wlog("Transaction history belongs to an unverified chain branch; clearing history and rollback data");
          EOS_ASSERT(my->db_->clear_all_data(), chain::plugin_exception,
                     "Failed to clear transaction history from an incompatible chain branch");
          EOS_ASSERT(my->db_->batch_write({
@@ -629,25 +666,54 @@ void transaction_history_plugin::plugin_startup() {
          my->history_healthy_ = false;
          elog("Transaction history chain identity does not match the active chain; recording disabled");
       }
+   } else if (stored_accepted_block_num && *stored_accepted_block_num < chain_head_block) {
+      // Matching an older block proves the branch prefix, but it does not fill
+      // the blocks between that point and the already-open chain head. Those
+      // callbacks will not be replayed during a normal startup.
+      const uint32_t first_missing_block = *stored_accepted_block_num + 1;
+      if (my->auto_repair_enabled_) {
+         wlog("Transaction history stops at block ${stored} while chain head is ${head}; "
+              "clearing incomplete history and establishing a new baseline",
+              ("stored", *stored_accepted_block_num)("head", chain_head_block));
+         EOS_ASSERT(my->db_->clear_all_data(), chain::plugin_exception,
+                    "Failed to clear incomplete transaction history during startup");
+         EOS_ASSERT(my->db_->batch_write({
+              {"_internal_last_block_number", std::to_string(chain_head_block)},
+              {"_internal_last_accepted_block_num", std::to_string(chain_head_block)},
+              {"_internal_last_accepted_block_id", chain_head_id}
+           }, {}), chain::plugin_exception,
+           "Failed to establish transaction history baseline after startup gap repair");
+         db_last_block = chain_head_block;
+      } else {
+         my->record_history_gap(first_missing_block,
+            "transaction history is behind the chain head at startup");
+      }
    } else if (!has_chain_identity) {
       EOS_ASSERT(my->db_->batch_write({
+           {"_internal_last_block_number", std::to_string(chain_head_block)},
            {"_internal_last_accepted_block_num", std::to_string(chain_head_block)},
            {"_internal_last_accepted_block_id", chain_head_id}
         }, {}), chain::plugin_exception,
         "Failed to initialize transaction history chain baseline");
+   } else if (db_last_block != chain_head_block && my->auto_repair_enabled_) {
+      // Accepted-block identity is authoritative; repair only the lagging
+      // summary cursor when the exact chain head was already committed.
+      EOS_ASSERT(my->db_->update_last_block_number(chain_head_block), chain::plugin_exception,
+                 "Failed to align transaction history block cursor with accepted chain head");
+      db_last_block = chain_head_block;
    }
 
    // Load rollback metadata only after startup repair has finalized the active
-   // branch and removed any incompatible external checkpoints.
+   // branch and removed any incompatible rollback data.
    my->rollback_mgr_ = std::make_unique<rollback_manager>(my->db_);
 
    // A newly established or repaired baseline must itself be restorable. This
    // closes the window in which the first live block can fork before any
-   // accepted-block callback has created a checkpoint for its parent.
+   // accepted-block callback has created an undo point for its parent.
    if (my->history_healthy_.load() &&
        !my->rollback_mgr_->has_rollback_point(chain_head_block) &&
        !my->rollback_mgr_->create_rollback_point(chain_head_block)) {
-      my->record_history_gap(chain_head_block, "failed to create startup checkpoint");
+      my->record_history_gap(chain_head_block, "failed to create startup rollback point");
    }
 
    // Log final database statistics
@@ -657,9 +723,10 @@ void transaction_history_plugin::plugin_startup() {
    // Initialize the monotonic database height after any startup repair or cleanup.
    my->last_updated_block_ = my->db_->get_last_block_number();
 
-   // A bounded, ordered writer is required so accepted-block checkpoints are
-   // taken only after all transaction writes for that block have completed.
+   // A bounded, ordered writer ensures each accepted-block batch follows all
+   // staged transaction work for that block.
    my->worker_->start();
+   my->maintenance_worker_->start();
 
    // block_start is emitted before transactions for the next block. Queueing
    // the parent check here ensures a fork rollback runs before any replacement
@@ -672,7 +739,14 @@ void transaction_history_plugin::plugin_startup() {
          const uint32_t parent_block_num = chain.head().block_num();
          const std::string parent_block_id = chain.head().id().str();
          if (!my->worker_->enqueue_task_with_backpressure([impl = my.get(), parent_block_num, parent_block_id]() {
-                impl->ensure_chain_parent(parent_block_num, parent_block_id);
+                try {
+                   impl->ensure_chain_parent(parent_block_num, parent_block_id);
+                } catch (const std::exception& e) {
+                   impl->record_history_gap(parent_block_num,
+                      std::string("fork-parent task exception: ") + e.what());
+                } catch (...) {
+                   impl->record_history_gap(parent_block_num, "unknown fork-parent task exception");
+                }
              })) {
             if (!app().is_quiting()) {
                my->record_history_gap(parent_block_num, "history worker stopped before fork-parent check");
@@ -694,35 +768,48 @@ void transaction_history_plugin::plugin_startup() {
          const std::string block_id = std::get<1>(event).str();
          const uint32_t irreversible_block_num = chain.last_irreversible_block_num();
          if (!my->worker_->enqueue_task_with_backpressure([impl = my.get(), block_num, block_id, irreversible_block_num]() {
-            if (!impl->history_healthy_.load()) {
-               return;
-            }
+            try {
+               if (!impl->history_healthy_.load()) {
+                  return;
+               }
 
-            if (!impl->batch_write_with_retry({
-                   {"_internal_last_accepted_block_num", std::to_string(block_num)},
-                   {"_internal_last_accepted_block_id", block_id}
-                }, {})) {
-               impl->record_history_gap(block_num, "failed to persist accepted-block identity");
-               return;
-            }
+               if (!impl->commit_accepted_block(block_num, block_id)) {
+                  impl->record_history_gap(block_num, "failed to atomically persist accepted block history");
+                  return;
+               }
 
-            // Reclaim checkpoints below LIB before creating the next one, but
-            // never sacrifice a checkpoint in the reversible fork window for
-            // a configured count or free-space target.
-            impl->rollback_mgr_->cleanup_irreversible_rollback_points(irreversible_block_num);
-            impl->rollback_mgr_->cleanup_old_rollback_points(
-               impl->max_retained_blocks_, impl->min_checkpoint_free_bytes_,
-               irreversible_block_num);
-            if (!impl->rollback_mgr_->create_rollback_point(block_num)) {
-               impl->record_history_gap(block_num, "failed to create accepted-block checkpoint");
-               return;
+               const auto checkpoint_start = std::chrono::steady_clock::now();
+               if (!impl->rollback_mgr_->create_rollback_point(block_num)) {
+                  impl->record_history_gap(block_num, "failed to register accepted-block undo point");
+                  return;
+               }
+               impl->checkpoints_created_++;
+               const uint64_t rollback_point_us = std::chrono::duration_cast<std::chrono::microseconds>(
+                  std::chrono::steady_clock::now() - checkpoint_start).count();
+               impl->checkpoint_time_us_ += rollback_point_us;
+               update_atomic_max(impl->checkpoint_max_us_, rollback_point_us);
+               // Reclaim rollback data once per block after registering the
+               // new atomic undo record. Never sacrifice the reversible fork
+               // window for a count or free-space target.
+               auto cleanup_start = std::chrono::steady_clock::now();
+               impl->rollback_mgr_->cleanup_irreversible_rollback_points(irreversible_block_num);
+               impl->rollback_mgr_->cleanup_old_rollback_points(
+                  impl->max_retained_blocks_, impl->min_checkpoint_free_bytes_,
+                  irreversible_block_num);
+               const uint64_t cleanup_us = std::chrono::duration_cast<std::chrono::microseconds>(
+                  std::chrono::steady_clock::now() - cleanup_start).count();
+               impl->checkpoint_cleanup_time_us_ += cleanup_us;
+               update_atomic_max(impl->checkpoint_cleanup_max_us_, cleanup_us);
+               impl->schedule_periodic_maintenance(block_num, irreversible_block_num);
+            } catch (const std::exception& e) {
+               impl->record_history_gap(block_num,
+                  std::string("accepted-block task exception: ") + e.what());
+            } catch (...) {
+               impl->record_history_gap(block_num, "unknown accepted-block task exception");
             }
-            impl->rollback_mgr_->cleanup_old_rollback_points(
-               impl->max_retained_blocks_, impl->min_checkpoint_free_bytes_,
-               irreversible_block_num);
              })) {
             if (!app().is_quiting()) {
-               my->record_history_gap(block_num, "history worker stopped before accepted-block checkpoint");
+               my->record_history_gap(block_num, "history worker stopped before accepted-block commit");
             }
          }
       });
@@ -758,6 +845,14 @@ void transaction_history_plugin::plugin_shutdown() {
       my->worker_->stop();
    }
 
+   if (my->maintenance_worker_) {
+      // Optional scans and analyses must not make a production restart wait for
+      // an entire queued maintenance backlog. A running operation completes so
+      // the DB is never closed underneath it.
+      my->maintenance_generation_++;
+      my->maintenance_worker_->stop(false);
+   }
+
    // Close database
    if (my->db_) {
       my->db_->close();
@@ -770,6 +865,15 @@ void transaction_history_plugin_impl::ensure_chain_parent(
    uint32_t parent_block_num, const std::string& parent_block_id) {
    if (!history_healthy_.load()) {
       return;
+   }
+
+   // A new block_start without an intervening accepted_block means the prior
+   // speculative block was aborted. Its staged history was never visible in
+   // RocksDB and can be discarded without rollback.
+   if (pending_block_num_ != 0) {
+      dlog("Discarding unaccepted transaction history staged for block ${block}",
+           ("block", pending_block_num_));
+      clear_pending_block();
    }
 
    std::string stored_num_text;
@@ -809,15 +913,19 @@ void transaction_history_plugin_impl::ensure_chain_parent(
         "new parent block ${parent_block}; rolling back history before branch transactions",
         ("db_block", stored_num)("parent_block", parent_block_num));
 
+   // Cooperative cancellation lets a long validation release the lifecycle
+   // read lock promptly so fork rollback can acquire exclusive access.
+   maintenance_generation_++;
    if (!rollback_mgr_->rollback_to_block(parent_block_num)) {
-      record_history_gap(parent_block_num, "no usable checkpoint for fork parent");
+      record_history_gap(parent_block_num, "no usable rollback point for fork parent");
       return;
    }
+   clear_pending_block();
 
    std::string restored_id;
    if (!db_->get("_internal_last_accepted_block_id", restored_id) ||
        restored_id != parent_block_id) {
-      record_history_gap(parent_block_num, "fork checkpoint belongs to a different branch");
+      record_history_gap(parent_block_num, "fork rollback point belongs to a different branch");
       return;
    }
 
@@ -903,175 +1011,51 @@ void transaction_history_plugin_impl::applied_transaction(
          fc::to_variant(trace->res_usage, result.res_usage);
          fc::to_variant(trace->gas_traces, result.gas_traces);
 
-         // Check for data size warnings periodically
-         if (result.block_num > last_warning_block_ + warning_interval_) {
-            last_warning_block_ = result.block_num;
-            check_data_size_warnings(result.block_num, result.last_irreversible_block);
-         }
+         std::vector<std::pair<std::string, std::string>> writes;
+         size_t write_bytes = 0;
+         const auto append_write = [&writes, &write_bytes, this](std::string key, std::string value) {
+            const uint64_t candidate = write_bytes + key.size() + value.size();
+            if (candidate > max_write_batch_bytes_) return false;
+            write_bytes = candidate;
+            writes.emplace_back(std::move(key), std::move(value));
+            return true;
+         };
 
-         // Periodic database health check
-         if (result.block_num > last_health_check_block_ + health_check_interval_) {
-            last_health_check_block_ = result.block_num;
-
-            // Enhanced health monitoring
-            if (!worker_->try_enqueue_task([this, block_num = result.block_num]() {
-               // Basic health check
-               bool health_ok = db_->health_check();
-
-               // Get detailed statistics
-               std::string stats = db_->get_database_stats();
-               std::string performance = db_->get_performance_metrics();
-               std::string size_breakdown = db_->get_size_breakdown();
-
-               if (health_ok) {
-                  ilog("Transaction history database health check PASSED at block ${block}", ("block", block_num));
-                  if (detailed_monitoring_enabled_) {
-                     dlog("Database statistics: ${stats}", ("stats", stats));
-                     dlog("Performance metrics: ${performance}", ("performance", performance));
-                     dlog("Size breakdown: ${size}", ("size", size_breakdown));
-                  }
-               } else {
-                  wlog("Transaction history database health check FAILED at block ${block}", ("block", block_num));
-                  if (detailed_monitoring_enabled_) {
-                     wlog("Database statistics: ${stats}", ("stats", stats));
-                     wlog("Performance metrics: ${performance}", ("performance", performance));
-                  }
-
-                  // Attempt automatic repair if health check fails
-                  if (auto_repair_enabled_) {
-                     ilog("Attempting automatic database repair due to health check failure");
-                     if (db_->validate_and_repair_database()) {
-                        ilog("Automatic database repair completed successfully");
-                     } else {
-                        elog("Automatic database repair failed - manual intervention may be required");
-                     }
-                  }
-               }
-            })) {
-               wlog("Skipped transaction history health check at block ${block}: worker queue is full",
-                    ("block", result.block_num));
-            }
-         }
-
-         // Periodic database maintenance
-         if (maintenance_interval_ > 0 && result.block_num > last_maintenance_block_ + maintenance_interval_) {
-            last_maintenance_block_ = result.block_num;
-
-            // Run maintenance in background to avoid blocking transaction processing
-            if (!worker_->try_enqueue_task([this, block_num = result.block_num]() {
-               ilog("Starting scheduled database maintenance at block ${block}", ("block", block_num));
-
-               bool needs_compaction = false;
-
-               // Intelligent compaction decision
-               if (auto_compact_enabled_) {
-                  // Check if compaction is needed based on database statistics
-                  if (detailed_monitoring_enabled_) {
-                     std::string performance_metrics = db_->get_performance_metrics();
-                     try {
-                        fc::variant metrics_json = fc::json::from_string(performance_metrics);
-                        auto metrics_obj = metrics_json.get_object();
-
-                        // Trigger compaction if L0 files are too many or background compaction is pending
-                        if (metrics_obj.find("compaction_pending") != metrics_obj.end() &&
-                            metrics_obj["compaction_pending"].as_bool()) {
-                           needs_compaction = true;
-                           ilog("Compaction needed: background compaction is pending");
-                        }
-                     } catch (...) {
-                        // Fallback to always compact if we can't parse metrics
-                        needs_compaction = true;
-                     }
-                  } else {
-                     // Simple periodic compaction when detailed monitoring is disabled
-                     needs_compaction = true;
-                  }
-
-                  if (needs_compaction && db_->compact_database()) {
-                     ilog("Scheduled database compaction completed successfully");
-                  } else if (needs_compaction) {
-                     wlog("Scheduled database compaction failed");
-                  } else {
-                     dlog("Database compaction skipped - not needed at this time");
-                  }
-               }
-
-               if (db_->validate_and_repair_database()) {
-                  ilog("Scheduled database validation completed successfully");
-               } else {
-                  wlog("Scheduled database validation encountered issues");
-               }
-            })) {
-               wlog("Skipped transaction history maintenance at block ${block}: worker queue is full",
-                    ("block", result.block_num));
-            }
-         }
-
-         // Comprehensive database analysis (less frequent)
-         if (auto_tuning_enabled_ && analysis_interval_ > 0 &&
-             result.block_num > last_analysis_block_ + analysis_interval_) {
-            last_analysis_block_ = result.block_num;
-
-            // Run comprehensive analysis in background
-            if (!worker_->try_enqueue_task([this, block_num = result.block_num]() {
-               ilog("Starting comprehensive database analysis at block ${block}", ("block", block_num));
-
-               try {
-                  // Get tuning recommendations
-                  std::string tuning_recommendations = db_->get_tuning_recommendations();
-                  ilog("Database tuning recommendations: ${recommendations}",
-                       ("recommendations", tuning_recommendations));
-
-                  // Analyze key distribution
-                  std::string distribution_analysis = db_->analyze_key_distribution();
-                  ilog("Key distribution analysis: ${analysis}",
-                       ("analysis", distribution_analysis));
-
-                  // Check for optimization opportunities
-                  fc::variant tuning_json = fc::json::from_string(tuning_recommendations);
-                  if (tuning_json.is_object()) {
-                     auto tuning_obj = tuning_json.get_object();
-
-                     // Check for performance warnings
-                     if (tuning_obj.contains("performance")) {
-                        auto perf_obj = tuning_obj["performance"].get_object();
-                        if (perf_obj.size() > 0) {
-                           wlog("Performance issues detected during analysis at block ${block}. "
-                                "Check tuning recommendations for details.", ("block", block_num));
-                        }
-                     }
-
-                     // Check for maintenance recommendations
-                     if (tuning_obj.contains("maintenance")) {
-                        auto maint_obj = tuning_obj["maintenance"].get_object();
-                        if (maint_obj.size() > 0) {
-                           ilog("Maintenance recommendations available at block ${block}. "
-                                "Consider applying suggested optimizations.", ("block", block_num));
-                        }
-                     }
-                  }
-
-                  // Estimate optimal cache size
-                  size_t optimal_cache = db_->estimate_optimal_cache_size();
-                  ilog("Estimated optimal cache size: ${size} MB",
-                       ("size", optimal_cache / (1024 * 1024)));
-
-               } catch (const std::exception& e) {
-                  elog("Error during comprehensive database analysis: ${error}", ("error", e.what()));
-               }
-            })) {
-               wlog("Skipped transaction history analysis at block ${block}: worker queue is full",
-                    ("block", result.block_num));
-            }
-         }
-
-         // Convert action traces to variants with size monitoring
+         // Store every receipted action once under its global sequence. The
+         // transaction envelope and account indexes both retain only a stable
+         // reference, while receipt-less traces remain embedded for backward-
+         // compatible visibility of exceptional execution results.
          const size_t total_size = retained_trace_bytes;
 
          for (const auto* action_trace : filtered_actions) {
             fc::variant action_var;
             fc::to_variant(*action_trace, action_var);
-            result.traces.push_back(action_var);
+            if (!action_trace->receipt) {
+               result.traces.push_back(std::move(action_var));
+               continue;
+            }
+
+            const std::string action_key =
+               make_action_key(action_trace->receipt->global_sequence);
+            std::map<std::string, fc::variant> action_info;
+            action_info["trx_id"] = trace->id;
+            action_info["block_num"] = result.block_num;
+            action_info["block_time"] = result.block_time;
+            action_info["global_sequence"] = action_trace->receipt->global_sequence;
+            action_info["global_action_seq"] = action_trace->receipt->global_sequence;
+            action_info["account"] = action_trace->receipt->receiver;
+            action_info["action_name"] = action_trace->act.name;
+            action_info["action_trace"] = std::move(action_var);
+            if (!append_write(action_key, object_to_json(action_info))) {
+               transactions_failed_++;
+               record_history_gap(result.block_num,
+                                  "normalized action exceeds configured batch limit");
+               return;
+            }
+
+            std::map<std::string, fc::variant> action_ref;
+            action_ref["action_ref"] = action_key;
+            result.traces.emplace_back(std::move(action_ref));
          }
 
          // Warn if transaction trace size exceeds configured limit
@@ -1080,23 +1064,11 @@ void transaction_history_plugin_impl::applied_transaction(
                  ("id", trace->id)("size", total_size)("limit", max_trace_size_));
          }
 
-         std::vector<std::pair<std::string, std::string>> writes;
-         size_t write_bytes = 0;
-         constexpr uint64_t fixed_metadata_reserve = 256;
-         constexpr uint64_t account_metadata_reserve = 128;
-         const auto append_write = [&writes, &write_bytes, this](std::string key, std::string value) {
-            const uint64_t candidate = write_bytes + key.size() + value.size();
-            if (candidate > max_write_batch_bytes_) return false;
-            write_bytes = candidate;
-            writes.emplace_back(std::move(key), std::move(value));
-            return true;
-         };
          const std::string transaction_json = object_to_json(result);
          const std::string block_key = make_block_transaction_key(result.block_num, trace->id);
          const uint64_t base_bytes = trx_key.size() + transaction_json.size() +
                                      block_key.size() + trx_key.size();
          if (base_bytes > max_write_batch_bytes_ ||
-             fixed_metadata_reserve > max_write_batch_bytes_ - base_bytes ||
              !append_write(trx_key, transaction_json)) {
             transactions_failed_++;
             wlog("Dropping transaction ${id} history because its record exceeds the write batch byte limit",
@@ -1114,18 +1086,8 @@ void transaction_history_plugin_impl::applied_transaction(
          bool index_budget_exhausted = false;
          for (const auto* action_trace : filtered_actions) {
             if (action_trace->receipt && indexed_actions < max_actions_per_tx_ && !index_budget_exhausted) {
-               fc::variant action_variant;
-               fc::to_variant(*action_trace, action_variant);
-
-               std::map<std::string, fc::variant> base_action_info;
-               base_action_info["trx_id"] = trace->id;
-               base_action_info["block_num"] = result.block_num;
-               base_action_info["block_time"] = result.block_time;
-               base_action_info["global_sequence"] = action_trace->receipt->global_sequence;
-               base_action_info["global_action_seq"] = action_trace->receipt->global_sequence;
-               base_action_info["account"] = action_trace->receipt->receiver;
-               base_action_info["action_name"] = action_trace->act.name;
-               base_action_info["action_trace"] = std::move(action_variant);
+               const std::string action_key =
+                  make_action_key(action_trace->receipt->global_sequence);
 
                std::set<eosio::chain::name> indexed_accounts{action_trace->receipt->receiver};
                for (const auto& authorization : action_trace->act.authorization) {
@@ -1138,18 +1100,27 @@ void transaction_history_plugin_impl::applied_transaction(
                      break;
                   }
                   const bool new_account = next_sequences.find(account) == next_sequences.end();
-                  auto action_info = base_action_info;
-                  const uint64_t account_sequence = new_account ? load_account_sequence(account)
-                                                                 : next_sequences.at(account);
+                  auto pending_sequence = pending_account_sequences_.find(account);
+                  const uint64_t account_sequence = new_account
+                     ? (pending_sequence == pending_account_sequences_.end()
+                           ? load_account_sequence(account)
+                           : pending_sequence->second)
+                     : next_sequences.at(account);
+                  std::map<std::string, fc::variant> action_info;
+                  action_info["trx_id"] = trace->id;
+                  action_info["block_num"] = result.block_num;
+                  action_info["block_time"] = result.block_time;
+                  action_info["global_sequence"] = action_trace->receipt->global_sequence;
+                  action_info["global_action_seq"] = action_trace->receipt->global_sequence;
+                  action_info["account"] = action_trace->receipt->receiver;
+                  action_info["action_name"] = action_trace->act.name;
                   action_info["account_action_seq"] = account_sequence;
+                  action_info["action_ref"] = action_key;
                   const std::string account_key = make_account_action_key(account, account_sequence);
-                  const std::string action_json = object_to_json(action_info);
-                  const uint64_t reserve = fixed_metadata_reserve +
-                     (next_sequences.size() + (new_account ? 1 : 0)) * account_metadata_reserve;
-                  const uint64_t index_bytes = account_key.size() + action_json.size();
+                  const std::string account_json = object_to_json(action_info);
+                  const uint64_t index_bytes = account_key.size() + account_json.size();
                   if (index_bytes > max_write_batch_bytes_ ||
-                      write_bytes > max_write_batch_bytes_ - index_bytes ||
-                      reserve > max_write_batch_bytes_ - write_bytes - index_bytes) {
+                      write_bytes > max_write_batch_bytes_ - index_bytes) {
                      index_budget_exhausted = true;
                      break;
                   }
@@ -1159,7 +1130,7 @@ void transaction_history_plugin_impl::applied_transaction(
                      sequence_it->second = account_sequence;
                   }
                   ++sequence_it->second;
-                  EOS_ASSERT(append_write(account_key, action_json), chain::plugin_exception,
+                  EOS_ASSERT(append_write(account_key, account_json), chain::plugin_exception,
                              "transaction history index exceeded the reserved byte budget");
                   ++account_indexes;
                }
@@ -1167,35 +1138,50 @@ void transaction_history_plugin_impl::applied_transaction(
             }
          }
 
-         for (const auto& [account, next_sequence] : next_sequences) {
-            EOS_ASSERT(append_write("_internal_account_sequence:" + account.to_string(),
-                                    std::to_string(next_sequence)),
-                       chain::plugin_exception,
-                       "transaction history write batch limit leaves no room for sequence metadata");
-         }
-
-         bool advance_last_block = false;
-         {
-            std::lock_guard<std::mutex> lock(last_updated_block_mutex_);
-            advance_last_block = result.block_num > last_updated_block_;
-         }
-         if (advance_last_block) {
-            EOS_ASSERT(append_write("_internal_last_block_number", std::to_string(result.block_num)),
-                       chain::plugin_exception, "transaction history write batch limit leaves no room for metadata");
-         }
-
-         // The transaction record, block index, account indexes, sequence
-         // cursors, and database height must become visible atomically.
-         if (!batch_write_with_retry(writes, {})) {
+         if (pending_block_num_ != 0 && pending_block_num_ != result.block_num) {
             transactions_failed_++;
-            record_history_gap(result.block_num,
-                               "failed to atomically store transaction " + trace->id.str());
+            record_history_gap(result.block_num, "accepted-block event missing before next transaction");
             return;
          }
 
-         if (advance_last_block) {
-            std::lock_guard<std::mutex> lock(last_updated_block_mutex_);
-            last_updated_block_ = std::max(last_updated_block_, result.block_num);
+         uint64_t updated_sequence_bytes = pending_sequence_bytes_;
+         for (const auto& [account, next_sequence] : next_sequences) {
+            const std::string key = "_internal_account_sequence:" + account.to_string();
+            const std::string value = std::to_string(next_sequence);
+            auto existing = pending_account_sequences_.find(account);
+            if (existing != pending_account_sequences_.end()) {
+               const uint64_t old_bytes = key.size() + std::to_string(existing->second).size();
+               EOS_ASSERT(updated_sequence_bytes >= old_bytes, chain::plugin_exception,
+                          "transaction history sequence byte accounting underflow");
+               updated_sequence_bytes -= old_bytes;
+            }
+            updated_sequence_bytes += key.size() + value.size();
+         }
+         constexpr uint64_t accepted_block_metadata_reserve = 512;
+         const auto exceeds_block_budget = [this](uint64_t used, uint64_t addition) {
+            return used > max_write_batch_bytes_ || addition > max_write_batch_bytes_ - used;
+         };
+         uint64_t staged_bytes = pending_block_write_bytes_;
+         bool over_budget = exceeds_block_budget(staged_bytes, updated_sequence_bytes);
+         if (!over_budget) staged_bytes += updated_sequence_bytes;
+         over_budget = over_budget || exceeds_block_budget(staged_bytes, write_bytes);
+         if (!over_budget) staged_bytes += write_bytes;
+         over_budget = over_budget ||
+            exceeds_block_budget(staged_bytes, accepted_block_metadata_reserve);
+         if (over_budget) {
+            transactions_failed_++;
+            record_history_gap(result.block_num, "accepted block history exceeds configured batch limit");
+            return;
+         }
+
+         pending_block_num_ = result.block_num;
+         pending_block_write_bytes_ += write_bytes;
+         pending_sequence_bytes_ = updated_sequence_bytes;
+         pending_block_writes_.insert(pending_block_writes_.end(),
+                                      std::make_move_iterator(writes.begin()),
+                                      std::make_move_iterator(writes.end()));
+         for (const auto& [account, next_sequence] : next_sequences) {
+            pending_account_sequences_[account] = next_sequence;
          }
 
          // Warn if too many actions were skipped in indexing
@@ -1205,8 +1191,8 @@ void transaction_history_plugin_impl::applied_transaction(
          }
 
          auto processing_time = fc::time_point::now() - start_time;
-         transactions_processed_++;
-         total_processing_time_us_ += processing_time.count();
+         pending_transactions_++;
+         pending_processing_time_us_ += processing_time.count();
 
          if (processing_time.count() > 100000) { // Log if processing takes > 100ms
             dlog("Transaction ${id} processing took ${time}μs (${actions} actions, ${size} bytes)",
@@ -1256,6 +1242,53 @@ void transaction_history_plugin_impl::record_history_gap(uint32_t block_num,
         ("block", block_num)("reason", bounded_reason));
 }
 
+bool transaction_history_plugin_impl::commit_accepted_block(
+   uint32_t block_num, const std::string& block_id) {
+   if (pending_block_num_ != 0 && pending_block_num_ != block_num) {
+      clear_pending_block();
+      return false;
+   }
+
+   auto writes = std::move(pending_block_writes_);
+   writes.reserve(writes.size() + pending_account_sequences_.size() + 4);
+   for (const auto& [account, next_sequence] : pending_account_sequences_) {
+      writes.emplace_back("_internal_account_sequence:" + account.to_string(),
+                          std::to_string(next_sequence));
+   }
+   writes.emplace_back("_internal_last_block_number", std::to_string(block_num));
+   writes.emplace_back("_internal_last_accepted_block_num", std::to_string(block_num));
+   writes.emplace_back("_internal_last_accepted_block_id", block_id);
+   writes.emplace_back("_internal_schema_version", "2");
+
+   uint64_t batch_bytes = 0;
+   const auto batch_start = std::chrono::steady_clock::now();
+   const bool committed = block_batch_write_with_retry(block_num, writes, batch_bytes);
+   if (committed) {
+      const uint64_t batch_time_us = std::chrono::duration_cast<std::chrono::microseconds>(
+         std::chrono::steady_clock::now() - batch_start).count();
+      accepted_block_batches_++;
+      accepted_block_batch_bytes_ += batch_bytes;
+      accepted_block_batch_time_us_ += batch_time_us;
+      update_atomic_max(accepted_block_batch_max_us_, batch_time_us);
+      transactions_processed_ += pending_transactions_;
+      total_processing_time_us_ += pending_processing_time_us_;
+      std::lock_guard<std::mutex> lock(last_updated_block_mutex_);
+      last_updated_block_ = std::max(last_updated_block_, block_num);
+   }
+   clear_pending_block();
+   return committed;
+}
+
+void transaction_history_plugin_impl::clear_pending_block() {
+   pending_block_num_ = 0;
+   pending_block_write_bytes_ = 0;
+   pending_sequence_bytes_ = 0;
+   pending_transactions_ = 0;
+   pending_processing_time_us_ = 0;
+   pending_block_writes_.clear();
+   pending_account_sequences_.clear();
+}
+
 bool transaction_history_plugin_impl::batch_write_with_retry(
    const std::vector<std::pair<std::string, std::string>>& writes,
    const std::vector<std::string>& deletes,
@@ -1272,13 +1305,41 @@ bool transaction_history_plugin_impl::batch_write_with_retry(
    return false;
 }
 
-bool transaction_history_plugin_impl::filter_action(const eosio::chain::action_trace& action_trace) const {
-   if (!action_trace.receipt) {
-      return false;
+bool transaction_history_plugin_impl::block_batch_write_with_retry(
+   uint32_t block_num,
+   const std::vector<std::pair<std::string, std::string>>& writes,
+   uint64_t& total_bytes) {
+   constexpr uint32_t max_attempts = 3;
+   for (uint32_t attempt = 1; attempt <= max_attempts; ++attempt) {
+      if (db_->batch_write_with_undo(block_num, writes, {}, max_write_batch_bytes_,
+                                     &total_bytes)) {
+         return true;
+      }
+      if (db_->has_undo_point(block_num)) {
+         // A successful atomic WriteBatch must not be repeated merely because
+         // a lower layer returned an ambiguous status.
+         std::string accepted_num;
+         if (db_->get("_internal_last_accepted_block_num", accepted_num) &&
+             accepted_num == std::to_string(block_num)) {
+            return true;
+         }
+         return false;
+      }
+      if (attempt != max_attempts) {
+         std::this_thread::sleep_for(std::chrono::milliseconds(5u << (attempt - 1)));
+      }
    }
+   return false;
+}
 
+bool transaction_history_plugin_impl::filter_action(const eosio::chain::action_trace& action_trace) const {
    const auto matches = [&action_trace](const std::set<filter_entry>& filters) {
-      const auto receiver = action_trace.receipt->receiver;
+      // Failed/exceptional inline actions may not have a receipt. Their code
+      // account is the only stable receiver-like identity available and keeps
+      // them visible under wildcard and contract-level filters.
+      const auto receiver = action_trace.receipt
+         ? action_trace.receipt->receiver
+         : action_trace.act.account;
       const auto action = action_trace.act.name;
       if (filters.count({receiver, {}, {}}) || filters.count({receiver, action, {}})) {
          return true;
@@ -1296,6 +1357,115 @@ bool transaction_history_plugin_impl::filter_action(const eosio::chain::action_t
       return false;
    }
    return !matches(filter_out_);
+}
+
+void transaction_history_plugin_impl::schedule_periodic_maintenance(
+   uint32_t block_num, uint32_t lib_block_num) {
+   const auto interval_elapsed = [block_num](uint32_t last, uint32_t interval) {
+      return interval != 0 && block_num > last && block_num - last >= interval;
+   };
+
+   if (interval_elapsed(last_warning_block_.load(), warning_interval_)) {
+      last_warning_block_ = block_num;
+      check_data_size_warnings(block_num, lib_block_num);
+   }
+
+   if (interval_elapsed(last_health_check_block_.load(), health_check_interval_)) {
+      last_health_check_block_ = block_num;
+      const uint64_t generation = maintenance_generation_.load();
+      bool expected = false;
+      if (!health_task_pending_.compare_exchange_strong(expected, true)) {
+         maintenance_tasks_coalesced_++;
+      } else if (!maintenance_worker_->try_enqueue_task([this, block_num, generation]() {
+         auto reset_pending = fc::scoped_exit<std::function<void()>>(
+            [this]() { health_task_pending_ = false; });
+         if (maintenance_generation_.load() != generation) return;
+         auto database_lock = db_->acquire_read_lock();
+         if (maintenance_generation_.load() != generation) return;
+         const bool health_ok = db_->health_check();
+         if (maintenance_generation_.load() != generation) return;
+
+         if (health_ok) {
+            ilog("Transaction history database health check PASSED at block ${block}",
+                 ("block", block_num));
+            if (detailed_monitoring_enabled_) {
+               dlog("Database statistics: ${stats}", ("stats", db_->get_database_stats()));
+               dlog("Performance metrics: ${performance}",
+                    ("performance", db_->get_performance_metrics()));
+               dlog("Size breakdown: ${size}", ("size", db_->get_size_breakdown()));
+            }
+         } else {
+            wlog("Transaction history database health check FAILED at block ${block}; "
+                 "validate and repair during a controlled restart", ("block", block_num));
+         }
+      })) {
+         health_task_pending_ = false;
+         maintenance_tasks_skipped_++;
+      }
+   }
+
+   if (interval_elapsed(last_maintenance_block_.load(), maintenance_interval_)) {
+      last_maintenance_block_ = block_num;
+      const uint64_t generation = maintenance_generation_.load();
+      bool expected = false;
+      if (!maintenance_task_pending_.compare_exchange_strong(expected, true)) {
+         maintenance_tasks_coalesced_++;
+      } else if (!maintenance_worker_->try_enqueue_task([this, block_num, generation]() {
+         auto reset_pending = fc::scoped_exit<std::function<void()>>(
+            [this]() { maintenance_task_pending_ = false; });
+         const auto cancelled = [this, generation]() {
+            return maintenance_generation_.load() != generation || !history_healthy_.load();
+         };
+         if (cancelled()) return;
+         auto database_lock = db_->acquire_read_lock();
+         if (cancelled()) return;
+         ilog("Starting cancellable database validation at block ${block}", ("block", block_num));
+         const bool valid = db_->validate_database(cancelled);
+         if (cancelled()) {
+            dlog("Cancelled transaction history validation for fork/shutdown at block ${block}",
+                 ("block", block_num));
+         } else if (valid) {
+            ilog("Scheduled database validation completed successfully");
+         } else {
+            wlog("Scheduled database validation found issues; repair during a controlled restart");
+         }
+         if (auto_compact_enabled_) {
+            dlog("Skipping live full-range compaction; RocksDB background compaction remains active");
+         }
+      })) {
+         maintenance_task_pending_ = false;
+         maintenance_tasks_skipped_++;
+      }
+   }
+
+   if (auto_tuning_enabled_ && interval_elapsed(last_analysis_block_.load(), analysis_interval_)) {
+      last_analysis_block_ = block_num;
+      const uint64_t generation = maintenance_generation_.load();
+      bool expected = false;
+      if (!analysis_task_pending_.compare_exchange_strong(expected, true)) {
+         maintenance_tasks_coalesced_++;
+      } else if (!maintenance_worker_->try_enqueue_task([this, block_num, generation]() {
+         auto reset_pending = fc::scoped_exit<std::function<void()>>(
+            [this]() { analysis_task_pending_ = false; });
+         if (maintenance_generation_.load() != generation) return;
+         auto database_lock = db_->acquire_read_lock();
+         if (maintenance_generation_.load() != generation) return;
+         try {
+            const std::string recommendations = db_->get_tuning_recommendations();
+            if (maintenance_generation_.load() != generation) return;
+            const std::string distribution = db_->analyze_key_distribution();
+            if (maintenance_generation_.load() != generation) return;
+            ilog("Database tuning recommendations at block ${block}: ${recommendations}",
+                 ("block", block_num)("recommendations", recommendations));
+            dlog("Database key distribution: ${distribution}", ("distribution", distribution));
+         } catch (const std::exception& e) {
+            elog("Error during database analysis: ${error}", ("error", e.what()));
+         }
+      })) {
+         analysis_task_pending_ = false;
+         maintenance_tasks_skipped_++;
+      }
+   }
 }
 
 uint64_t transaction_history_plugin_impl::load_account_sequence(const eosio::chain::name& account) const {
@@ -1322,10 +1492,12 @@ void transaction_history_plugin_impl::check_data_size_warnings(uint32_t current_
            ("pending", pending_blocks)("head", current_block_num)("lib", lib_block_num));
    }
 
-   // Warn about max_retained_blocks setting if it's too low
-   if (max_retained_blocks_ < pending_blocks + 1000) {
+   // The configured count only limits irreversible/stale rollback points. The
+   // cleanup code always preserves the reversible window, so warn only when
+   // the configured target is actually below that window.
+   if (max_retained_blocks_ < pending_blocks) {
       wlog("Transaction history warning: max-retained-blocks (${max}) is close to pending blocks (${pending}). "
-           "Increase checkpoint retention to preserve the complete reversible fork window.",
+           "Increase rollback retention to preserve the complete reversible fork window.",
            ("max", max_retained_blocks_)("pending", pending_blocks));
    }
 
@@ -1348,6 +1520,10 @@ std::string transaction_history_plugin_impl::make_transaction_key(const transact
 
 std::string transaction_history_plugin_impl::make_account_action_key(const name& account, uint64_t seq) const {
    return "acc:" + account.to_string() + ":" + fixed_width_number(seq, 20);
+}
+
+std::string transaction_history_plugin_impl::make_action_key(uint64_t global_sequence) const {
+   return "act:" + fixed_width_number(global_sequence, 20);
 }
 
 std::string transaction_history_plugin_impl::make_block_transaction_key(uint32_t block_num, const transaction_id_type& id) const {
@@ -1487,6 +1663,44 @@ read_only::get_transaction_result read_only::get_transaction(const get_transacti
       }
 
    }
+   std::vector<size_t> action_ref_indexes;
+   std::vector<std::string> action_ref_keys;
+   for (size_t index = 0; index < result.traces.size(); ++index) {
+      const auto& action_value = result.traces[index];
+      if (action_value.is_object() && action_value.get_object().contains("action_ref")) {
+         action_ref_indexes.push_back(index);
+         action_ref_keys.push_back(action_value.get_object()["action_ref"].as_string());
+      }
+   }
+   if (!action_ref_keys.empty()) {
+      // All normalized actions for one transaction are already covered by the
+      // transaction trace-size limit, so a larger batch remains memory-bounded.
+      constexpr size_t max_multi_get_keys = 64;
+      for (size_t batch_begin = 0; batch_begin < action_ref_keys.size();
+           batch_begin += max_multi_get_keys) {
+         const size_t batch_end = std::min(action_ref_keys.size(), batch_begin + max_multi_get_keys);
+         const std::vector<std::string> batch_keys(
+            action_ref_keys.begin() + batch_begin, action_ref_keys.begin() + batch_end);
+         std::vector<std::string> normalized_values;
+         const auto statuses = history->my->db_->multi_get(batch_keys, normalized_values);
+         EOS_ASSERT(statuses.size() == batch_keys.size() &&
+                    normalized_values.size() == batch_keys.size(),
+                    chain::plugin_exception, "RocksDB returned an incomplete normalized-action batch");
+         for (size_t batch_index = 0; batch_index < batch_keys.size(); ++batch_index) {
+            const size_t index = batch_begin + batch_index;
+            EOS_ASSERT(statuses[batch_index].ok(), chain::plugin_exception,
+                    "Normalized action ${ref} referenced by transaction ${id} is missing: ${error}",
+                    ("ref", action_ref_keys[index])("id", result.id)
+                    ("error", statuses[batch_index].ToString()));
+            const auto normalized_action =
+               fc::json::from_string(normalized_values[batch_index]).get_object();
+            EOS_ASSERT(normalized_action.contains("action_trace"), chain::plugin_exception,
+                       "Normalized action ${ref} has no action_trace", ("ref", action_ref_keys[index]));
+            result.traces[action_ref_indexes[index]] = normalized_action["action_trace"];
+         }
+      }
+   }
+
    for (auto& action_value : result.traces) {
       try {
          eosio::chain::action_trace action;
@@ -1524,58 +1738,43 @@ read_only::get_actions_result read_only::get_actions(const get_actions_params& p
    const auto deadline = fc::time_point::now() +
       fc::microseconds(transaction_history_plugin_impl::API_SCAN_TIME_US);
    const size_t requested = static_cast<size_t>(std::abs(static_cast<int64_t>(offset)));
-   std::unique_ptr<rocksdb::Iterator> iterator(history->my->db_->new_iterator());
+   const size_t scan_limit = transaction_history_plugin_impl::MAX_API_RESULTS * 4;
+   const size_t candidate_limit = std::min(scan_limit, requested * 4);
+   const std::string upper_prefix = prefix + "\xff";
+   const rocksdb::Slice lower_bound(prefix);
+   const rocksdb::Slice upper_bound(upper_prefix);
+   rocksdb::ReadOptions read_options;
+   read_options.iterate_lower_bound = &lower_bound;
+   read_options.iterate_upper_bound = &upper_bound;
+   std::unique_ptr<rocksdb::Iterator> iterator(history->my->db_->new_iterator(read_options));
    EOS_ASSERT(iterator, chain::plugin_exception, "Transaction history database is not open");
 
    auto has_prefix = [&prefix](const rocksdb::Iterator& it) {
       return it.Valid() && it.key().starts_with(prefix);
    };
-   size_t response_bytes = 0;
-   bool byte_limit_reached = false;
    const uint64_t max_response_bytes = history->my->max_api_response_bytes_;
    auto& controller = history->my->chain_plug->chain();
    const auto abi_yield = eosio::chain::abi_serializer::create_yield_function(
       history->my->chain_plug->get_abi_serializer_max_time());
-   auto append_current = [&result, &response_bytes, &byte_limit_reached,
-                          max_response_bytes, &controller, &abi_yield](const rocksdb::Iterator& it) {
+   std::vector<std::map<std::string, fc::variant>> candidates;
+   candidates.reserve(candidate_limit);
+   auto collect_current = [&candidates, max_response_bytes](const rocksdb::Iterator& it) {
       const auto value = it.value();
       EOS_ASSERT(value.size() <= max_response_bytes, chain::plugin_exception,
                  "A single history action record exceeds the configured API response byte limit");
-      std::map<std::string, fc::variant> action;
       try {
-         action = fc::json::from_string(value.ToString())
-            .as<std::map<std::string, fc::variant>>();
+         candidates.emplace_back(fc::json::from_string(value.ToString())
+            .as<std::map<std::string, fc::variant>>());
       } catch (...) {
          return false;
       }
-      if (!action.count("global_action_seq") && action.count("global_sequence")) {
-         action["global_action_seq"] = action["global_sequence"];
-      }
-      if (auto trace_it = action.find("action_trace"); trace_it != action.end()) {
-         try {
-            eosio::chain::action_trace typed_trace;
-            fc::from_variant(trace_it->second, typed_trace);
-            trace_it->second = controller.to_variant_with_abi(typed_trace, abi_yield);
-         } catch (...) {
-            // Keep records written under an older schema queryable.
-         }
-      }
-      const size_t serialized_size = object_to_json(action).size();
-      EOS_ASSERT(serialized_size <= max_response_bytes, chain::plugin_exception,
-                 "A single decoded history action exceeds the configured API response byte limit");
-      if (response_bytes > max_response_bytes - serialized_size) {
-         byte_limit_reached = true;
-         return false;
-      }
-      result.actions.emplace_back(std::move(action));
-      response_bytes += serialized_size;
       return true;
    };
 
    size_t scanned = 0;
    if (offset < 0) {
       if (!params.pos || *params.pos < 0) {
-         iterator->Seek(prefix + "\xff");
+         iterator->Seek(upper_prefix);
          if (iterator->Valid()) {
             iterator->Prev();
          } else {
@@ -1592,18 +1791,15 @@ read_only::get_actions_result read_only::get_actions(const get_actions_params& p
          }
       }
 
-      while (has_prefix(*iterator) && result.actions.size() < requested) {
+      while (has_prefix(*iterator) && candidates.size() < candidate_limit && scanned < scan_limit) {
          if (fc::time_point::now() >= deadline) {
             result.time_limit_exceeded_error = true;
             break;
          }
-         if (!append_current(*iterator) && byte_limit_reached) break;
+         collect_current(*iterator);
          ++scanned;
          iterator->Prev();
       }
-      result.more = has_prefix(*iterator) || byte_limit_reached ||
-                    result.time_limit_exceeded_error.value_or(false);
-      std::reverse(result.actions.begin(), result.actions.end());
    } else {
       if (params.pos && *params.pos > 0) {
          iterator->Seek(history->make_account_action_key(
@@ -1612,24 +1808,116 @@ read_only::get_actions_result read_only::get_actions(const get_actions_params& p
          iterator->Seek(prefix);
       }
 
-      while (has_prefix(*iterator) && result.actions.size() < requested) {
+      while (has_prefix(*iterator) && candidates.size() < candidate_limit && scanned < scan_limit) {
          if (fc::time_point::now() >= deadline) {
             result.time_limit_exceeded_error = true;
             break;
          }
-         if (!append_current(*iterator) && byte_limit_reached) break;
+         collect_current(*iterator);
          ++scanned;
          iterator->Next();
       }
-      result.more = has_prefix(*iterator) || byte_limit_reached ||
-                    result.time_limit_exceeded_error.value_or(false);
+   }
+
+   size_t response_bytes = 0;
+   bool byte_limit_reached = false;
+   size_t candidate_index = 0;
+   // Account pages combine unrelated transactions, so keep a smaller batch to
+   // bound the memory of unusually large action traces.
+   constexpr size_t max_multi_get_keys = 8;
+   for (size_t batch_begin = 0;
+        batch_begin < candidates.size() && result.actions.size() < requested && !byte_limit_reached;
+        batch_begin += max_multi_get_keys) {
+      const size_t batch_end = std::min(candidates.size(), batch_begin + max_multi_get_keys);
+      std::vector<size_t> reference_indexes;
+      std::vector<std::string> reference_keys;
+      for (size_t index = batch_begin; index < batch_end; ++index) {
+         if (!candidates[index].count("action_trace")) {
+            if (auto ref = candidates[index].find("action_ref"); ref != candidates[index].end()) {
+               try {
+                  reference_indexes.push_back(index);
+                  reference_keys.push_back(ref->second.as_string());
+               } catch (...) {
+                  candidates[index].erase("action_ref");
+               }
+            }
+         }
+      }
+
+      if (!reference_keys.empty()) {
+         std::vector<std::string> normalized_values;
+         const auto statuses = history->my->db_->multi_get(reference_keys, normalized_values);
+         EOS_ASSERT(statuses.size() == reference_keys.size() &&
+                    normalized_values.size() == reference_keys.size(),
+                    chain::plugin_exception, "RocksDB returned an incomplete normalized-action batch");
+         for (size_t index = 0; index < reference_keys.size(); ++index) {
+            auto& action = candidates[reference_indexes[index]];
+            if (statuses[index].ok()) {
+               try {
+                  auto normalized_action = fc::json::from_string(normalized_values[index])
+                     .as<std::map<std::string, fc::variant>>();
+                  if (auto trace = normalized_action.find("action_trace");
+                      trace != normalized_action.end()) {
+                     action["action_trace"] = std::move(trace->second);
+                  }
+               } catch (...) {
+                  // The malformed row is omitted while valid rows remain queryable.
+                  history->my->history_reference_misses_++;
+               }
+            } else if (statuses[index].IsNotFound()) {
+               history->my->history_reference_misses_++;
+            } else {
+               history->my->history_read_errors_++;
+               EOS_ASSERT(false, chain::plugin_exception,
+                          "Failed to read normalized action ${ref}: ${error}",
+                          ("ref", reference_keys[index])
+                          ("error", statuses[index].ToString()));
+            }
+            action.erase("action_ref");
+         }
+      }
+
+      for (size_t index = batch_begin;
+           index < batch_end && result.actions.size() < requested; ++index) {
+         candidate_index = index + 1;
+         auto& action = candidates[index];
+         if (!action.count("action_trace")) continue;
+         if (!action.count("global_action_seq") && action.count("global_sequence")) {
+            action["global_action_seq"] = action["global_sequence"];
+         }
+         if (auto trace_it = action.find("action_trace"); trace_it != action.end()) {
+            try {
+               eosio::chain::action_trace typed_trace;
+               fc::from_variant(trace_it->second, typed_trace);
+               trace_it->second = controller.to_variant_with_abi(typed_trace, abi_yield);
+            } catch (...) {
+               // Keep records written under an older schema queryable.
+            }
+         }
+         const size_t serialized_size = object_to_json(action).size();
+         EOS_ASSERT(serialized_size <= max_response_bytes, chain::plugin_exception,
+                    "A single decoded history action exceeds the configured API response byte limit");
+         if (response_bytes > max_response_bytes - serialized_size) {
+            byte_limit_reached = true;
+            break;
+         }
+         result.actions.emplace_back(std::move(action));
+         response_bytes += serialized_size;
+      }
+   }
+
+   result.more = candidate_index < candidates.size() || has_prefix(*iterator) ||
+                 scanned == scan_limit || byte_limit_reached ||
+                 result.time_limit_exceeded_error.value_or(false);
+   if (offset < 0) {
+      std::reverse(result.actions.begin(), result.actions.end());
    }
 
    EOS_ASSERT(iterator->status().ok(), chain::plugin_exception,
               "Failed to scan account history: ${error}",
               ("error", iterator->status().ToString()));
 
-   EOS_ASSERT(scanned <= transaction_history_plugin_impl::MAX_API_RESULTS * 4,
+   EOS_ASSERT(scanned <= scan_limit,
               chain::plugin_exception, "Too many invalid action index entries");
 
    return result;
@@ -1651,7 +1939,12 @@ read_only::get_transaction_count_result read_only::get_transaction_count(const g
    const std::string end_prefix = result.end_block == std::numeric_limits<uint32_t>::max()
       ? "blz:"
       : "blk:" + fixed_width_number(static_cast<uint64_t>(result.end_block) + 1, 10) + ":";
-   std::unique_ptr<rocksdb::Iterator> iterator(history->my->db_->new_iterator());
+   const rocksdb::Slice lower_bound(first_key);
+   const rocksdb::Slice upper_bound(end_prefix);
+   rocksdb::ReadOptions read_options;
+   read_options.iterate_lower_bound = &lower_bound;
+   read_options.iterate_upper_bound = &upper_bound;
+   std::unique_ptr<rocksdb::Iterator> iterator(history->my->db_->new_iterator(read_options));
    EOS_ASSERT(iterator, chain::plugin_exception, "Transaction history database is not open");
 
    uint64_t scanned = 0;
@@ -1805,13 +2098,50 @@ read_only::get_performance_metrics_result read_only::get_performance_metrics(con
          metrics["history_queue_bytes"] = history->my->worker_->pending_bytes();
          metrics["history_queue_max_tasks"] = history->my->worker_->pending_task_limit();
          metrics["history_queue_max_bytes"] = history->my->worker_->pending_byte_limit();
+         metrics["history_maintenance_queue_tasks"] =
+            history->my->maintenance_worker_->pending_tasks();
+         metrics["history_health_task_pending"] = history->my->health_task_pending_.load();
+         metrics["history_maintenance_task_pending"] = history->my->maintenance_task_pending_.load();
+         metrics["history_analysis_task_pending"] = history->my->analysis_task_pending_.load();
+         metrics["history_maintenance_tasks_coalesced"] =
+            history->my->maintenance_tasks_coalesced_.load();
+         metrics["history_maintenance_tasks_skipped"] =
+            history->my->maintenance_tasks_skipped_.load();
          if (history->my->rollback_mgr_) {
             metrics["history_checkpoint_count"] = history->my->rollback_mgr_->rollback_point_count();
             metrics["history_latest_checkpoint_block"] =
                history->my->rollback_mgr_->get_latest_rollback_point().value_or(0);
+            metrics["history_rollback_point_count"] = history->my->rollback_mgr_->rollback_point_count();
+            metrics["history_latest_rollback_block"] =
+               history->my->rollback_mgr_->get_latest_rollback_point().value_or(0);
          }
          metrics["transactions_processed"] = history->my->transactions_processed_.load();
          metrics["transactions_failed"] = history->my->transactions_failed_.load();
+         const uint64_t batches = history->my->accepted_block_batches_.load();
+         const uint64_t checkpoints = history->my->checkpoints_created_.load();
+         metrics["history_accepted_block_batches"] = batches;
+         metrics["history_accepted_block_batch_bytes"] =
+            history->my->accepted_block_batch_bytes_.load();
+         metrics["history_accepted_block_batch_time_us"] =
+            history->my->accepted_block_batch_time_us_.load();
+         metrics["history_accepted_block_batch_max_us"] =
+            history->my->accepted_block_batch_max_us_.load();
+         metrics["history_accepted_block_batch_average_us"] = batches == 0 ? 0 :
+            history->my->accepted_block_batch_time_us_.load() / batches;
+         metrics["history_checkpoints_created"] = checkpoints;
+         metrics["history_undo_records_created"] = checkpoints;
+         metrics["history_checkpoint_time_us"] = history->my->checkpoint_time_us_.load();
+         metrics["history_rollback_point_time_us"] = history->my->checkpoint_time_us_.load();
+         metrics["history_checkpoint_max_us"] = history->my->checkpoint_max_us_.load();
+         metrics["history_rollback_point_max_us"] = history->my->checkpoint_max_us_.load();
+         metrics["history_checkpoint_cleanup_time_us"] =
+            history->my->checkpoint_cleanup_time_us_.load();
+         metrics["history_checkpoint_cleanup_max_us"] =
+            history->my->checkpoint_cleanup_max_us_.load();
+         metrics["history_reference_misses"] = history->my->history_reference_misses_.load();
+         metrics["history_read_errors"] = history->my->history_read_errors_.load();
+         metrics["history_checkpoint_average_us"] = checkpoints == 0 ? 0 :
+            history->my->checkpoint_time_us_.load() / checkpoints;
          result.metrics = std::move(metrics);
          result.success = true;
       } catch (const std::exception& e) {
@@ -1880,28 +2210,6 @@ read_only::get_maintenance_needs_result read_only::get_maintenance_needs(const g
       } catch (const std::exception& e) {
          result.success = false;
          result.error = e.what();
-      }
-   } else {
-      result.success = false;
-      result.error = "Database manager not available";
-   }
-
-   return result;
-}
-
-read_only::trigger_auto_optimize_result read_only::trigger_auto_optimize(const trigger_auto_optimize_params& params) const {
-   auto database_lock = history->my->db_->acquire_read_lock();
-   trigger_auto_optimize_result result;
-
-   if (history && history->get_db_manager()) {
-      uint32_t max_duration = params.max_duration_seconds.value_or(300);
-      bool success = history->get_db_manager()->auto_optimize(max_duration);
-
-      result.success = success;
-      if (!success) {
-         result.error = "Auto-optimization failed - check logs for details";
-      } else {
-         result.message = "Auto-optimization completed successfully";
       }
    } else {
       result.success = false;

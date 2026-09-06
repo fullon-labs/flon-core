@@ -7,13 +7,28 @@
 #include <fc/variant.hpp>
 #include <fc/io/raw.hpp>
 #include <fc/io/json.hpp>
+#include <fc/reflect/reflect.hpp>
+#include <fc/reflect/variant.hpp>
 #include <memory>
 #include <string>
 #include <chrono>
+#include <functional>
 #include <mutex>
 #include <shared_mutex>
+#include <vector>
 
 namespace eosio {
+
+struct history_undo_restore_entry {
+   std::string key;
+   std::string value;
+};
+
+struct history_block_undo_record {
+   uint32_t block_num = 0;
+   std::vector<history_undo_restore_entry> restore;
+   std::vector<std::string> erase;
+};
 
 /**
  * @brief RocksDB Database Manager
@@ -26,7 +41,7 @@ class rocksdb_manager {
 public:
    using database_read_lock = std::shared_lock<std::shared_mutex>;
 
-   rocksdb_manager();
+   explicit rocksdb_manager(size_t block_cache_bytes = 256 * 1024 * 1024);
    ~rocksdb_manager();
 
    /**
@@ -100,6 +115,12 @@ public:
     * @return true if database is healthy or successfully repaired
     */
    bool validate_and_repair_database();
+
+   /**
+    * @brief Validate database integrity without changing live data
+    * @return true when no repairable corruption or metadata lag is found
+    */
+   bool validate_database(const std::function<bool()>& should_cancel = {});
 
    /**
     * @brief Compact database to optimize performance and reclaim space
@@ -177,13 +198,6 @@ public:
    std::string get_cache_analysis() const;
 
    /**
-    * @brief Perform automatic database optimization
-    * @param max_duration_seconds Maximum time to spend on optimization
-    * @return true if optimization completed successfully
-    */
-   bool auto_optimize(uint32_t max_duration_seconds = 300);
-
-   /**
     * @brief Check if database needs maintenance
     * @return JSON string with maintenance recommendations
     */
@@ -193,6 +207,7 @@ public:
    database_read_lock acquire_read_lock() const { return database_read_lock(db_lifecycle_mutex_); }
 
 private:
+   bool validate_database_impl(bool repair, const std::function<bool()>& should_cancel = {});
    bool open_unlocked(const std::string& db_path, bool enable_compression,
                       bool recover_interrupted_swap);
    void close_unlocked();
@@ -285,6 +300,10 @@ public:
     */
    bool get(const std::string& key, std::string& value);
 
+   /** Retrieve a group of keys using RocksDB's batched read path. */
+   std::vector<rocksdb::Status> multi_get(const std::vector<std::string>& keys,
+                                          std::vector<std::string>& values) const;
+
    /**
     * @brief Delete a key
     * @param key The key to delete
@@ -297,6 +316,7 @@ public:
     * @return Raw iterator pointer (caller owns it)
     */
    rocksdb::Iterator* new_iterator() const;
+   rocksdb::Iterator* new_iterator(const rocksdb::ReadOptions& options) const;
 
    /**
     * @brief Create a checkpoint for rollback
@@ -311,6 +331,30 @@ public:
     * @return true if successful, false otherwise
     */
    bool rollback_to_block(uint32_t block_num);
+
+   /**
+    * Atomically write one accepted block together with the inverse mutations
+    * needed to restore its parent. Public history keys are append-only; only
+    * `_internal_` keys are read before the batch to preserve overwritten
+    * values in the undo record.
+    */
+   bool batch_write_with_undo(
+      uint32_t block_num,
+      const std::vector<std::pair<std::string, std::string>>& writes,
+      const std::vector<std::string>& deletes = {},
+      uint64_t max_total_bytes = 0,
+      uint64_t* total_bytes = nullptr,
+      bool sync = false);
+
+   /** Create an empty, durable undo anchor for an existing chain baseline. */
+   bool create_undo_baseline(uint32_t block_num);
+
+   /** Roll back all undo records newer than block_num, newest first. */
+   bool rollback_with_undo(uint32_t block_num);
+
+   bool has_undo_point(uint32_t block_num) const;
+   bool remove_undo_point(uint32_t block_num);
+   std::vector<uint32_t> list_undo_points() const;
 
    /**
     * @brief Get the path used to store a checkpoint
@@ -341,3 +385,6 @@ private:
 };
 
 } // namespace eosio
+
+FC_REFLECT(eosio::history_undo_restore_entry, (key)(value))
+FC_REFLECT(eosio::history_block_undo_record, (block_num)(restore)(erase))

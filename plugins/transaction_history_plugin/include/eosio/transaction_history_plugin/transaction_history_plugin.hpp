@@ -120,16 +120,6 @@ public:
       std::optional<std::string> error;
    };
 
-   struct trigger_auto_optimize_params {
-      std::optional<uint32_t> max_duration_seconds;
-   };
-
-   struct trigger_auto_optimize_result {
-      bool success;
-      std::optional<std::string> message;
-      std::optional<std::string> error;
-   };
-
    // Methods
    get_transaction_result get_transaction(const get_transaction_params& params) const;
    get_actions_result get_actions(const get_actions_params& params) const;
@@ -143,7 +133,6 @@ public:
    get_optimization_suggestions_result get_optimization_suggestions(const get_optimization_suggestions_params& params) const;
    get_cache_analysis_result get_cache_analysis(const get_cache_analysis_params& params) const;
    get_maintenance_needs_result get_maintenance_needs(const get_maintenance_needs_params& params) const;
-   trigger_auto_optimize_result trigger_auto_optimize(const trigger_auto_optimize_params& params) const;
 
 private:
    const class transaction_history_plugin* history;
@@ -213,5 +202,3 @@ FC_REFLECT(eosio::transaction_history_apis::read_only::get_cache_analysis_params
 FC_REFLECT(eosio::transaction_history_apis::read_only::get_cache_analysis_result, (success)(analysis)(error))
 FC_REFLECT(eosio::transaction_history_apis::read_only::get_maintenance_needs_params, )
 FC_REFLECT(eosio::transaction_history_apis::read_only::get_maintenance_needs_result, (success)(maintenance_needs)(error))
-FC_REFLECT(eosio::transaction_history_apis::read_only::trigger_auto_optimize_params, (max_duration_seconds))
-FC_REFLECT(eosio::transaction_history_apis::read_only::trigger_auto_optimize_result, (success)(message)(error))

@@ -9,9 +9,11 @@
 #include <filesystem>
 #include <ctime>
 #include <atomic>
+#include <chrono>
 #include <future>
 #include <map>
 #include <mutex>
+#include <thread>
 #include <vector>
 
 using namespace eosio;
@@ -78,41 +80,143 @@ BOOST_AUTO_TEST_CASE(rocksdb_manager_json_validation_and_cleanup) {
    };
 
    BOOST_REQUIRE(manager.put_object("trx:before", history_record(99)));
+   auto action_record = [&history_record](uint32_t block_num) {
+      auto result = history_record(block_num);
+      result["action_trace"] = fc::mutable_variant_object();
+      return result;
+   };
+   BOOST_REQUIRE(manager.put_object("act:before", action_record(99)));
    BOOST_REQUIRE(manager.put_object("acc:before", history_record(99)));
    BOOST_REQUIRE(manager.put_object("trx:from", history_record(100)));
+   BOOST_REQUIRE(manager.put_object("act:from", action_record(100)));
    BOOST_REQUIRE(manager.put_object("acc:after", history_record(101)));
    BOOST_REQUIRE(manager.put("trx:invalid", "not-json"));
-   std::vector<std::pair<std::string, std::string>> invalid_records;
-   invalid_records.reserve(10005);
-   for (size_t i = 0; i < 10005; ++i) {
-      invalid_records.emplace_back("trx:invalid-batch-" + std::to_string(i), "not-json");
-   }
-   BOOST_REQUIRE(manager.batch_write(invalid_records));
    BOOST_REQUIRE(manager.update_last_block_number(101));
+   BOOST_REQUIRE(manager.create_undo_baseline(99));
+   BOOST_REQUIRE(manager.create_undo_baseline(100));
 
-   BOOST_REQUIRE(manager.validate_and_repair_database());
+   // Structural corruption is not partially deleted because doing so could
+   // leave blk:/acc:/trx: references dangling. The operator must rebuild or
+   // force-clean the history database.
+   BOOST_CHECK(!manager.validate_and_repair_database());
 
    std::string value;
    BOOST_CHECK(manager.get("trx:before", value));
+   BOOST_CHECK(manager.get("act:before", value));
    BOOST_CHECK(manager.get("acc:before", value));
    BOOST_CHECK(manager.get("trx:from", value));
    BOOST_CHECK(manager.get("acc:after", value));
-   BOOST_CHECK(!manager.get("trx:invalid", value));
-   auto iterator = std::unique_ptr<rocksdb::Iterator>(manager.new_iterator());
-   size_t invalid_records_remaining = 0;
-   for (iterator->Seek("trx:invalid-batch-");
-        iterator->Valid() && iterator->key().starts_with("trx:invalid-batch-");
-        iterator->Next()) {
-      ++invalid_records_remaining;
-   }
-   BOOST_CHECK_EQUAL(invalid_records_remaining, 0u);
+   BOOST_CHECK(manager.get("trx:invalid", value));
 
    BOOST_REQUIRE(manager.clear_from_block(100));
    BOOST_CHECK(manager.get("trx:before", value));
+   BOOST_CHECK(manager.get("act:before", value));
    BOOST_CHECK(manager.get("acc:before", value));
    BOOST_CHECK(!manager.get("trx:from", value));
+   BOOST_CHECK(!manager.get("act:from", value));
    BOOST_CHECK(!manager.get("acc:after", value));
+   BOOST_CHECK(manager.has_undo_point(99));
+   BOOST_CHECK(!manager.has_undo_point(100));
 
+   manager.close();
+}
+
+BOOST_AUTO_TEST_CASE(rocksdb_manager_read_only_validation_and_multi_get) {
+   fc::temp_directory temp_dir;
+   rocksdb_manager manager(8 * 1024 * 1024);
+   BOOST_REQUIRE(manager.open((temp_dir.path() / "history").string()));
+   BOOST_REQUIRE(manager.put("trx:valid", R"({"block_num":10})"));
+   BOOST_REQUIRE(manager.put("trx:invalid", "not-json"));
+   BOOST_REQUIRE(manager.update_last_block_number(9));
+
+   // Online validation reports repairable state without mutating either the
+   // invalid row or accepted height metadata.
+   BOOST_CHECK(!manager.validate_database());
+   std::string value;
+   BOOST_REQUIRE(manager.get("trx:invalid", value));
+   BOOST_CHECK_EQUAL(manager.get_last_block_number(), 9u);
+
+   std::vector<std::string> values;
+   const auto statuses = manager.multi_get(
+      {"trx:valid", "missing", "trx:invalid"}, values);
+   BOOST_REQUIRE_EQUAL(statuses.size(), 3u);
+   BOOST_REQUIRE_EQUAL(values.size(), 3u);
+   BOOST_CHECK(statuses[0].ok());
+   BOOST_CHECK(statuses[1].IsNotFound());
+   BOOST_CHECK(statuses[2].ok());
+   BOOST_CHECK_EQUAL(values[0], R"({"block_num":10})");
+   BOOST_CHECK_EQUAL(values[2], "not-json");
+
+   BOOST_CHECK(!manager.validate_and_repair_database());
+   BOOST_REQUIRE(manager.get("trx:invalid", value));
+   BOOST_CHECK_EQUAL(manager.get_last_block_number(), 9u);
+   BOOST_REQUIRE(manager.remove("trx:invalid"));
+   BOOST_REQUIRE(manager.validate_and_repair_database());
+   BOOST_CHECK_EQUAL(manager.get_last_block_number(), 10u);
+
+   // Cross the validator's 256-reference batch boundary and verify both the
+   // successful batched lookup and a dangling reference in the final batch.
+   std::vector<std::pair<std::string, std::string>> referenced_rows;
+   referenced_rows.emplace_back(
+      "act:shared", R"({"block_num":10,"action_trace":{}})");
+   for (size_t index = 0; index < 300; ++index) {
+      referenced_rows.emplace_back(
+         "acc:batch:" + std::to_string(index),
+         R"({"block_num":10,"action_ref":"act:shared"})");
+   }
+   BOOST_REQUIRE(manager.batch_write(referenced_rows));
+   BOOST_CHECK(manager.validate_database());
+   BOOST_REQUIRE(manager.put(
+      "acc:batch:dangling",
+      R"({"block_num":10,"action_ref":"act:missing"})"));
+   BOOST_CHECK(!manager.validate_database());
+   manager.close();
+}
+
+BOOST_AUTO_TEST_CASE(rocksdb_manager_atomic_block_undo) {
+   fc::temp_directory temp_dir;
+   rocksdb_manager manager(8 * 1024 * 1024);
+   BOOST_REQUIRE(manager.open((temp_dir.path() / "history").string()));
+   BOOST_REQUIRE(manager.batch_write({
+      {"_internal_last_block_number", "100"},
+      {"_internal_last_accepted_block_num", "100"},
+      {"_internal_last_accepted_block_id", "block-less"}
+   }));
+   BOOST_REQUIRE(manager.create_undo_baseline(100));
+
+   uint64_t bytes = 0;
+   BOOST_REQUIRE(manager.batch_write_with_undo(101, {
+      {"trx:block-101", R"({"block_num":101})"},
+      {"_internal_account_sequence:alice", "1"},
+      {"_internal_last_block_number", "101"},
+      {"_internal_last_accepted_block_num", "101"},
+      {"_internal_last_accepted_block_id", "block"}
+   }, {}, 1024 * 1024, &bytes));
+   BOOST_CHECK(bytes > 0);
+   BOOST_REQUIRE(manager.batch_write_with_undo(102, {
+      {"act:block-102", R"({"block_num":102,"action_trace":{}})"},
+      {"_internal_account_sequence:alice", "2"},
+      {"_internal_last_block_number", "102"},
+      {"_internal_last_accepted_block_num", "102"},
+      {"_internal_last_accepted_block_id", "branch-two"}
+   }));
+
+   BOOST_REQUIRE(manager.rollback_with_undo(101));
+   std::string value;
+   BOOST_REQUIRE(manager.get("trx:block-101", value));
+   BOOST_CHECK(!manager.get("act:block-102", value));
+   BOOST_REQUIRE(manager.get("_internal_account_sequence:alice", value));
+   BOOST_CHECK_EQUAL(value, "1");
+   BOOST_CHECK(!manager.has_undo_point(102));
+   BOOST_CHECK(manager.has_undo_point(101));
+
+   BOOST_REQUIRE(manager.rollback_with_undo(100));
+   BOOST_CHECK(!manager.get("trx:block-101", value));
+   BOOST_CHECK(!manager.get("_internal_account_sequence:alice", value));
+   BOOST_REQUIRE(manager.get("_internal_last_accepted_block_num", value));
+   BOOST_CHECK_EQUAL(value, "100");
+   BOOST_REQUIRE(manager.get("_internal_last_accepted_block_id", value));
+   BOOST_CHECK_EQUAL(value, "block-less");
    manager.close();
 }
 
@@ -258,6 +362,34 @@ BOOST_AUTO_TEST_CASE(async_worker_backpressure_stops_cleanly) {
    BOOST_CHECK(!producer.get());
 }
 
+BOOST_AUTO_TEST_CASE(async_worker_non_draining_stop_discards_queued_tasks) {
+   async_worker worker(4, 1024);
+   std::promise<void> running_started;
+   auto running_started_future = running_started.get_future();
+   std::promise<void> release_running;
+   auto release_running_future = release_running.get_future().share();
+   std::atomic<bool> queued_ran{false};
+
+   worker.start();
+   BOOST_REQUIRE(worker.try_enqueue_task([&] {
+      running_started.set_value();
+      release_running_future.wait();
+   }));
+   running_started_future.wait();
+   BOOST_REQUIRE(worker.try_enqueue_task([&] { queued_ran = true; }));
+
+   auto stopper = std::async(std::launch::async, [&] { worker.stop(false); });
+   BOOST_CHECK(stopper.wait_for(std::chrono::milliseconds(50)) == std::future_status::timeout);
+   const auto discard_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(1);
+   while (worker.pending_tasks() != 0 && std::chrono::steady_clock::now() < discard_deadline) {
+      std::this_thread::yield();
+   }
+   BOOST_CHECK_EQUAL(worker.pending_tasks(), 0u);
+   release_running.set_value();
+   stopper.get();
+   BOOST_CHECK(!queued_ran.load());
+}
+
 BOOST_AUTO_TEST_CASE(rollback_manager_operations) {
    fc::temp_directory temp_dir;
    auto db = std::make_shared<rocksdb_manager>();
@@ -267,32 +399,48 @@ BOOST_AUTO_TEST_CASE(rollback_manager_operations) {
    {
       rollback_manager manager(db);
 
-      // Test creating rollback points
+      BOOST_REQUIRE(db->batch_write({
+         {"_internal_last_block_number", "100"},
+         {"_internal_last_accepted_block_num", "100"},
+         {"_internal_last_accepted_block_id", "block-100"}
+      }));
       BOOST_CHECK(manager.create_rollback_point(100));
-      BOOST_CHECK(manager.create_rollback_point(200));
-      BOOST_CHECK(manager.create_rollback_point(300));
+      BOOST_REQUIRE(db->batch_write_with_undo(101, {
+         {"value", "block-101"},
+         {"_internal_last_block_number", "101"},
+         {"_internal_last_accepted_block_num", "101"},
+         {"_internal_last_accepted_block_id", "block-101"}
+      }));
+      BOOST_CHECK(manager.create_rollback_point(101));
+      BOOST_REQUIRE(db->batch_write_with_undo(102, {
+         {"value-102", "temporary"},
+         {"_internal_last_block_number", "102"},
+         {"_internal_last_accepted_block_num", "102"},
+         {"_internal_last_accepted_block_id", "block-102"}
+      }));
+      BOOST_CHECK(manager.create_rollback_point(102));
       BOOST_CHECK(manager.has_rollback_point(100));
-      BOOST_CHECK(!manager.has_rollback_point(400));
+      BOOST_CHECK(!manager.has_rollback_point(103));
       BOOST_CHECK_EQUAL(manager.rollback_point_count(), 3u);
 
       // Test getting latest rollback point
       auto latest = manager.get_latest_rollback_point();
       BOOST_REQUIRE(latest.has_value());
-      BOOST_CHECK_EQUAL(*latest, 300u);
+      BOOST_CHECK_EQUAL(*latest, 102u);
    }
 
-   // Rollback metadata and external checkpoint paths survive manager restart.
+   // Undo anchors survive manager restart.
    rollback_manager reloaded_manager(db);
    auto latest = reloaded_manager.get_latest_rollback_point();
    BOOST_REQUIRE(latest.has_value());
-   BOOST_CHECK_EQUAL(*latest, 300u);
+   BOOST_CHECK_EQUAL(*latest, 102u);
    BOOST_CHECK_EQUAL(reloaded_manager.rollback_point_count(), 3u);
 
-   BOOST_REQUIRE(reloaded_manager.rollback_to_block(200));
+   BOOST_REQUIRE(reloaded_manager.rollback_to_block(101));
    rollback_manager after_rollback(db);
    latest = after_rollback.get_latest_rollback_point();
    BOOST_REQUIRE(latest.has_value());
-   BOOST_CHECK_EQUAL(*latest, 200u);
+   BOOST_CHECK_EQUAL(*latest, 101u);
    BOOST_CHECK_EQUAL(after_rollback.rollback_point_count(), 2u);
 
    // Test cleanup
@@ -361,7 +509,7 @@ BOOST_AUTO_TEST_CASE(rocksdb_manager_rollback_excludes_live_queries) {
    manager.close();
 }
 
-BOOST_AUTO_TEST_CASE(rollback_manager_removes_only_irreversible_checkpoints) {
+BOOST_AUTO_TEST_CASE(rollback_manager_removes_only_irreversible_undo_points) {
    fc::temp_directory temp_dir;
    auto db = std::make_shared<rocksdb_manager>();
    BOOST_REQUIRE(db->open((temp_dir.path() / "history").string()));
@@ -372,9 +520,9 @@ BOOST_AUTO_TEST_CASE(rollback_manager_removes_only_irreversible_checkpoints) {
    BOOST_REQUIRE(manager.create_rollback_point(300));
    manager.cleanup_irreversible_rollback_points(250);
 
-   BOOST_CHECK(!std::filesystem::exists(db->get_checkpoint_path(100)));
-   BOOST_CHECK(!std::filesystem::exists(db->get_checkpoint_path(200)));
-   BOOST_CHECK(std::filesystem::exists(db->get_checkpoint_path(300)));
+   BOOST_CHECK(!db->has_undo_point(100));
+   BOOST_CHECK(!db->has_undo_point(200));
+   BOOST_CHECK(db->has_undo_point(300));
    const auto latest = manager.get_latest_rollback_point();
    BOOST_REQUIRE(latest.has_value());
    BOOST_CHECK_EQUAL(*latest, 300u);

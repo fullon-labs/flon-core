@@ -3,13 +3,22 @@
 #include <fc/io/json.hpp>
 #include <fc/scoped_exit.hpp>
 #include <rocksdb/utilities/checkpoint.h>
+#include <rocksdb/cache.h>
+#include <rocksdb/filter_policy.h>
+#include <rocksdb/slice_transform.h>
+#include <rocksdb/table.h>
 #include <rocksdb/statistics.h>
 #include <rocksdb/version.h>
 #include <filesystem>
 #include <fstream>
+#include <algorithm>
+#include <array>
+#include <charconv>
 #include <memory>
 #include <stdexcept>
+#include <string_view>
 #include <thread>
+#include <unordered_set>
 #ifndef _WIN32
 #include <fcntl.h>
 #include <unistd.h>
@@ -18,6 +27,20 @@
 namespace eosio {
 
 namespace {
+
+std::string make_undo_key(uint32_t block_num) {
+   return "_internal_undo:" + std::to_string(block_num);
+}
+
+bool parse_undo_key(std::string_view key, uint32_t& block_num) {
+   constexpr std::string_view prefix = "_internal_undo:";
+   if (!key.starts_with(prefix)) return false;
+   const auto number = key.substr(prefix.size());
+   if (number.empty()) return false;
+   const auto [end, error] = std::from_chars(
+      number.data(), number.data() + number.size(), block_num);
+   return error == std::errc{} && end == number.data() + number.size();
+}
 
 bool extract_json_block_num(const std::string& value, uint32_t& block_num) {
    try {
@@ -80,7 +103,7 @@ void clone_checkpoint_for_rollback(const std::filesystem::path& source,
 
 } // namespace
 
-rocksdb_manager::rocksdb_manager() : is_open_(false) {
+rocksdb_manager::rocksdb_manager(size_t block_cache_bytes) : is_open_(false) {
    // Configure RocksDB options for optimal performance
    options_.create_if_missing = true;
    options_.write_buffer_size = 64 * 1024 * 1024;  // 64MB
@@ -92,6 +115,15 @@ rocksdb_manager::rocksdb_manager() : is_open_(false) {
    options_.IncreaseParallelism(background_jobs);
    options_.max_background_jobs = background_jobs;
    options_.statistics = rocksdb::CreateDBStatistics();
+   rocksdb::BlockBasedTableOptions table_options;
+   table_options.block_cache = rocksdb::NewLRUCache(block_cache_bytes);
+   table_options.filter_policy.reset(rocksdb::NewBloomFilterPolicy(10, false));
+   table_options.whole_key_filtering = true;
+   table_options.cache_index_and_filter_blocks = true;
+   options_.table_factory.reset(rocksdb::NewBlockBasedTableFactory(table_options));
+   // Every public key family starts with a four-byte discriminator (trx:,
+   // act:, acc:, blk:). Internal keys safely share the _int prefix.
+   options_.prefix_extractor.reset(rocksdb::NewFixedPrefixTransform(4));
    // Metrics are pulled by the plugin; periodic RocksDB LOG dumps add noise
    // and can create avoidable I/O on busy nodes.
    options_.stats_dump_period_sec = 0;
@@ -330,6 +362,35 @@ bool rocksdb_manager::get(const std::string& key, std::string& value) {
    return false;
 }
 
+std::vector<rocksdb::Status> rocksdb_manager::multi_get(
+   const std::vector<std::string>& keys, std::vector<std::string>& values) const {
+   values.clear();
+   if (!db_) {
+      return std::vector<rocksdb::Status>(keys.size(),
+                                         rocksdb::Status::InvalidArgument("database not open"));
+   }
+
+   std::vector<rocksdb::Slice> slices;
+   slices.reserve(keys.size());
+   for (const auto& key : keys) {
+      slices.emplace_back(key);
+   }
+   std::vector<rocksdb::Status> statuses;
+   constexpr uint32_t max_attempts = 3;
+   for (uint32_t attempt = 1; attempt <= max_attempts; ++attempt) {
+      values.clear();
+      statuses = db_->MultiGet(rocksdb::ReadOptions(), slices, &values);
+      const bool retryable = std::any_of(statuses.begin(), statuses.end(), [](const auto& status) {
+         return status.IsIOError() || status.IsBusy() || status.IsTimedOut();
+      });
+      if (!retryable || attempt == max_attempts) return statuses;
+      wlog("Retrying RocksDB MultiGet after a transient error (attempt ${attempt}/${max})",
+           ("attempt", attempt)("max", max_attempts));
+      std::this_thread::sleep_for(std::chrono::milliseconds(10u << (attempt - 1)));
+   }
+   return statuses;
+}
+
 std::string rocksdb_manager::get_compression_info() const {
    if (!db_) {
       return "Database not open";
@@ -499,14 +560,18 @@ bool rocksdb_manager::clear_from_block(uint32_t from_block_num) {
       for (it->SeekToFirst(); it->Valid(); it->Next()) {
          std::string key = it->key().ToString();
 
-         // Skip internal keys
-         if (key.find("_internal_") == 0) {
-            continue;
-         }
-
          bool should_delete = false;
 
-         if (key.find("blk:") == 0) {
+         if (key.rfind("_internal_undo:", 0) == 0) {
+            uint32_t key_block_num = 0;
+            if (parse_undo_key(key, key_block_num)) {
+               should_delete = (key_block_num >= from_block_num);
+            } else {
+               // Leave malformed internal keys for validation to report.
+            }
+         } else if (key.rfind("_internal_", 0) == 0) {
+            continue;
+         } else if (key.find("blk:") == 0) {
             // Block-based key: "blk:block_num:..."
             blocks_checked++;
             size_t first_colon = key.find(':', 4);
@@ -518,8 +583,8 @@ bool rocksdb_manager::clear_from_block(uint32_t from_block_num) {
                   // Skip malformed keys
                }
             }
-         } else if (key.find("trx:") == 0) {
-            // Transaction key - read the data to check block number
+         } else if (key.find("trx:") == 0 || key.find("act:") == 0) {
+            // Transaction/normalized action key - read its block number.
             transactions_checked++;
             std::string value = it->value().ToString();
             uint32_t block_num = 0;
@@ -705,63 +770,120 @@ std::string rocksdb_manager::get_database_stats() const {
 }
 
 bool rocksdb_manager::validate_and_repair_database() {
+   return validate_database_impl(true);
+}
+
+bool rocksdb_manager::validate_database(const std::function<bool()>& should_cancel) {
+   return validate_database_impl(false, should_cancel);
+}
+
+bool rocksdb_manager::validate_database_impl(bool repair,
+                                             const std::function<bool()>& should_cancel) {
    if (!db_) {
       elog("Cannot validate database: database not open");
       return false;
    }
 
    try {
-      ilog("Starting database validation and repair process...");
+      ilog("Starting database ${mode} process...", ("mode", repair ? "validation and repair" : "validation"));
 
       bool repairs_made = false;
+      bool repairs_needed = false;
+      bool unrepairable_integrity_issue = false;
       size_t invalid_keys_found = 0;
       size_t orphaned_data_found = 0;
+      size_t dangling_references_found = 0;
 
       std::unique_ptr<rocksdb::Iterator> it(db_->NewIterator(rocksdb::ReadOptions()));
-      rocksdb::WriteBatch repair_batch;
-      constexpr size_t max_repair_batch_keys = 10000;
-      constexpr size_t max_repair_batch_bytes = 16 * 1024 * 1024;
       // Keep validation consistent with the plugin's accepted write limit. A
       // corrupt database can otherwise force an unbounded allocation through
       // Slice::ToString() before the record is rejected.
       constexpr size_t max_history_record_bytes = 256 * 1024 * 1024;
-      size_t repair_batch_keys = 0;
-      size_t repair_batch_bytes = 0;
-      const auto flush_repairs = [&]() -> bool {
-         if (repair_batch_keys == 0) return true;
-         const rocksdb::Status status = db_->Write(rocksdb::WriteOptions(), &repair_batch);
-         if (!status.ok()) {
-            elog("Failed to remove invalid keys: ${error}", ("error", status.ToString()));
-            return false;
-         }
-         repairs_made = true;
-         repair_batch.Clear();
-         repair_batch_keys = 0;
-         repair_batch_bytes = 0;
-         return true;
-      };
-
       uint32_t last_recorded_block = get_last_block_number();
       uint32_t highest_block_found = 0;
+      constexpr size_t reference_batch_size = 256;
+      std::vector<std::string> pending_references;
+      pending_references.reserve(reference_batch_size);
+
+      const auto flush_references = [&]() {
+         if (pending_references.empty()) return;
+         std::vector<std::string> values;
+         const auto statuses = multi_get(pending_references, values);
+         if (statuses.size() != pending_references.size()) {
+            throw std::runtime_error("RocksDB returned an incomplete validation MultiGet batch");
+         }
+         for (size_t index = 0; index < statuses.size(); ++index) {
+            if (statuses[index].ok()) continue;
+            if (!statuses[index].IsNotFound()) {
+               throw std::runtime_error("RocksDB reference lookup failed for " +
+                                        pending_references[index] + ": " +
+                                        statuses[index].ToString());
+            }
+            ++dangling_references_found;
+            repairs_needed = true;
+            unrepairable_integrity_issue = true;
+         }
+         pending_references.clear();
+      };
+      const auto queue_reference = [&](const std::string& reference,
+                                       std::string_view expected_prefix) {
+         if (!reference.starts_with(expected_prefix)) {
+            ++dangling_references_found;
+            repairs_needed = true;
+            unrepairable_integrity_issue = true;
+            return;
+         }
+         pending_references.push_back(reference);
+         if (pending_references.size() >= reference_batch_size) flush_references();
+      };
 
       // Scan all keys for validation
+      size_t scanned_keys = 0;
       for (it->SeekToFirst(); it->Valid(); it->Next()) {
+         if (((++scanned_keys & 0x3ff) == 0) && should_cancel && should_cancel()) {
+            ilog("Database validation cancelled after ${count} keys", ("count", scanned_keys));
+            return false;
+         }
          std::string key = it->key().ToString();
 
-         // Skip internal keys from validation
+         // Undo data is part of rollback integrity. Other internal values are
+         // validated through their typed accessors and chain-identity checks.
+         if (key.starts_with("_internal_undo:")) {
+            uint32_t undo_block_num = 0;
+            bool undo_valid = parse_undo_key(key, undo_block_num) &&
+                              it->value().size() <= max_history_record_bytes;
+            if (undo_valid) {
+               try {
+                  const auto value = it->value();
+                  const auto undo = fc::raw::unpack<history_block_undo_record>(
+                     value.data(), static_cast<uint32_t>(value.size()));
+                  undo_valid = undo.block_num == undo_block_num;
+               } catch (...) {
+                  undo_valid = false;
+               }
+            }
+            if (!undo_valid) {
+               ++invalid_keys_found;
+               repairs_needed = true;
+               unrepairable_integrity_issue = true;
+            }
+            continue;
+         }
          if (key.find("_internal_") == 0) {
             continue;
          }
 
          bool key_is_valid = true;
          uint32_t key_block_num = 0;
+         fc::variant parsed_value;
 
-         if (key.find("trx:") == 0) {
-            // Validate transaction data
+         if (key.find("trx:") == 0 || key.find("act:") == 0) {
+            // Validate transaction and normalized action data.
             const auto value = it->value();
             if (value.size() <= max_history_record_bytes &&
                 extract_json_block_num(value.ToString(), key_block_num)) {
                highest_block_found = std::max(highest_block_found, key_block_num);
+               parsed_value = fc::json::from_string(value.ToString());
             } else {
                key_is_valid = false;
                invalid_keys_found++;
@@ -772,6 +894,7 @@ bool rocksdb_manager::validate_and_repair_database() {
             if (value.size() <= max_history_record_bytes &&
                 extract_json_block_num(value.ToString(), key_block_num)) {
                highest_block_found = std::max(highest_block_found, key_block_num);
+               parsed_value = fc::json::from_string(value.ToString());
             } else {
                key_is_valid = false;
                invalid_keys_found++;
@@ -791,25 +914,57 @@ bool rocksdb_manager::validate_and_repair_database() {
                key_is_valid = false;
                invalid_keys_found++;
             }
+         } else if (key.find("rollback:") != 0) {
+            key_is_valid = false;
+            invalid_keys_found++;
+         }
+
+         // Schema v2 is relational: validate every stored reference instead
+         // of treating syntactically valid JSON as a healthy database.
+         if (key_is_valid && parsed_value.is_object()) {
+            const auto& object = parsed_value.get_object();
+            if (key.starts_with("act:") && !object.contains("action_trace")) {
+               key_is_valid = false;
+               ++invalid_keys_found;
+            } else if (key.starts_with("acc:") && object.contains("action_ref")) {
+               const std::string reference = object["action_ref"].as_string();
+               queue_reference(reference, "act:");
+            } else if (key.starts_with("trx:") && object.contains("traces") &&
+                       object["traces"].is_array()) {
+               for (const auto& trace : object["traces"].get_array()) {
+                  if (!trace.is_object() || !trace.get_object().contains("action_ref")) continue;
+                  const std::string reference = trace.get_object()["action_ref"].as_string();
+                  queue_reference(reference, "act:");
+               }
+            }
+         } else if (key_is_valid && key.starts_with("blk:")) {
+            const auto value = it->value();
+            if (value.size() > max_history_record_bytes) {
+               key_is_valid = false;
+               ++invalid_keys_found;
+            } else {
+               const std::string reference = value.ToString();
+               queue_reference(reference, "trx:");
+            }
          }
 
          // Check for orphaned data (blocks beyond last recorded)
          if (key_is_valid && last_recorded_block > 0 && key_block_num > last_recorded_block + 1000) {
             // Data is suspiciously far ahead - might be orphaned
             orphaned_data_found++;
+            repairs_needed = true;
+            unrepairable_integrity_issue = true;
             dlog("Found potentially orphaned data: key ${key} at block ${block}, last recorded ${last}",
                  ("key", key)("block", key_block_num)("last", last_recorded_block));
          }
 
          // Mark invalid keys for deletion
          if (!key_is_valid) {
-            repair_batch.Delete(key);
-            ++repair_batch_keys;
-            repair_batch_bytes += key.size();
-            if ((repair_batch_keys >= max_repair_batch_keys ||
-                 repair_batch_bytes >= max_repair_batch_bytes) && !flush_repairs()) {
-               return false;
-            }
+            repairs_needed = true;
+            // Deleting one side of trx/act/acc/blk relationships would create
+            // additional dangling rows. Treat structural corruption as a
+            // rebuild condition; only monotonic metadata lag is auto-repaired.
+            unrepairable_integrity_issue = true;
          }
       }
 
@@ -818,22 +973,33 @@ bool rocksdb_manager::validate_and_repair_database() {
               ("error", it->status().ToString()));
          return false;
       }
+      flush_references();
 
-      if (!flush_repairs()) return false;
+      if (unrepairable_integrity_issue) {
+         elog("Database validation found structural corruption: ${invalid} invalid rows, "
+              "${dangling} dangling references, ${orphaned} orphaned rows; refusing partial repair",
+              ("invalid", invalid_keys_found)("dangling", dangling_references_found)
+              ("orphaned", orphaned_data_found));
+         return false;
+      }
 
       // Update last block number if we found a higher valid block
       if (highest_block_found > last_recorded_block) {
-         ilog("Updating last recorded block from ${old} to ${new}",
-              ("old", last_recorded_block)("new", highest_block_found));
-         if (update_last_block_number(highest_block_found)) {
+         repairs_needed = true;
+         if (repair) {
+            ilog("Updating last recorded block from ${old} to ${new}",
+                 ("old", last_recorded_block)("new", highest_block_found));
+            if (!update_last_block_number(highest_block_found)) return false;
             repairs_made = true;
          }
       }
 
-      ilog("Database validation completed: ${invalid} invalid keys, ${orphaned} potentially orphaned entries, repairs made: ${repairs}",
-           ("invalid", invalid_keys_found)("orphaned", orphaned_data_found)("repairs", repairs_made));
+      ilog("Database validation completed: ${invalid} invalid keys, ${dangling} dangling references, "
+           "${orphaned} potentially orphaned entries, repairs made: ${repairs}",
+           ("invalid", invalid_keys_found)("dangling", dangling_references_found)
+           ("orphaned", orphaned_data_found)("repairs", repairs_made));
 
-      return true;
+      return !repairs_needed || (repair && repairs_made);
 
    } catch (const std::exception& e) {
       elog("Exception during database validation: ${error}", ("error", e.what()));
@@ -942,9 +1108,14 @@ rocksdb::Iterator* rocksdb_manager::new_iterator() const {
    return db_->NewIterator(rocksdb::ReadOptions());
 }
 
+rocksdb::Iterator* rocksdb_manager::new_iterator(const rocksdb::ReadOptions& options) const {
+   if (!db_) return nullptr;
+   return db_->NewIterator(options);
+}
+
 bool rocksdb_manager::batch_write(const std::vector<std::pair<std::string, std::string>>& writes,
-                                 const std::vector<std::string>& deletes,
-                                 bool sync) {
+                                  const std::vector<std::string>& deletes,
+                                  bool sync) {
    if (!db_) return false;
 
    rocksdb::WriteBatch batch;
@@ -966,6 +1137,234 @@ bool rocksdb_manager::batch_write(const std::vector<std::pair<std::string, std::
    }
 
    return true;
+}
+
+bool rocksdb_manager::batch_write_with_undo(
+   uint32_t block_num,
+   const std::vector<std::pair<std::string, std::string>>& writes,
+   const std::vector<std::string>& deletes,
+   uint64_t max_total_bytes,
+   uint64_t* total_bytes,
+   bool sync) {
+   if (!db_) return false;
+
+   try {
+      const std::string undo_key = make_undo_key(block_num);
+      std::string existing_undo;
+      const auto undo_status = db_->Get(rocksdb::ReadOptions(), undo_key, &existing_undo);
+      if (undo_status.ok()) {
+         elog("Refusing to overwrite transaction history undo record for block ${block}",
+              ("block", block_num));
+         return false;
+      }
+      if (!undo_status.IsNotFound()) {
+         elog("Failed to check transaction history undo record for block ${block}: ${error}",
+              ("block", block_num)("error", undo_status.ToString()));
+         return false;
+      }
+
+      history_block_undo_record undo;
+      undo.block_num = block_num;
+      std::unordered_set<std::string> captured;
+      captured.reserve(writes.size() + deletes.size());
+
+      const auto capture_previous = [&](const std::string& key, bool append_only) -> bool {
+         if (!captured.emplace(key).second) {
+            elog("Duplicate key ${key} in accepted-block history batch", ("key", key));
+            return false;
+         }
+         if (key == undo_key) {
+            elog("Accepted-block history batch attempted to write its own undo key");
+            return false;
+         }
+
+         if (append_only) {
+            undo.erase.push_back(key);
+            return true;
+         }
+
+         std::string previous;
+         const auto status = db_->Get(rocksdb::ReadOptions(), key, &previous);
+         if (status.ok()) {
+            undo.restore.push_back({key, std::move(previous)});
+            return true;
+         }
+         if (status.IsNotFound()) {
+            undo.erase.push_back(key);
+            return true;
+         }
+         elog("Failed to capture previous value for ${key}: ${error}",
+              ("key", key)("error", status.ToString()));
+         return false;
+      };
+
+      // Accepted-block public keys (trx:/act:/acc:/blk:) are append-only.
+      // Avoid a point read for every new history row; metadata and sequence
+      // cursors are the only values updated in place.
+      for (const auto& [key, value] : writes) {
+         if (!capture_previous(key, !key.starts_with("_internal_"))) return false;
+      }
+      for (const auto& key : deletes) {
+         if (!capture_previous(key, false)) return false;
+      }
+
+      const auto packed_undo = fc::raw::pack(undo);
+      const std::string undo_value(packed_undo.data(), packed_undo.size());
+
+      uint64_t serialized_bytes = undo_key.size() + undo_value.size();
+      for (const auto& [key, value] : writes) {
+         serialized_bytes += key.size() + value.size();
+      }
+      for (const auto& key : deletes) serialized_bytes += key.size();
+      if (total_bytes) *total_bytes = serialized_bytes;
+      if (max_total_bytes != 0 && serialized_bytes > max_total_bytes) {
+         wlog("Accepted-block history plus undo record is ${size} bytes; limit is ${limit}",
+              ("size", serialized_bytes)("limit", max_total_bytes));
+         return false;
+      }
+
+      rocksdb::WriteBatch batch;
+      batch.Put(undo_key, undo_value);
+      for (const auto& [key, value] : writes) batch.Put(key, value);
+      for (const auto& key : deletes) batch.Delete(key);
+
+      rocksdb::WriteOptions options;
+      options.sync = sync;
+      const auto status = db_->Write(options, &batch);
+      if (!status.ok()) {
+         elog("RocksDB accepted-block undo batch failed at block ${block}: ${error}",
+              ("block", block_num)("error", status.ToString()));
+         return false;
+      }
+      return true;
+   } catch (const std::exception& e) {
+      elog("Failed to create accepted-block undo batch at block ${block}: ${error}",
+           ("block", block_num)("error", e.what()));
+      return false;
+   }
+}
+
+bool rocksdb_manager::create_undo_baseline(uint32_t block_num) {
+   if (!db_) return false;
+   const std::string key = make_undo_key(block_num);
+   std::string existing;
+   const auto existing_status = db_->Get(rocksdb::ReadOptions(), key, &existing);
+   if (existing_status.ok()) return true;
+   if (!existing_status.IsNotFound()) return false;
+
+   history_block_undo_record undo;
+   undo.block_num = block_num;
+   const auto packed_undo = fc::raw::pack(undo);
+   rocksdb::WriteOptions options;
+   options.sync = true;
+   return db_->Put(options, key,
+                   rocksdb::Slice(packed_undo.data(), packed_undo.size())).ok();
+}
+
+bool rocksdb_manager::has_undo_point(uint32_t block_num) const {
+   if (!db_) return false;
+   std::string ignored;
+   return db_->Get(rocksdb::ReadOptions(), make_undo_key(block_num), &ignored).ok();
+}
+
+bool rocksdb_manager::remove_undo_point(uint32_t block_num) {
+   if (!db_) return false;
+   const auto status = db_->Delete(rocksdb::WriteOptions(), make_undo_key(block_num));
+   return status.ok() || status.IsNotFound();
+}
+
+std::vector<uint32_t> rocksdb_manager::list_undo_points() const {
+   std::vector<uint32_t> points;
+   if (!db_) return points;
+
+   constexpr const char* prefix = "_internal_undo:";
+   std::unique_ptr<rocksdb::Iterator> iterator(db_->NewIterator(rocksdb::ReadOptions()));
+   for (iterator->Seek(prefix); iterator->Valid(); iterator->Next()) {
+      const std::string key = iterator->key().ToString();
+      if (!key.starts_with(prefix)) break;
+      uint32_t block_num = 0;
+      if (parse_undo_key(key, block_num)) {
+         points.push_back(block_num);
+      } else {
+         wlog("Ignoring malformed transaction history undo key ${key}", ("key", key));
+      }
+   }
+   if (!iterator->status().ok()) {
+      elog("Failed to list transaction history undo points: ${error}",
+           ("error", iterator->status().ToString()));
+      points.clear();
+   }
+   std::sort(points.begin(), points.end());
+   points.erase(std::unique(points.begin(), points.end()), points.end());
+   return points;
+}
+
+bool rocksdb_manager::rollback_with_undo(uint32_t block_num) {
+   std::unique_lock<std::shared_mutex> lifecycle_lock(db_lifecycle_mutex_);
+   if (!db_) return false;
+
+   std::string current_text;
+   auto status = db_->Get(rocksdb::ReadOptions(), "_internal_last_accepted_block_num", &current_text);
+   if (!status.ok()) {
+      elog("Cannot roll back transaction history undo log: current accepted block is unavailable");
+      return false;
+   }
+
+   uint32_t current = 0;
+   try {
+      current = static_cast<uint32_t>(std::stoul(current_text));
+   } catch (...) {
+      elog("Cannot roll back transaction history undo log: current accepted block is invalid");
+      return false;
+   }
+   if (current < block_num) return false;
+
+   for (uint32_t undo_block = current; undo_block > block_num; --undo_block) {
+      const std::string undo_key = make_undo_key(undo_block);
+      std::string undo_value;
+      status = db_->Get(rocksdb::ReadOptions(), undo_key, &undo_value);
+      if (!status.ok()) {
+         elog("Missing transaction history undo record for block ${block}: ${error}",
+              ("block", undo_block)("error", status.ToString()));
+         return false;
+      }
+
+      history_block_undo_record undo;
+      try {
+         undo = fc::raw::unpack<history_block_undo_record>(
+            undo_value.data(), static_cast<uint32_t>(undo_value.size()));
+      } catch (const std::exception& e) {
+         elog("Invalid transaction history undo record for block ${block}: ${error}",
+              ("block", undo_block)("error", e.what()));
+         return false;
+      }
+      if (undo.block_num != undo_block) {
+         elog("Transaction history undo key/record mismatch at block ${block}",
+              ("block", undo_block));
+         return false;
+      }
+
+      rocksdb::WriteBatch batch;
+      for (const auto& entry : undo.restore) batch.Put(entry.key, entry.value);
+      for (const auto& key : undo.erase) batch.Delete(key);
+      batch.Delete(undo_key);
+      rocksdb::WriteOptions options;
+      options.sync = true;
+      status = db_->Write(options, &batch);
+      if (!status.ok()) {
+         elog("Failed to apply transaction history undo record for block ${block}: ${error}",
+              ("block", undo_block)("error", status.ToString()));
+         return false;
+      }
+   }
+
+   status = db_->Get(rocksdb::ReadOptions(), "_internal_last_accepted_block_num", &current_text);
+   if (!status.ok()) return false;
+   try {
+      return std::stoul(current_text) == block_num;
+   } catch (...) {
+      return false;
+   }
 }
 
 bool rocksdb_manager::create_checkpoint(uint32_t block_num) {
@@ -1227,43 +1626,45 @@ std::string rocksdb_manager::get_size_breakdown() const {
          size_info["level0_files"] = std::stoull(num_files_str);
       }
 
-      // Sample and estimate data type distribution
-      std::unique_ptr<rocksdb::Iterator> it(db_->NewIterator(rocksdb::ReadOptions()));
+      // Sample each sorted key family independently. Sampling from
+      // SeekToFirst() biases the result toward the lexicographically first
+      // family and can make tuning recommendations actively misleading.
       uint64_t transaction_entries = 0;
+      uint64_t action_entries = 0;
       uint64_t account_entries = 0;
       uint64_t block_entries = 0;
       uint64_t metadata_entries = 0;
       uint64_t sample_count = 0;
-      const uint64_t max_samples = 10000; // Limit sampling for performance
-
-      for (it->SeekToFirst(); it->Valid() && sample_count < max_samples; it->Next(), sample_count++) {
-         std::string key = it->key().ToString();
-         if (key.starts_with("trx:")) {
-            transaction_entries++;
-         } else if (key.starts_with("acc:")) {
-            account_entries++;
-         } else if (key.starts_with("blk:")) {
-            block_entries++;
-         } else {
-            metadata_entries++;
+      constexpr uint64_t samples_per_family = 2000;
+      const std::array<std::pair<const char*, uint64_t*>, 6> families{{
+         {"_internal_", &metadata_entries}, {"acc:", &account_entries},
+         {"act:", &action_entries}, {"blk:", &block_entries},
+         {"rollback:", &metadata_entries}, {"trx:", &transaction_entries}
+      }};
+      for (const auto& [prefix, counter] : families) {
+         std::unique_ptr<rocksdb::Iterator> it(db_->NewIterator(rocksdb::ReadOptions()));
+         uint64_t family_samples = 0;
+         for (it->Seek(prefix); it->Valid() && it->key().starts_with(prefix) &&
+              family_samples < samples_per_family; it->Next()) {
+            ++*counter;
+            ++family_samples;
+            ++sample_count;
          }
-      }
-
-      if (!it->status().ok()) {
-         throw std::runtime_error("RocksDB size sampling failed: " + it->status().ToString());
+         if (!it->status().ok()) {
+            throw std::runtime_error("RocksDB size sampling failed: " + it->status().ToString());
+         }
       }
 
       // Estimate total distribution based on sample
       if (sample_count > 0) {
-         size_info["estimated_transaction_entries"] = transaction_entries;
-         size_info["estimated_account_entries"] = account_entries;
-         size_info["estimated_block_entries"] = block_entries;
-         size_info["estimated_metadata_entries"] = metadata_entries;
+         size_info["sampled_transaction_entries"] = transaction_entries;
+         size_info["sampled_action_entries"] = action_entries;
+         size_info["sampled_account_entries"] = account_entries;
+         size_info["sampled_block_entries"] = block_entries;
+         size_info["sampled_metadata_entries"] = metadata_entries;
          size_info["sample_size"] = sample_count;
 
-         if (sample_count == max_samples) {
-            size_info["note"] = "Distribution is estimated from sample due to large dataset";
-         }
+         size_info["note"] = "Counts are stratified samples capped at 2000 keys per family";
       }
 
    } catch (const std::exception& e) {
@@ -1279,52 +1680,16 @@ bool rocksdb_manager::health_check() const {
    }
 
    try {
-      // Test basic write operation
-      const std::string test_key = "_health_check_" + std::to_string(fc::time_point::now().time_since_epoch().count());
-      const std::string test_value = "health_check_value";
-
-      rocksdb::Status write_status = db_->Put(rocksdb::WriteOptions(), test_key, test_value);
-      if (!write_status.ok()) {
-         elog("Health check failed: write test failed - ${error}", ("error", write_status.ToString()));
+      // Online maintenance must remain read-only. A synthetic Put/Delete can
+      // otherwise race an accepted-block batch and fall outside its undo data.
+      std::string compression_setting;
+      const rocksdb::Status read_status = db_->Get(
+         rocksdb::ReadOptions(), "_internal_compression_enabled", &compression_setting);
+      if (!read_status.ok() && !read_status.IsNotFound()) {
+         elog("Health check failed: metadata read failed - ${error}",
+              ("error", read_status.ToString()));
          return false;
       }
-      bool cleanup_required = true;
-      auto cleanup = fc::scoped_exit<std::function<void()>>([&]() {
-         if (cleanup_required) {
-            db_->Delete(rocksdb::WriteOptions(), test_key);
-         }
-      });
-
-      // Test basic read operation
-      std::string read_value;
-      rocksdb::Status read_status = db_->Get(rocksdb::ReadOptions(), test_key, &read_value);
-      if (!read_status.ok()) {
-         elog("Health check failed: read test failed - ${error}", ("error", read_status.ToString()));
-         return false;
-      }
-
-      // Verify data integrity
-      if (read_value != test_value) {
-         elog("Health check failed: data integrity test failed - expected '${expected}', got '${actual}'",
-              ("expected", test_value)("actual", read_value));
-         return false;
-      }
-
-      // Test delete operation
-      rocksdb::Status delete_status = db_->Delete(rocksdb::WriteOptions(), test_key);
-      if (!delete_status.ok()) {
-         elog("Health check failed: delete test failed - ${error}", ("error", delete_status.ToString()));
-         return false;
-      }
-
-      // Verify deletion
-      std::string verify_delete;
-      rocksdb::Status verify_status = db_->Get(rocksdb::ReadOptions(), test_key, &verify_delete);
-      if (!verify_status.IsNotFound()) {
-         elog("Health check failed: delete verification failed");
-         return false;
-      }
-      cleanup_required = false;
 
       // Check for background errors
       std::string bg_errors;
@@ -1333,6 +1698,14 @@ bool rocksdb_manager::health_check() const {
             elog("Health check failed: background errors detected - ${errors}", ("errors", bg_errors));
             return false;
          }
+      }
+
+      std::unique_ptr<rocksdb::Iterator> iterator(db_->NewIterator(rocksdb::ReadOptions()));
+      iterator->SeekToFirst();
+      if (!iterator->status().ok()) {
+         elog("Health check failed: iterator read failed - ${error}",
+              ("error", iterator->status().ToString()));
+         return false;
       }
 
       return true;
@@ -1514,8 +1887,6 @@ std::string rocksdb_manager::analyze_key_distribution() const {
    fc::mutable_variant_object analysis;
 
    try {
-      std::unique_ptr<rocksdb::Iterator> it(db_->NewIterator(rocksdb::ReadOptions()));
-
       // Distribution counters
       std::map<std::string, uint64_t> prefix_counts;
       std::map<std::string, uint64_t> prefix_sizes;
@@ -1525,25 +1896,26 @@ std::string rocksdb_manager::analyze_key_distribution() const {
       uint64_t total_size = 0;
       uint32_t min_block = UINT32_MAX, max_block = 0;
 
-      const uint64_t SAMPLE_LIMIT = 50000; // Sample for performance
+      constexpr uint64_t samples_per_family = 10000;
       uint64_t sampled = 0;
+      const std::array<const char*, 4> sampled_prefixes{{"acc:", "act:", "blk:", "trx:"}};
 
-      for (it->SeekToFirst(); it->Valid() && sampled < SAMPLE_LIMIT; it->Next(), sampled++) {
-         std::string key = it->key().ToString();
-         std::string value = it->value().ToString();
+      for (const char* family : sampled_prefixes) {
+         std::unique_ptr<rocksdb::Iterator> it(db_->NewIterator(rocksdb::ReadOptions()));
+         uint64_t family_samples = 0;
+         for (it->Seek(family); it->Valid() && it->key().starts_with(family) &&
+              family_samples < samples_per_family; it->Next(), ++family_samples, ++sampled) {
+            std::string key = it->key().ToString();
+            std::string value = it->value().ToString();
+            const std::string prefix = family;
 
-         total_keys++;
-         total_size += key.size() + value.size();
-
-         // Analyze key prefixes
-         size_t colon_pos = key.find(':');
-         if (colon_pos != std::string::npos) {
-            std::string prefix = key.substr(0, colon_pos + 1);
+            total_keys++;
+            total_size += key.size() + value.size();
             prefix_counts[prefix]++;
             prefix_sizes[prefix] += key.size() + value.size();
 
             // Extract block numbers for temporal analysis
-            if (prefix == "trx:" || prefix == "acc:") {
+            if (prefix == "trx:" || prefix == "act:" || prefix == "acc:") {
                uint32_t block_num = 0;
                if (extract_json_block_num(value, block_num)) {
                   block_distribution[block_num]++;
@@ -1563,10 +1935,9 @@ std::string rocksdb_manager::analyze_key_distribution() const {
                }
             }
          }
-      }
-
-      if (!it->status().ok()) {
-         throw std::runtime_error("RocksDB key distribution scan failed: " + it->status().ToString());
+         if (!it->status().ok()) {
+            throw std::runtime_error("RocksDB key distribution scan failed: " + it->status().ToString());
+         }
       }
 
       // Generate analysis results
@@ -1577,7 +1948,8 @@ std::string rocksdb_manager::analyze_key_distribution() const {
          prefix_info["total_size_bytes"] = prefix_sizes[entry.first];
          prefix_info["total_size_mb"] = prefix_sizes[entry.first] / (1024.0 * 1024.0);
          prefix_info["avg_size_bytes"] = entry.second > 0 ? prefix_sizes[entry.first] / entry.second : 0;
-         prefix_info["percentage"] = total_keys > 0 ? (entry.second * 100.0) / total_keys : 0.0;
+         prefix_info["share_of_collected_sample"] =
+            total_keys > 0 ? (entry.second * 100.0) / total_keys : 0.0;
 
          prefix_analysis[entry.first] = prefix_info;
       }
@@ -1610,33 +1982,6 @@ std::string rocksdb_manager::analyze_key_distribution() const {
          }
       }
 
-      // Generate optimization recommendations
-      fc::variants optimization_suggestions;
-
-      // Check for unbalanced distribution
-      if (prefix_counts.size() > 0) {
-         auto max_prefix = std::max_element(prefix_counts.begin(), prefix_counts.end(),
-            [](const auto& a, const auto& b) { return a.second < b.second; });
-
-         if (max_prefix->second > total_keys * 0.8) {
-            optimization_suggestions.push_back(fc::mutable_variant_object()
-               ("type", "distribution_warning")
-               ("issue", "Single key type dominates database")
-               ("dominant_prefix", max_prefix->first)
-               ("percentage", (max_prefix->second * 100.0) / total_keys)
-               ("suggestion", "Consider partitioning or separate storage for dominant key type"));
-         }
-      }
-
-      // Check for sparse block distribution
-      if (max_block > min_block && block_distribution.size() < (max_block - min_block) * 0.1) {
-         optimization_suggestions.push_back(fc::mutable_variant_object()
-            ("type", "temporal_sparsity")
-            ("issue", "Sparse block number distribution detected")
-            ("coverage_percentage", (block_distribution.size() * 100.0) / (max_block - min_block))
-            ("suggestion", "Consider implementing block number compaction or archival for old blocks"));
-      }
-
       analysis["key_distribution"] = prefix_analysis;
       analysis["temporal_analysis"] = temporal_analysis;
       analysis["summary"] = fc::mutable_variant_object()
@@ -1644,9 +1989,14 @@ std::string rocksdb_manager::analyze_key_distribution() const {
          ("total_size_mb", total_size / (1024.0 * 1024.0))
          ("avg_key_size_bytes", total_keys > 0 ? total_size / total_keys : 0)
          ("unique_prefixes", prefix_counts.size())
-         ("sample_limit_reached", sampled >= SAMPLE_LIMIT);
+         ("sample_strategy", "stratified")
+         ("sample_limit_per_family", samples_per_family)
+         ("sample_limit_reached", sampled >= samples_per_family * sampled_prefixes.size());
 
-      analysis["optimization_suggestions"] = optimization_suggestions;
+      // Equal per-family caps make this diagnostic bounded and remove the old
+      // lexicographic bias, but they cannot support whole-database dominance
+      // or sparsity recommendations. Keep those decisions property-based.
+      analysis["optimization_suggestions"] = fc::variants{};
 
    } catch (const std::exception& e) {
       analysis["error"] = e.what();
@@ -2012,64 +2362,6 @@ std::string rocksdb_manager::get_cache_analysis() const {
    }
 
    return fc::json::to_string(fc::variant(cache_analysis), fc::time_point::maximum());
-}
-
-bool rocksdb_manager::auto_optimize(uint32_t max_duration_seconds) {
-   if (!db_) {
-      elog("Cannot auto-optimize: database not open");
-      return false;
-   }
-
-   try {
-      ilog("Starting automatic database optimization (max duration: ${duration}s)", ("duration", max_duration_seconds));
-
-      auto start_time = std::chrono::steady_clock::now();
-      bool optimization_performed = false;
-
-      // Check if compaction is needed
-      if (needs_compaction()) {
-         ilog("Auto-optimization: Starting database compaction");
-         if (compact_database()) {
-            optimization_performed = true;
-            ilog("Auto-optimization: Compaction completed successfully");
-         } else {
-            wlog("Auto-optimization: Compaction failed");
-         }
-
-         // Check if we've exceeded time limit
-         auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(
-            std::chrono::steady_clock::now() - start_time).count();
-         if (elapsed >= max_duration_seconds) {
-            ilog("Auto-optimization: Time limit reached after compaction");
-            return optimization_performed;
-         }
-      }
-
-      // Validate and repair if needed
-      if (validate_and_repair_database()) {
-         optimization_performed = true;
-         ilog("Auto-optimization: Database validation and repair completed");
-      }
-
-      // Final health check
-      if (health_check()) {
-         ilog("Auto-optimization: Database health check passed");
-      } else {
-         wlog("Auto-optimization: Database health check failed");
-      }
-
-      auto total_elapsed = std::chrono::duration_cast<std::chrono::seconds>(
-         std::chrono::steady_clock::now() - start_time).count();
-
-      ilog("Auto-optimization completed in ${elapsed}s, optimizations performed: ${performed}",
-           ("elapsed", total_elapsed)("performed", optimization_performed));
-
-      return true;
-
-   } catch (const std::exception& e) {
-      elog("Exception during auto-optimization: ${error}", ("error", e.what()));
-      return false;
-   }
 }
 
 std::string rocksdb_manager::check_maintenance_needs() const {

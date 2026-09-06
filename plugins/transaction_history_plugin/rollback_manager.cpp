@@ -20,40 +20,21 @@ bool rollback_manager::create_rollback_point(uint32_t block_num) {
       return true;
    }
    try {
-      // A directory without loaded rollback metadata is stale (for example,
-      // after interruption between checkpoint creation and metadata commit).
-      std::error_code stale_error;
-      std::filesystem::remove_all(db_->get_checkpoint_path(block_num), stale_error);
-      if (stale_error) {
-         elog("Failed to remove stale checkpoint for block ${block}: ${error}",
-              ("block", block_num)("error", stale_error.message()));
+      // Accepted blocks already persist their undo record atomically with the
+      // history WriteBatch. Startup baselines have no mutations, so create an
+      // empty durable anchor instead of a filesystem checkpoint.
+      if (!db_->has_undo_point(block_num) && !db_->create_undo_baseline(block_num)) {
          return false;
       }
 
-      // Create checkpoint in RocksDB
-      if (!db_->create_checkpoint(block_num)) {
-         return false;
-      }
-
-      // Store rollback info
       rollback_info info;
       info.block_num = block_num;
       info.timestamp = fc::time_point::now();
-      info.checkpoint_path = db_->get_checkpoint_path(block_num);
+      info.checkpoint_path.clear();
 
       rollback_points_[block_num] = info;
-
-      if (!save_rollback_info(info)) {
-         elog("Failed to save rollback info for block ${block}", ("block", block_num));
-         rollback_points_.erase(block_num);
-         refresh_summary();
-         std::error_code cleanup_error;
-         std::filesystem::remove_all(info.checkpoint_path, cleanup_error);
-         return false;
-      }
-
       refresh_summary();
-      dlog("Created rollback point for block ${block}", ("block", block_num));
+      dlog("Registered undo rollback point for block ${block}", ("block", block_num));
       return true;
 
    } catch (const std::exception& e) {
@@ -71,33 +52,31 @@ bool rollback_manager::rollback_to_block(uint32_t block_num) {
    }
 
    try {
-      // Perform database rollback
-      if (!db_->rollback_to_block(block_num)) {
-         return false;
-      }
-
-      // The checkpoint is created before its own rollback metadata is written,
-      // so restore that metadata into the reopened database as part of rollback.
-      if (!save_rollback_info(it->second)) {
-         elog("Failed to restore rollback metadata for block ${block}", ("block", block_num));
-         return false;
+      const bool undo_target = it->second.checkpoint_path.empty() && db_->has_undo_point(block_num);
+      if (undo_target) {
+         if (!db_->rollback_with_undo(block_num)) return false;
+      } else {
+         // Backward compatibility for databases created before block undo
+         // records were introduced.
+         if (!db_->rollback_to_block(block_num)) return false;
+         if (!save_rollback_info(it->second)) {
+            elog("Failed to restore rollback metadata for block ${block}", ("block", block_num));
+            return false;
+         }
       }
 
       // Remove rollback points after the target block
       auto upper = rollback_points_.upper_bound(block_num);
       for (auto cleanup_it = upper; cleanup_it != rollback_points_.end(); ++cleanup_it) {
-         // Remove checkpoint directory
-         std::string checkpoint_path = db_->get_checkpoint_path(cleanup_it->first);
-         try {
-            std::filesystem::remove_all(checkpoint_path);
-         } catch (const std::exception& e) {
-            wlog("Failed to remove checkpoint directory ${path}: ${error}",
-                 ("path", checkpoint_path)("error", e.what()));
+         if (!cleanup_it->second.checkpoint_path.empty()) {
+            try {
+               std::filesystem::remove_all(cleanup_it->second.checkpoint_path);
+            } catch (const std::exception& e) {
+               wlog("Failed to remove checkpoint directory ${path}: ${error}",
+                    ("path", cleanup_it->second.checkpoint_path)("error", e.what()));
+            }
+            db_->remove(get_rollback_key(cleanup_it->first));
          }
-
-         // Remove rollback info from database
-         std::string key = get_rollback_key(cleanup_it->first);
-         db_->remove(key);
       }
 
       rollback_points_.erase(upper, rollback_points_.end());
@@ -116,10 +95,12 @@ bool rollback_manager::rollback_to_block(uint32_t block_num) {
 void rollback_manager::cleanup_old_rollback_points(uint32_t keep_blocks,
                                                    uint64_t min_free_bytes,
                                                    std::optional<uint32_t> oldest_required_block) {
-   const auto checkpoint_root = std::filesystem::path(db_->get_checkpoint_path(0)).parent_path();
+   // Undo records live in the database. Measure the filesystem that actually
+   // stores them; legacy checkpoint directories are siblings on the same one.
+   const auto storage_root = std::filesystem::path(db_->get_db_path());
    const auto available_bytes = [&]() {
       std::error_code error;
-      const auto info = std::filesystem::space(checkpoint_root, error);
+      const auto info = std::filesystem::space(storage_root, error);
       return error ? std::numeric_limits<uint64_t>::max() : info.available;
    };
 
@@ -130,27 +111,26 @@ void rollback_manager::cleanup_old_rollback_points(uint32_t keep_blocks,
            (min_free_bytes != 0 && free_bytes < min_free_bytes))) {
       auto cleanup_it = rollback_points_.begin();
       if (oldest_required_block && cleanup_it->first >= *oldest_required_block) {
-         dlog("Checkpoint cleanup stopped at required reversible block ${block}; "
+         dlog("Rollback cleanup stopped at required reversible block ${block}; "
               "free space remains ${bytes} bytes",
               ("block", cleanup_it->first)("bytes", free_bytes));
          break;
       }
-      // Remove checkpoint directory
-      std::string checkpoint_path = db_->get_checkpoint_path(cleanup_it->first);
-      std::error_code remove_error;
-      std::filesystem::remove_all(checkpoint_path, remove_error);
-      if (remove_error) {
-         wlog("Failed to remove checkpoint directory ${path}: ${error}",
-              ("path", checkpoint_path)("error", remove_error.message()));
-         break;
-      }
-
-      // Remove rollback info from database
-      std::string key = get_rollback_key(cleanup_it->first);
-      if (!db_->remove(key)) {
-         wlog("Failed to remove rollback metadata ${key}; cleanup will retry",
-              ("key", key));
-         break;
+      if (cleanup_it->second.checkpoint_path.empty()) {
+         if (!db_->remove_undo_point(cleanup_it->first)) break;
+      } else {
+         std::error_code remove_error;
+         std::filesystem::remove_all(cleanup_it->second.checkpoint_path, remove_error);
+         if (remove_error) {
+            wlog("Failed to remove checkpoint directory ${path}: ${error}",
+                 ("path", cleanup_it->second.checkpoint_path)("error", remove_error.message()));
+            break;
+         }
+         const std::string key = get_rollback_key(cleanup_it->first);
+         if (!db_->remove(key)) {
+            wlog("Failed to remove rollback metadata ${key}; cleanup will retry", ("key", key));
+            break;
+         }
       }
       rollback_points_.erase(cleanup_it);
       free_bytes = available_bytes();
@@ -167,19 +147,21 @@ void rollback_manager::cleanup_irreversible_rollback_points(uint32_t irreversibl
    bool removed = false;
    auto cleanup_it = rollback_points_.begin();
    while (cleanup_it != rollback_points_.end() && cleanup_it->first < irreversible_block_num) {
-      const std::string checkpoint_path = db_->get_checkpoint_path(cleanup_it->first);
-      std::error_code remove_error;
-      std::filesystem::remove_all(checkpoint_path, remove_error);
-      if (remove_error) {
-         wlog("Failed to remove irreversible checkpoint ${path}: ${error}",
-              ("path", checkpoint_path)("error", remove_error.message()));
-         break;
-      }
-
-      const std::string key = get_rollback_key(cleanup_it->first);
-      if (!db_->remove(key)) {
-         wlog("Failed to remove rollback metadata ${key}", ("key", key));
-         break;
+      if (cleanup_it->second.checkpoint_path.empty()) {
+         if (!db_->remove_undo_point(cleanup_it->first)) break;
+      } else {
+         std::error_code remove_error;
+         std::filesystem::remove_all(cleanup_it->second.checkpoint_path, remove_error);
+         if (remove_error) {
+            wlog("Failed to remove irreversible checkpoint ${path}: ${error}",
+                 ("path", cleanup_it->second.checkpoint_path)("error", remove_error.message()));
+            break;
+         }
+         const std::string key = get_rollback_key(cleanup_it->first);
+         if (!db_->remove(key)) {
+            wlog("Failed to remove rollback metadata ${key}", ("key", key));
+            break;
+         }
       }
       cleanup_it = rollback_points_.erase(cleanup_it);
       removed = true;
@@ -226,6 +208,14 @@ bool rollback_manager::load_rollback_points() {
    }
 
    try {
+      for (const uint32_t block_num : db_->list_undo_points()) {
+         rollback_info info;
+         info.block_num = block_num;
+         info.timestamp = fc::time_point();
+         info.checkpoint_path.clear();
+         rollback_points_[block_num] = std::move(info);
+      }
+
       std::unique_ptr<rocksdb::Iterator> iterator(db_->new_iterator());
       if (!iterator) {
          return false;
@@ -251,8 +241,12 @@ bool rollback_manager::load_rollback_points() {
             continue;
          }
 
-         info.checkpoint_path = checkpoint_path;
-         rollback_points_[info.block_num] = std::move(info);
+         // Prefer a same-height undo anchor when both formats exist during an
+         // upgrade. It avoids closing and swapping the live database.
+         if (rollback_points_.find(info.block_num) == rollback_points_.end()) {
+            info.checkpoint_path = checkpoint_path;
+            rollback_points_[info.block_num] = std::move(info);
+         }
       }
       if (!iterator->status().ok()) {
          throw std::runtime_error("failed to scan rollback metadata: " +

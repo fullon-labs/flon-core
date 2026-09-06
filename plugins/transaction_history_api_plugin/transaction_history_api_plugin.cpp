@@ -121,6 +121,39 @@ parse_params<transaction_history_apis::read_only::get_performance_metrics_params
    }
 }
 
+template<>
+transaction_history_apis::read_only::get_optimization_suggestions_params
+parse_params<transaction_history_apis::read_only::get_optimization_suggestions_params, http_params_types::possible_no_params>(const std::string& body) {
+   if (body.empty()) return {};
+   try {
+      return fc::json::from_string(body).as<transaction_history_apis::read_only::get_optimization_suggestions_params>();
+   } catch (...) {
+      EOS_THROW(chain::invalid_http_request, "Invalid get_optimization_suggestions parameters");
+   }
+}
+
+template<>
+transaction_history_apis::read_only::get_cache_analysis_params
+parse_params<transaction_history_apis::read_only::get_cache_analysis_params, http_params_types::possible_no_params>(const std::string& body) {
+   if (body.empty()) return {};
+   try {
+      return fc::json::from_string(body).as<transaction_history_apis::read_only::get_cache_analysis_params>();
+   } catch (...) {
+      EOS_THROW(chain::invalid_http_request, "Invalid get_cache_analysis parameters");
+   }
+}
+
+template<>
+transaction_history_apis::read_only::get_maintenance_needs_params
+parse_params<transaction_history_apis::read_only::get_maintenance_needs_params, http_params_types::possible_no_params>(const std::string& body) {
+   if (body.empty()) return {};
+   try {
+      return fc::json::from_string(body).as<transaction_history_apis::read_only::get_maintenance_needs_params>();
+   } catch (...) {
+      EOS_THROW(chain::invalid_http_request, "Invalid get_maintenance_needs parameters");
+   }
+}
+
 #define INVOKE_R_R(api_handle, call_name, in_param) \
      auto params = parse_params<in_param, http_params_types::params_required>(body);\
      auto result = api_handle.call_name( std::move(params) );
@@ -168,6 +201,15 @@ void transaction_history_api_plugin::register_history_routes(http_plugin& http, 
 
       CALL_WITH_400(api_name, history_mgr, get_performance_metrics,
          INVOKE_R_R_OPTIONAL(history_mgr, get_performance_metrics, transaction_history_apis::read_only::get_performance_metrics_params), 200),
+
+      CALL_WITH_400(api_name, history_mgr, get_optimization_suggestions,
+         INVOKE_R_R_OPTIONAL(history_mgr, get_optimization_suggestions, transaction_history_apis::read_only::get_optimization_suggestions_params), 200),
+
+      CALL_WITH_400(api_name, history_mgr, get_cache_analysis,
+         INVOKE_R_R_OPTIONAL(history_mgr, get_cache_analysis, transaction_history_apis::read_only::get_cache_analysis_params), 200),
+
+      CALL_WITH_400(api_name, history_mgr, get_maintenance_needs,
+         INVOKE_R_R_OPTIONAL(history_mgr, get_maintenance_needs, transaction_history_apis::read_only::get_maintenance_needs_params), 200),
 
    }, appbase::exec_queue::read_only);
    registered_history_api_names_.insert(api_name);

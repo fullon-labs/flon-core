@@ -74,9 +74,17 @@ Config Options for eosio::net_plugin:
                                         being processed across all peers, in MiB
   --net-threads arg (=4)                Number of worker threads in net_plugin
                                         thread pool
-  --sync-fetch-span arg (=100)          number of blocks to retrieve in a chunk
+  --sync-fetch-span arg (=1000)         Number of blocks to retrieve in a chunk
                                         from any individual peer during
                                         synchronization
+  --sync-fetch-parallelism arg (=1)     Number of disjoint block ranges to
+                                        prefetch concurrently from distinct
+                                        peers (1-8)
+  --sync-fetch-buffer-size-mb arg (=256)
+                                        Maximum memory retained while
+                                        reordering multi-peer sync blocks, in
+                                        MiB
+  --sync-peer-limit arg (=3)            Number of peers eligible for block sync
   --use-socket-read-watermark arg (=0)  Enable experimental socket read
                                         watermark optimization
   --peer-log-format arg (=["${_name}" - ${_cid} ${_ip}:${_port}] )

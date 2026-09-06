@@ -36,8 +36,10 @@ public:
 
    /**
     * @brief Stop the worker thread pool and wait for completion
+    * @param drain If false, discard tasks which have not started yet. The
+    *              currently running task is always allowed to finish.
     */
-   void stop();
+   void stop(bool drain = true);
 
    /**
     * @brief Enqueue a task for asynchronous execution

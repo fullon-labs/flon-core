@@ -224,9 +224,35 @@ namespace eosio {
       uint32_t       sync_last_requested_num GUARDED_BY(sync_mtx) {0};  // end block number of the last requested range, inclusive
       uint32_t       sync_next_expected_num  GUARDED_BY(sync_mtx) {0};  // the next block number we need from peer
       connection_ptr sync_source             GUARDED_BY(sync_mtx);      // connection we are currently syncing from
+      struct requested_sync_range {
+         uint32_t start = 0;
+         uint32_t end = 0;
+      };
+      struct issued_sync_range {
+         connection_ptr source;
+         requested_sync_range range;
+      };
+      struct buffered_sync_block {
+         connection_ptr source;
+         block_id_type id;
+         signed_block_ptr block;
+         uint32_t wire_bytes = 0;
+      };
+      std::map<connection_ptr, requested_sync_range, std::owner_less<connection_ptr>>
+         active_sync_ranges GUARDED_BY(sync_mtx);
+      std::set<uint32_t> received_sync_blocks GUARDED_BY(sync_mtx);
+      std::deque<issued_sync_range> issued_sync_ranges GUARDED_BY(sync_mtx);
+      std::deque<issued_sync_range> retired_sync_ranges GUARDED_BY(sync_mtx);
+      std::map<uint32_t, buffered_sync_block> buffered_sync_blocks GUARDED_BY(sync_mtx);
+      uint64_t buffered_sync_bytes GUARDED_BY(sync_mtx) {0};
+      uint32_t sync_next_dispatch_num GUARDED_BY(sync_mtx) {1};
+      uint32_t sync_dispatch_in_flight_num GUARDED_BY(sync_mtx) {0};
 
       const uint32_t sync_fetch_span {0};
       const uint32_t sync_peer_limit {0};
+      const uint32_t sync_fetch_parallelism {1};
+      const uint64_t sync_fetch_buffer_bytes {0};
+      uint32_t sync_fetch_effective_parallelism GUARDED_BY(sync_mtx) {1};
 
       alignas(hardware_destructive_interference_sz)
       std::atomic<stages> sync_state{in_sync};
@@ -249,7 +275,9 @@ namespace eosio {
       bool is_sync_required( uint32_t fork_head_block_num ) const REQUIRES(sync_mtx);
       bool is_sync_request_ahead_allowed(block_num_type blk_num) const REQUIRES(sync_mtx);
       void request_next_chunk( const connection_ptr& conn = connection_ptr() ) REQUIRES(sync_mtx);
-      connection_ptr find_next_sync_node(); // call with locked mutex
+      connection_ptr find_next_sync_node(uint32_t requested_start); // call with locked mutex
+      void reset_fetch_pipeline(uint32_t next_expected) REQUIRES(sync_mtx);
+      void dispatch_buffered_sync_blocks() REQUIRES(sync_mtx);
       void start_sync( const connection_ptr& c, uint32_t target ); // locks mutex
       bool sync_recently_active() const;
       bool verify_catchup( const connection_ptr& c, uint32_t num, const block_id_type& id ); // locks mutex
@@ -258,7 +286,9 @@ namespace eosio {
          immediately,  // closing connection immediately
          handshake     // sending handshake message
       };
-      explicit sync_manager( uint32_t span, uint32_t sync_peer_limit, uint32_t min_blocks_distance );
+      explicit sync_manager( uint32_t span, uint32_t sync_peer_limit,
+                             uint32_t sync_fetch_parallelism, uint64_t sync_fetch_buffer_bytes,
+                             uint32_t min_blocks_distance );
       static void send_handshakes();
       bool syncing_from_peer() const { return sync_state == lib_catchup; }
       bool is_in_sync() const { return sync_state == in_sync; }
@@ -269,6 +299,8 @@ namespace eosio {
       void rejected_block( const connection_ptr& c, uint32_t blk_num, closing_mode mode );
       void sync_recv_block( const connection_ptr& c, const block_id_type& blk_id, uint32_t blk_num, bool blk_applied,
                             const fc::microseconds& blk_latency );
+      bool buffer_sync_block(const connection_ptr& c, const block_id_type& blk_id,
+                             signed_block_ptr block, uint32_t wire_bytes);
       void recv_handshake( const connection_ptr& c, const handshake_message& msg, uint32_t nblk_combined_latency );
       void sync_recv_notice( const connection_ptr& c, const notice_message& msg );
       void send_handshakes_if_synced(const fc::microseconds& blk_latency);
@@ -339,6 +371,8 @@ namespace eosio {
    constexpr auto     def_txn_expire_wait = std::chrono::seconds(3);
    constexpr auto     def_resp_expected_wait = std::chrono::seconds(5);
    constexpr auto     def_sync_fetch_span = 1000;
+   constexpr auto     def_sync_fetch_parallelism = 1;
+   constexpr uint32_t def_sync_fetch_buffer_size_mb = 256;
    constexpr auto     def_keepalive_interval = 10000;
 
    constexpr auto     message_header_size = sizeof(uint32_t);
@@ -1434,7 +1468,10 @@ namespace eosio {
       if (is_blocks_connection() && current()) {
          if (no_retry == go_away_reason::no_reason) {
             if (peer_start_block_num <= sync_next_expected_num) { // has blocks we want
-               auto needed_end = std::min(sync_next_expected_num + sync_fetch_span, sync_known_lib_num);
+               const auto proposed_end = static_cast<uint64_t>(sync_next_expected_num) +
+                                         sync_fetch_span - 1;
+               const auto needed_end = static_cast<uint32_t>(
+                  std::min<uint64_t>(proposed_end, sync_known_lib_num));
                if (peer_fork_head_block_num >= needed_end) { // has lib blocks
                   return true;
                }
@@ -1987,13 +2024,18 @@ namespace eosio {
    }
    //-----------------------------------------------------------
 
-    sync_manager::sync_manager( uint32_t span, uint32_t sync_peer_limit, uint32_t min_blocks_distance )
+    sync_manager::sync_manager( uint32_t span, uint32_t sync_peer_limit,
+                                uint32_t fetch_parallelism, uint64_t fetch_buffer_bytes,
+                                uint32_t min_blocks_distance )
       :sync_known_lib_num( 0 )
       ,sync_last_requested_num( 0 )
       ,sync_next_expected_num( 1 )
       ,sync_source()
       ,sync_fetch_span( span )
       ,sync_peer_limit( sync_peer_limit )
+      ,sync_fetch_parallelism( std::max(1u, std::min(fetch_parallelism, sync_peer_limit)) )
+      ,sync_fetch_buffer_bytes( fetch_buffer_bytes )
+      ,sync_fetch_effective_parallelism( sync_fetch_parallelism )
       ,sync_state(in_sync)
       ,min_blocks_distance(min_blocks_distance)
    {
@@ -2017,11 +2059,136 @@ namespace eosio {
       return true;
    }
 
+   void sync_manager::reset_fetch_pipeline(uint32_t next_expected) REQUIRES(sync_mtx) {
+      for (const auto& entry : active_sync_ranges) {
+         const auto& connection = entry.first;
+         connection->cancel_sync_wait();
+         connection->strand.post([connection]() { connection->cancel_sync(); });
+      }
+      active_sync_ranges.clear();
+      received_sync_blocks.clear();
+      for (auto& issued : issued_sync_ranges) {
+         if (issued.range.end >= next_expected) {
+            retired_sync_ranges.emplace_back(std::move(issued));
+         }
+      }
+      // A retired range only exists to recognize tail packets already queued by
+      // a peer after cancellation. Keep that defensive state strictly bounded.
+      constexpr size_t max_retired_ranges = 64;
+      while (retired_sync_ranges.size() > max_retired_ranges) {
+         retired_sync_ranges.pop_front();
+      }
+      issued_sync_ranges.clear();
+      buffered_sync_blocks.clear();
+      buffered_sync_bytes = 0;
+      sync_dispatch_in_flight_num = 0;
+      sync_source.reset();
+      sync_last_requested_num = 0;
+      sync_next_expected_num = next_expected;
+      sync_next_dispatch_num = next_expected;
+   }
+
+   void sync_manager::dispatch_buffered_sync_blocks() REQUIRES(sync_mtx) {
+      const uint32_t chain_head = my_impl->get_chain_head_num();
+      const uint32_t first_unapplied = chain_head == std::numeric_limits<uint32_t>::max()
+         ? chain_head : chain_head + 1;
+      sync_next_dispatch_num = std::max(sync_next_dispatch_num, first_unapplied);
+
+      // Drop buffered duplicates which another peer or the controller already
+      // advanced past before this reorder queue got a chance to dispatch them.
+      while (!buffered_sync_blocks.empty() &&
+             buffered_sync_blocks.begin()->first < sync_next_dispatch_num) {
+         buffered_sync_bytes -= buffered_sync_blocks.begin()->second.wire_bytes;
+         buffered_sync_blocks.erase(buffered_sync_blocks.begin());
+      }
+
+      // Network reads run in parallel, but controller submission stays strictly
+      // one-at-a-time. This removes any dependency on app-queue scheduling and
+      // guarantees that a later range cannot enter the unlinkable cache first.
+      if (sync_dispatch_in_flight_num == 0) {
+         auto next = buffered_sync_blocks.find(sync_next_dispatch_num);
+         if (next != buffered_sync_blocks.end()) {
+            auto entry = std::move(next->second);
+            buffered_sync_bytes -= entry.wire_bytes;
+            buffered_sync_blocks.erase(next);
+            sync_dispatch_in_flight_num = sync_next_dispatch_num++;
+            entry.source->handle_message(entry.id, std::move(entry.block));
+         }
+      }
+
+      const uint32_t next_dispatch = sync_next_dispatch_num;
+      std::erase_if(issued_sync_ranges, [next_dispatch](const auto& issued) {
+         return issued.range.end < next_dispatch;
+      });
+      std::erase_if(retired_sync_ranges, [next_dispatch](const auto& issued) {
+         return issued.range.end < next_dispatch;
+      });
+   }
+
+   // Called after a sync block has been decoded on its connection strand.
+   // Returns true when the block was consumed by the reorder pipeline.
+   bool sync_manager::buffer_sync_block(const connection_ptr& c,
+                                        const block_id_type& blk_id,
+                                        signed_block_ptr block,
+                                        uint32_t wire_bytes) {
+      fc::unique_lock g(sync_mtx);
+      if (sync_state != lib_catchup || sync_fetch_parallelism <= 1) {
+         return false;
+      }
+
+      const uint32_t block_num = block_header::num_from_id(blk_id);
+      const bool requested_from_connection = std::any_of(
+         issued_sync_ranges.begin(), issued_sync_ranges.end(),
+         [&c, block_num](const auto& issued) {
+            return issued.source == c && block_num >= issued.range.start &&
+                   block_num <= issued.range.end;
+         });
+      if (!requested_from_connection) {
+         const bool retired_from_connection = std::any_of(
+            retired_sync_ranges.begin(), retired_sync_ranges.end(),
+            [&c, block_num](const auto& issued) {
+               return issued.source == c && block_num >= issued.range.start &&
+                      block_num <= issued.range.end;
+            });
+         // Do not let a tail packet from a cancelled disjoint range bypass the
+         // reorder queue. If the range is reissued it is matched above first.
+         return retired_from_connection;
+      }
+      if (block_num < sync_next_dispatch_num || buffered_sync_blocks.count(block_num)) {
+         return true;
+      }
+
+      if (wire_bytes > sync_fetch_buffer_bytes ||
+          buffered_sync_bytes > sync_fetch_buffer_bytes - wire_bytes) {
+         fc_wlog(logger, "Pipelined sync reorder buffer reached ${used}/${limit} bytes; "
+                          "falling back to one peer for this catch-up",
+                  ("used", buffered_sync_bytes)("limit", sync_fetch_buffer_bytes));
+         sync_fetch_effective_parallelism = 1;
+         reset_fetch_pipeline(my_impl->get_chain_lib_num() + 1);
+         request_next_chunk();
+         return true;
+      }
+
+      buffered_sync_bytes += wire_bytes;
+      buffered_sync_blocks.emplace(block_num, buffered_sync_block{
+         c, blk_id, std::move(block), wire_bytes
+      });
+      dispatch_buffered_sync_blocks();
+      return true;
+   }
+
    // called from c's connection strand
    void sync_manager::sync_reset_lib_num(const connection_ptr& c, bool closing) {
       fc::unique_lock g( sync_mtx );
       if( sync_state == in_sync ) {
          sync_source.reset();
+         active_sync_ranges.clear();
+         received_sync_blocks.clear();
+         issued_sync_ranges.clear();
+         retired_sync_ranges.clear();
+         buffered_sync_blocks.clear();
+         buffered_sync_bytes = 0;
+         sync_dispatch_in_flight_num = 0;
       }
       if( !c ) return;
       if( !closing ) {
@@ -2041,26 +2208,28 @@ namespace eosio {
          sync_known_lib_num = highest_lib_num;
 
          // if closing the connection we are currently syncing from then request from a diff peer
-         if( c == sync_source ) {
+         if( c == sync_source || active_sync_ranges.find(c) != active_sync_ranges.end() ) {
             // if starting to sync need to always start from lib as we might be on our own fork
             uint32_t lib_num = my_impl->get_chain_lib_num();
-            sync_last_requested_num = 0;
-            sync_next_expected_num = std::max( lib_num + 1, sync_next_expected_num );
-            sync_source.reset();
+            reset_fetch_pipeline(lib_num + 1);
             request_next_chunk();
          }
       }
    }
 
-   connection_ptr sync_manager::find_next_sync_node() REQUIRES(sync_mtx) {
+   connection_ptr sync_manager::find_next_sync_node(uint32_t requested_start) REQUIRES(sync_mtx) {
       fc_dlog(logger, "Number connections ${s}, sync_next_expected_num: ${e}, sync_known_lib_num: ${l}",
               ("s", my_impl->connections.number_connections())("e", sync_next_expected_num)("l", sync_known_lib_num));
       deque<connection_ptr> conns;
-      my_impl->connections.for_each_block_connection([sync_next_expected_num = sync_next_expected_num,
+      std::set<connection_ptr, std::owner_less<connection_ptr>> active_sources;
+      for (const auto& entry : active_sync_ranges) active_sources.insert(entry.first);
+      my_impl->connections.for_each_block_connection([requested_start,
                                                       sync_known_lib_num = sync_known_lib_num,
                                                       sync_fetch_span = sync_fetch_span,
+                                                      &active_sources,
                                                       &conns](const auto& c) {
-         if (c->should_sync_from(sync_next_expected_num, sync_known_lib_num, sync_fetch_span)) {
+         if (active_sources.find(c) == active_sources.end() &&
+             c->should_sync_from(requested_start, sync_known_lib_num, sync_fetch_span)) {
             conns.push_back(c);
          }
       });
@@ -2116,50 +2285,88 @@ namespace eosio {
                    ("cc", sync_last_requested_num)("t", sync_known_lib_num)("n", sync_next_expected_num)("h", chain_info.fork_head_num));
       }
 
-      /* ----------
-       * next chunk provider selection criteria
-       * a provider is supplied and able to be used, use it.
-       * otherwise select the next available from the list, round-robin style.
-       */
-      connection_ptr new_sync_source = (conn && conn->current()) ? conn : find_next_sync_node();
-
       auto reset_on_failure = [&]() REQUIRES(sync_mtx) {
-         sync_source.reset();
          sync_known_lib_num = chain_info.lib_num;
-         sync_last_requested_num = 0;
-         sync_next_expected_num = std::max( sync_known_lib_num + 1, sync_next_expected_num );
+         reset_fetch_pipeline(sync_known_lib_num + 1);
          // not in sync, but need to be out of lib_catchup for start_sync to work
          set_state( in_sync );
          send_handshakes();
       };
 
-      // verify there is an available source
-      if( !new_sync_source ) {
-         fc_wlog( logger, "Unable to continue syncing at this time");
+      using pending_request = std::tuple<connection_ptr, uint32_t, uint32_t>;
+      std::vector<pending_request> requests;
+      connection_ptr preferred = conn;
+      const uint64_t pipeline_window = static_cast<uint64_t>(sync_fetch_span) *
+                                       sync_fetch_effective_parallelism;
+      const uint64_t max_prefetch_end = static_cast<uint64_t>(
+         my_impl->get_chain_head_num()) + pipeline_window;
+      bool prefetch_window_saturated = false;
+      while (active_sync_ranges.size() < sync_fetch_effective_parallelism &&
+             (sync_last_requested_num == 0 || sync_last_requested_num < sync_known_lib_num)) {
+         const uint32_t start = sync_last_requested_num == 0
+            ? sync_next_expected_num : sync_last_requested_num + 1;
+         if (start > max_prefetch_end) {
+            prefetch_window_saturated = true;
+            break;
+         }
+         const uint64_t proposed_end = static_cast<uint64_t>(start) + sync_fetch_span - 1;
+         const uint64_t desired_end = std::min(
+            proposed_end, static_cast<uint64_t>(sync_known_lib_num));
+         // Refill with a full span whenever possible. Clipping every refill to
+         // the moving head window degenerates into one-block requests after
+         // the initial pipeline fills. The final chain range may be shorter.
+         if (desired_end > max_prefetch_end) {
+            prefetch_window_saturated = true;
+            break;
+         }
+         connection_ptr source;
+         if (preferred && preferred->current() &&
+             active_sync_ranges.find(preferred) == active_sync_ranges.end() &&
+             preferred->should_sync_from(start, sync_known_lib_num, sync_fetch_span)) {
+            source = std::move(preferred);
+         } else {
+            preferred.reset();
+            source = find_next_sync_node(start);
+         }
+         if (!source) break;
+
+         const uint32_t end = static_cast<uint32_t>(desired_end);
+         if (end < start) break;
+
+         active_sync_ranges[source] = {start, end};
+         issued_sync_ranges.push_back({source, {start, end}});
+         sync_last_requested_num = end;
+         requests.emplace_back(source, start, end);
+         preferred.reset();
+      }
+
+      if (active_sync_ranges.empty()) {
+         if (prefetch_window_saturated) {
+            sync_source.reset();
+            return; // wait for serial application to open the bounded window
+         }
+         if (sync_last_requested_num == sync_known_lib_num &&
+             sync_next_expected_num > sync_known_lib_num) {
+            sync_source.reset();
+            return; // all requested blocks arrived; wait for serial application
+         }
+         fc_wlog(logger, "Unable to request range, sending handshakes to everyone");
          reset_on_failure();
          return;
       }
 
-      bool request_sent = false;
-      if( sync_last_requested_num != sync_known_lib_num ) {
-         uint32_t start = sync_next_expected_num;
-         uint32_t end = start + sync_fetch_span - 1;
-         if( end > sync_known_lib_num )
-            end = sync_known_lib_num;
-         if( end > 0 && end >= start ) {
-            sync_last_requested_num = end;
-            sync_source = new_sync_source;
-            request_sent = true;
-            sync_active_time = std::chrono::steady_clock::now();
-            new_sync_source->strand.post( [new_sync_source, start, end, fork_head_num=chain_info.fork_head_num, lib=chain_info.lib_num]() {
-               peer_ilog( new_sync_source, "requesting range ${s} to ${e}, fhead ${h}, lib ${lib}", ("s", start)("e", end)("h", fork_head_num)("lib", lib) );
-               new_sync_source->request_sync_blocks( start, end );
-            } );
-         }
-      }
-      if( !request_sent ) {
-         fc_wlog(logger, "Unable to request range, sending handshakes to everyone");
-         reset_on_failure();
+      auto primary = std::min_element(active_sync_ranges.begin(), active_sync_ranges.end(),
+         [](const auto& lhs, const auto& rhs) { return lhs.second.start < rhs.second.start; });
+      sync_source = primary->first;
+      sync_active_time = std::chrono::steady_clock::now();
+
+      for (auto& [source, start, end] : requests) {
+         source->strand.post([source, start, end, fork_head_num=chain_info.fork_head_num,
+                              lib=chain_info.lib_num]() {
+            peer_ilog(source, "requesting range ${s} to ${e}, fhead ${h}, lib ${lib}, pipelined=true",
+                      ("s", start)("e", end)("h", fork_head_num)("lib", lib));
+            source->request_sync_blocks(start, end);
+         });
       }
    }
 
@@ -2178,17 +2385,19 @@ namespace eosio {
                ("h", fork_head_block_num ) );
 
       return( sync_last_requested_num < sync_known_lib_num ||
-              sync_next_expected_num < sync_last_requested_num );
+              sync_next_expected_num <= sync_last_requested_num );
    }
 
    // called from c's connection strand
    bool sync_manager::is_sync_request_ahead_allowed(block_num_type blk_num) const REQUIRES(sync_mtx) {
       if (blk_num >= sync_last_requested_num) {
+         const uint64_t pipeline_window = static_cast<uint64_t>(sync_fetch_span) *
+                                          sync_fetch_effective_parallelism;
          // do not allow to get too far ahead (sync_fetch_span) of chain head
          // use chain head instead of fork head so we do not get too far ahead of applied blocks
          uint32_t head_num = my_impl->get_chain_head_num();
          block_num_type num_blocks_not_applied = blk_num > head_num ? blk_num - head_num : 0;
-         if (num_blocks_not_applied < sync_fetch_span) {
+         if (num_blocks_not_applied < pipeline_window) {
             fc_dlog(logger, "sync ahead allowed past sync-fetch-span ${sp}, block ${bn} chain_lib ${cl}, forkdb size ${s}",
                     ("bn", blk_num)("sp", sync_fetch_span)("cl", head_num)("s", my_impl->chain_plug->chain().fork_db_size()));
             return true;
@@ -2201,7 +2410,7 @@ namespace eosio {
             auto num_blocks_that_can_be_applied = calculated_lib > head_num ? calculated_lib - head_num : 0;
             // add blocks that can potentially be applied as they are not in the forkdb yet
             num_blocks_that_can_be_applied += blk_num > forkdb_head.block_num() ? blk_num - forkdb_head.block_num() : 0;
-            if (num_blocks_that_can_be_applied < sync_fetch_span) {
+            if (num_blocks_that_can_be_applied < pipeline_window) {
                if (head_num )
                   fc_ilog(logger, "sync ahead allowed past sync-fetch-span ${sp}, block ${bn} for paused LIB ${l}, chain_lib ${cl}, forkdb size ${s}",
                           ("bn", blk_num)("sp", sync_fetch_span)("l", calculated_lib)("cl", head_num)("s", cc.fork_db_size()));
@@ -2236,11 +2445,11 @@ namespace eosio {
 
       stages current_sync_state = sync_state;
       if( current_sync_state != lib_catchup || !sync_recently_active()) {
-         peer_dlog(c, "requesting next chuck, set to lib_catchup and request_next_chunk, sync_state ${s}, sync_next_expected_num ${nen}",
+         peer_dlog(c, "requesting next chunk, set to lib_catchup and request_next_chunk, sync_state ${s}, sync_next_expected_num ${nen}",
                    ("s", stage_str(current_sync_state))("nen", sync_next_expected_num));
          set_state( lib_catchup );
-         sync_last_requested_num = 0;
-         sync_next_expected_num = chain_info.lib_num + 1;
+         sync_fetch_effective_parallelism = sync_fetch_parallelism;
+         reset_fetch_pipeline(chain_info.lib_num + 1);
          request_next_chunk( c );
       } else if (sync_last_requested_num > 0 && is_sync_request_ahead_allowed(sync_next_expected_num)) {
          request_next_chunk();
@@ -2283,14 +2492,13 @@ namespace eosio {
    // called from connection strand
    void sync_manager::sync_reassign_fetch(const connection_ptr& c) {
       fc::unique_lock g( sync_mtx );
-      if( c == sync_source ) {
+      if( c == sync_source || active_sync_ranges.find(c) != active_sync_ranges.end() ) {
          peer_ilog(c, "reassign_fetch, our last req is ${cc}, next expected is ${ne}",
                    ("cc", sync_last_requested_num)("ne", sync_next_expected_num));
-         c->cancel_sync();
          auto lib = my_impl->get_chain_lib_num();
-         sync_last_requested_num = 0;
-         sync_next_expected_num = std::max(sync_next_expected_num, lib + 1);
-         sync_source.reset();
+         // Clearing the reorder buffer invalidates every received-but-not-yet-
+         // applied block. Restart from LIB, not the network receive cursor.
+         reset_fetch_pipeline(lib + 1);
          request_next_chunk();
       }
    }
@@ -2491,8 +2699,7 @@ namespace eosio {
       c->block_status_monitor_.rejected();
       // reset sync on rejected block
       fc::unique_lock g( sync_mtx );
-      sync_last_requested_num = 0;
-      sync_next_expected_num = my_impl->get_chain_lib_num() + 1;
+      reset_fetch_pipeline(my_impl->get_chain_lib_num() + 1);
       g.unlock();
       if( mode == closing_mode::immediately || c->block_status_monitor_.max_events_violated()) {
          peer_wlog(c, "block ${bn} not accepted, closing connection ${d}",
@@ -2526,7 +2733,7 @@ namespace eosio {
       if( state == head_catchup ) {
          fc::unique_lock g_sync( sync_mtx );
          peer_dlog( c, "sync_manager in head_catchup state" );
-         sync_source.reset();
+         reset_fetch_pipeline(my_impl->get_chain_lib_num() + 1);
          g_sync.unlock();
 
          block_id_type null_id;
@@ -2559,20 +2766,40 @@ namespace eosio {
          }
       } else if( state == lib_catchup ) {
          fc::unique_lock g_sync( sync_mtx );
+         // The first notification for a block is emitted as soon as its wire
+         // header arrives, before it enters this reorder queue. Only release
+         // the application gate after acceptance (or after a duplicate is
+         // already present in the controller), never on that early receipt.
+         if (sync_dispatch_in_flight_num == blk_num &&
+             (blk_applied || my_impl->get_chain_head_num() >= blk_num)) {
+            sync_dispatch_in_flight_num = 0;
+         }
          if( blk_applied && blk_num >= sync_known_lib_num ) {
             peer_dlog(c, "All caught up ${b} with last known lib ${l} resending handshake",
                       ("b", blk_num)("l", sync_known_lib_num));
+            reset_fetch_pipeline(sync_known_lib_num + 1);
             set_state( head_catchup );
             g_sync.unlock();
             send_handshakes();
          } else {
             if (!blk_applied) {
-               if (blk_num >= c->sync_last_requested_block) {
-                  peer_dlog(c, "calling cancel_sync_wait, block ${b}, sync_last_requested_block ${lrb}",
-                            ("b", blk_num)("lrb", c->sync_last_requested_block));
-                  sync_source.reset();
+               auto range = active_sync_ranges.find(c);
+               bool range_complete = false;
+               if (range != active_sync_ranges.end() &&
+                   blk_num >= range->second.start && blk_num <= range->second.end) {
+                  received_sync_blocks.insert(blk_num);
+                  range_complete = blk_num >= range->second.end;
+               }
+               while (received_sync_blocks.erase(sync_next_expected_num) != 0) {
+                  ++sync_next_expected_num;
+               }
+
+               if (range_complete) {
+                  peer_dlog(c, "completed pipelined sync range at block ${b}", ("b", blk_num));
                   c->cancel_sync_wait();
-               } else {
+                  active_sync_ranges.erase(range);
+                  if (c == sync_source) sync_source.reset();
+               } else if (range != active_sync_ranges.end()) {
                   peer_dlog(c, "calling sync_wait, block ${b}", ("b", blk_num));
                   c->sync_wait();
                }
@@ -2580,17 +2807,13 @@ namespace eosio {
                if (sync_last_requested_num == 0) { // block was rejected
                   sync_next_expected_num = my_impl->get_chain_lib_num() + 1;
                   peer_dlog(c, "Reset sync_next_expected_num to ${n}", ("n", sync_next_expected_num));
-               } else {
-                  if (blk_num == sync_next_expected_num) {
-                     ++sync_next_expected_num;
-                  }
                }
                if (blk_num >= sync_known_lib_num) {
                   peer_dlog(c, "received non-applied block ${bn} >= ${kn}, will send handshakes when caught up",
                             ("bn", blk_num)("kn", sync_known_lib_num));
                   send_handshakes_when_synced = true;
                } else {
-                  if (is_sync_request_ahead_allowed(blk_num)) {
+                  if (active_sync_ranges.size() < sync_fetch_effective_parallelism) {
                      // block was not applied, possibly because we already have the block
                      fc_dlog(logger, "Requesting ${fs} blocks ahead, head: ${h} fhead ${fh} blk_num: ${bn} sync_next_expected_num ${nen} "
                                      "sync_last_requested_num: ${lrn}, sync_last_requested_block: ${lrb}",
@@ -2601,8 +2824,9 @@ namespace eosio {
                   }
                }
             } else { // blk_applied
-               if (blk_num >= sync_last_requested_num) {
-                  if (is_sync_request_ahead_allowed(blk_num)) {
+               if (active_sync_ranges.size() < sync_fetch_effective_parallelism ||
+                   blk_num >= sync_last_requested_num) {
+                  if (sync_last_requested_num < sync_known_lib_num) {
                      // Did not request blocks ahead, likely because too far ahead of head, or in irreversible mode
                      fc_dlog(logger, "Requesting blocks, head: ${h} fhead ${fh} blk_num: ${bn} sync_next_expected_num ${nen} "
                                      "sync_last_requested_num: ${lrn}, sync_last_requested_block: ${lrb}",
@@ -2613,6 +2837,10 @@ namespace eosio {
                   }
                }
             }
+            // Also advances after a dispatched block turns out to be an
+            // already-applied duplicate. Without this wake-up the strict
+            // one-at-a-time gate could remain idle until unrelated traffic.
+            dispatch_buffered_sync_blocks();
          }
       } else { // in_sync
          if (blk_applied) {
@@ -3177,7 +3405,10 @@ namespace eosio {
          return false;
       }
 
-      handle_message( blk_id, std::move( ptr ) );
+      if (!my_impl->sync_master->buffer_sync_block(
+             shared_from_this(), blk_id, ptr, message_length)) {
+         handle_message( blk_id, std::move( ptr ) );
+      }
       return true;
    }
 
@@ -4304,6 +4535,10 @@ namespace eosio {
            "Number of worker threads in net_plugin thread pool" )
          ( "sync-fetch-span", bpo::value<uint32_t>()->default_value(def_sync_fetch_span),
            "Number of blocks to retrieve in a chunk from any individual peer during synchronization")
+         ( "sync-fetch-parallelism", bpo::value<uint32_t>()->default_value(def_sync_fetch_parallelism),
+           "Number of disjoint block ranges to prefetch concurrently from distinct peers (1-8)")
+         ( "sync-fetch-buffer-size-mb", bpo::value<uint32_t>()->default_value(def_sync_fetch_buffer_size_mb),
+           "Maximum memory retained while reordering multi-peer sync blocks, in MiB")
          ( "sync-peer-limit", bpo::value<uint32_t>()->default_value(3),
            "Number of peers to sync from")
          ( "use-socket-read-watermark", bpo::value<bool>()->default_value(false), "Enable experimental socket read watermark optimization")
@@ -4360,9 +4595,25 @@ namespace eosio {
          // Set it to the number of blocks produced during half of keep alive
          // interval.
          const uint32_t min_blocks_distance = (keepalive_interval.count() / config::block_interval_ms) / 2;
+         const uint32_t sync_fetch_span = options.at("sync-fetch-span").as<uint32_t>();
+         const uint32_t sync_peer_limit = options.at("sync-peer-limit").as<uint32_t>();
+         const uint32_t sync_fetch_parallelism = options.at("sync-fetch-parallelism").as<uint32_t>();
+         const uint32_t sync_fetch_buffer_size_mb =
+            options.at("sync-fetch-buffer-size-mb").as<uint32_t>();
+         EOS_ASSERT(sync_fetch_span > 0, chain::plugin_config_exception,
+                    "sync-fetch-span must be greater than zero");
+         EOS_ASSERT(sync_peer_limit > 0, chain::plugin_config_exception,
+                    "sync-peer-limit must be greater than zero");
+         EOS_ASSERT(sync_fetch_parallelism > 0 && sync_fetch_parallelism <= 8 &&
+                    sync_fetch_parallelism <= sync_peer_limit,
+                    chain::plugin_config_exception,
+                    "sync-fetch-parallelism must be between 1 and min(8, sync-peer-limit)");
+         EOS_ASSERT(sync_fetch_buffer_size_mb > 0 && sync_fetch_buffer_size_mb <= 4096,
+                    chain::plugin_config_exception,
+                    "sync-fetch-buffer-size-mb must be between 1 and 4096");
          sync_master = std::make_unique<sync_manager>(
-             options.at( "sync-fetch-span" ).as<uint32_t>(),
-             options.at( "sync-peer-limit" ).as<uint32_t>(),
+             sync_fetch_span, sync_peer_limit, sync_fetch_parallelism,
+             static_cast<uint64_t>(sync_fetch_buffer_size_mb) * 1024 * 1024,
              min_blocks_distance);
 
          connections.init( std::chrono::milliseconds( options.at("p2p-keepalive-interval-ms").as<int>() * 2 ),
