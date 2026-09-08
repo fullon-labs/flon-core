@@ -1,0 +1,32 @@
+# Resolve AUTO on every configure so changing profiles cannot retain the
+# previous profile's default features through stale BOOL cache values.
+set(FLON_NODE_PROFILE "full" CACHE STRING "Node build profile: full, bp, rpc, history")
+set_property(CACHE FLON_NODE_PROFILE PROPERTY STRINGS full bp rpc history)
+if(NOT FLON_NODE_PROFILE MATCHES "^(full|bp|rpc|history)$")
+  message(FATAL_ERROR "Invalid FLON_NODE_PROFILE: ${FLON_NODE_PROFILE}")
+endif()
+
+function(flon_profile_feature feature default_value)
+  set(FLON_WITH_${feature} "AUTO" CACHE STRING "Build ${feature}: AUTO, ON or OFF")
+  set_property(CACHE FLON_WITH_${feature} PROPERTY STRINGS AUTO ON OFF)
+  if(FLON_WITH_${feature} STREQUAL "AUTO")
+    set(FLON_BUILD_${feature} ${default_value} PARENT_SCOPE)
+  elseif(FLON_WITH_${feature} MATCHES "^(ON|OFF)$")
+    set(FLON_BUILD_${feature} ${FLON_WITH_${feature}} PARENT_SCOPE)
+  else()
+    message(FATAL_ERROR "FLON_WITH_${feature} must be AUTO, ON or OFF")
+  endif()
+endfunction()
+
+set(flon_history_default OFF)
+if(FLON_NODE_PROFILE MATCHES "^(full|history)$")
+  set(flon_history_default ON)
+endif()
+flon_profile_feature(TRANSACTION_HISTORY ${flon_history_default})
+flon_profile_feature(STATE_HISTORY ${flon_history_default})
+flon_profile_feature(TRACE_API ${flon_history_default})
+flon_profile_feature(SIGN_TRANSACTION OFF)
+flon_profile_feature(TEST_CONTROL ${BUILD_TESTS})
+option(FLON_BUILD_CLIENT_TOOLS "Build and install client, wallet and utility programs" ON)
+
+message(STATUS "FLON profile=${FLON_NODE_PROFILE}; transaction_history=${FLON_BUILD_TRANSACTION_HISTORY}; state_history=${FLON_BUILD_STATE_HISTORY}; trace=${FLON_BUILD_TRACE_API}; signing=${FLON_BUILD_SIGN_TRANSACTION}; test_control=${FLON_BUILD_TEST_CONTROL}")

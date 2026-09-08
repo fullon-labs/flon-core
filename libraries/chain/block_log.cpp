@@ -1225,6 +1225,43 @@ namespace eosio { namespace chain {
       my->reset(chain_id, first_block_num);
    }
 
+   uint32_t block_log::check_recovery_anchor(const std::filesystem::path& block_dir,
+                                           const chain_id_type& chain_id, const block_id_type& anchor) {
+      block_log_data data(block_dir / "blocks.log");
+      EOS_ASSERT(!data.is_currently_pruned(), block_log_exception, "Pruned block logs are not supported by physical recovery");
+      EOS_ASSERT(data.chain_id() == chain_id, block_log_exception, "Recovery checkpoint belongs to a different chain");
+      const auto number = block_header::num_from_id(anchor);
+      EOS_ASSERT(data.num_blocks() > 0 && data.first_block_num() <= number && number <= data.last_block_num(),
+                 block_log_exception, "Checkpoint anchor is not in the active irreversible block log; recovery refused");
+      // Walk headers backwards using the log's own back pointers, not a possibly
+      // stale index after SIGKILL. Validate every link needed for tail replay.
+      auto position = data.last_block_position();
+      auto expected = data.last_block_num();
+      const auto last = expected;
+      std::optional<block_id_type> expected_id;
+      while (true) {
+         EOS_ASSERT(position >= data.first_block_position() && position < data.end_of_block_position(),
+                    block_log_exception, "Invalid recovery block offset");
+         auto& stream = data.ro_stream_at(position);
+         signed_block_header header;
+         fc::raw::unpack(stream, header);
+         const auto id = header.calculate_id();
+         EOS_ASSERT(header.block_num() == expected && (!expected_id || *expected_id == id),
+                    block_log_exception, "Non-contiguous recovery block log");
+         if (expected == number) {
+            EOS_ASSERT(id == anchor, block_log_exception, "Checkpoint block ID does not match the irreversible chain");
+            return last;
+         }
+         expected_id = header.previous;
+         --expected;
+         EOS_ASSERT(position >= data.first_block_position() + sizeof(uint64_t), block_log_exception, "Missing recovery tail");
+         uint64_t previous;
+         fc::raw::unpack(data.ro_stream_at(position - sizeof(uint64_t)), previous);
+         EOS_ASSERT(previous < position, block_log_exception, "Invalid recovery back pointer");
+         position = previous;
+      }
+   }
+
    signed_block_ptr block_log::read_block_by_num(uint32_t block_num) const {
       std::lock_guard g(my->mtx);
       return my->read_block_by_num(block_num);

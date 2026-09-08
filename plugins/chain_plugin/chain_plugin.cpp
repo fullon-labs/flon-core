@@ -168,6 +168,8 @@ public:
    bool                              account_queries_enabled = false;
 
    std::optional<controller::config> chain_config;
+   // Declared before chain: locks outlive controller teardown and its file writes.
+   std::vector<std::unique_ptr<boost::interprocess::file_lock>> state_operation_locks;
    std::optional<controller>         chain;
    std::optional<genesis_state>      genesis;
    std::optional<vm_type>            wasm_runtime;
@@ -570,6 +572,22 @@ void chain_plugin_impl::plugin_initialize(const variables_map& options) {
             state_dir = app().data_dir() / sd;
          else
             state_dir = sd;
+      }
+
+      // A stable lock outside state/blocks survives individual recovery file
+      // swaps and replay directory cleanup. Recovery uses these same POSIX locks.
+      for (auto dir : {state_dir, blocks_dir}) {
+         dir = std::filesystem::weakly_canonical(dir);
+         EOS_ASSERT(!dir.filename().empty(), plugin_config_exception, "State/blocks cannot be a filesystem root");
+         std::filesystem::create_directories(dir.parent_path());
+         const auto lock_path = dir.parent_path() / (dir.filename().string() + ".operation.lock");
+         { std::ofstream lock_file(lock_path, std::ios::app); }
+         auto lock = std::make_unique<boost::interprocess::file_lock>(lock_path.c_str());
+         EOS_ASSERT(lock->try_lock(), plugin_config_exception, "Node or checkpoint operation already holds ${p}", ("p", lock_path));
+         state_operation_locks.push_back(std::move(lock));
+         const auto pending = dir.parent_path() / (dir.filename().string() + ".restore.pending");
+         EOS_ASSERT(!std::filesystem::exists(pending), plugin_config_exception,
+                    "Interrupted physical recovery: inspect ${p} before starting the node", ("p", pending));
       }
 
       protocol_feature_set pfs;
@@ -1165,13 +1183,15 @@ void chain_plugin::plugin_startup() {
 }
 
 void chain_plugin_impl::plugin_shutdown() {
+   const auto shutdown_started = fc::time_point::now();
+   ilog("Closing chain state: stopping callbacks, aborting pending work and saving databases");
    accepted_block_header_connection.reset();
    accepted_block_connection.reset();
    irreversible_block_connection.reset();
    applied_transaction_connection.reset();
    block_start_connection.reset();
    chain.reset();
-   dlog("exit shutdown");
+   ilog("Chain state shutdown finished in ${ms} ms", ("ms", (fc::time_point::now() - shutdown_started).count() / 1000));
 }
 
 void chain_plugin::plugin_shutdown() {

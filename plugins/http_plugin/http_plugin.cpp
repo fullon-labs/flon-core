@@ -139,6 +139,7 @@ namespace eosio {
 
          std::shared_ptr<http_plugin_state> plugin_state{new http_plugin_state(logger())};
          std::atomic<bool> listening;
+         bool allow_insecure_management_api = false;
 
 
          /**
@@ -437,6 +438,8 @@ namespace eosio {
              "Append the error log to HTTP responses")
             ("http-validate-host", boost::program_options::value<bool>()->default_value(true),
              "If set to false, then any incoming \"Host\" header is considered valid")
+            ("http-allow-insecure-management-api", bpo::value<bool>()->default_value(false),
+             "Explicitly allow unauthenticated wallet and node management APIs on non-loopback listeners. Use only behind an authenticated, restricted gateway.")
             ("http-alias", bpo::value<std::vector<string>>()->composing(),
              "Additionally acceptable values for the \"Host\" header of incoming HTTP requests, can be specified multiple times.  Includes http/s_server_address by default.")
             ("http-threads", bpo::value<uint16_t>()->default_value( my->plugin_state->thread_pool_size ),
@@ -451,6 +454,7 @@ namespace eosio {
          handle_sighup(); // setup logging
          my->plugin_state->max_body_size = options.at( "max-body-size" ).as<uint32_t>();
          verbose_http_errors = options.at( "verbose-http-errors" ).as<bool>();
+         my->allow_insecure_management_api = options.at("http-allow-insecure-management-api").as<bool>();
 
          my->plugin_state->thread_pool_size = options.at( "http-threads" ).as<uint16_t>();
          EOS_ASSERT( my->plugin_state->thread_pool_size > 0, chain::plugin_config_exception,
@@ -698,6 +702,15 @@ namespace eosio {
                             const auto& [address, categories] = entry;
                             return !categories.contains(category) || my->on_loopback_only(address);
                          });
+   }
+
+   void http_plugin::validate_management_api(api_category category) const {
+      EOS_ASSERT(my->allow_insecure_management_api || is_on_loopback(category),
+                 chain::plugin_config_exception,
+                 "Management API ${category} requires a loopback or Unix socket listener. "
+                 "Use http-category-address to separate public RPC from management APIs. "
+                 "Only a protected deployment should explicitly set http-allow-insecure-management-api=true.",
+                 ("category", from_category(category)));
    }
 
    bool http_plugin::verbose_errors() {

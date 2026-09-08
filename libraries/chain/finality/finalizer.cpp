@@ -1,4 +1,5 @@
 #include <eosio/chain/finality/finalizer.hpp>
+#include <eosio/chain/durable_file.hpp>
 #include <eosio/chain/exceptions.hpp>
 #include <fc/log/logger_config.hpp>
 
@@ -228,45 +229,36 @@ void unpack_v1(Stream& s, finalizer_safety_information& fsi) {
 }
 
 bool my_finalizers_t::save_finalizer_safety_info() const {
+   if (safety_write_failed)
+      return false;
    try {
-      if (!cfile_ds.is_open()) {
-         EOS_ASSERT(!persist_file_path.empty(), finalizer_safety_exception,
-                    "path for storing finalizer safety information file not specified");
-         cfile_ds.set_file_path(persist_file_path);
-         cfile_ds.open(fc::cfile::truncate_rw_mode);
-      }
-      // optimize by only calculating crc for inactive once
-      if (inactive_safety_info_written_pos == 0) {
-         persist_file.seekp(0);
-         fc::raw::pack(persist_file, fsi_t::magic);
-         fc::raw::pack(persist_file, current_safety_file_version);
+      EOS_ASSERT(!persist_file_path.empty(), finalizer_safety_exception,
+                 "path for storing finalizer safety information file not specified");
+      durable_file::replace(persist_file_path, [&](std::ofstream& out) {
+         durable_file::output_adapter adapter{out};
+         fc::datastream_crc<durable_file::output_adapter> output{adapter};
+         fc::raw::pack(output, fsi_t::magic);
+         fc::raw::pack(output, current_safety_file_version);
          uint64_t size = finalizers.size() + inactive_safety_info.size();
-         fc::raw::pack(persist_file, size);
+         fc::raw::pack(output, size);
 
          // save also the fsi that was originally present in the file, but which applied to
          // finalizers not configured anymore.
          for (const auto& [pub_key, fsi] : inactive_safety_info) {
-            fc::raw::pack(persist_file, pub_key);
-            pack_v1(persist_file, fsi);
+            fc::raw::pack(output, pub_key);
+            pack_v1(output, fsi);
          }
-         inactive_safety_info_written_pos = persist_file.tellp();
-         inactive_crc32 = persist_file.crc();
-      } else {
-         persist_file.seekp(inactive_safety_info_written_pos, inactive_crc32);
-      }
-
-      // active finalizers
-      for (const auto& [pub_key, f] : finalizers) {
-         fc::raw::pack(persist_file, pub_key);
-         pack_v1(persist_file, f.fsi);
-      }
-
-      uint32_t cs = persist_file.checksum();
-      fc::raw::pack(persist_file, cs);
-
-      cfile_ds.flush();
+         for (const auto& [pub_key, f] : finalizers) {
+            fc::raw::pack(output, pub_key);
+            pack_v1(output, f.fsi);
+         }
+         const uint32_t cs = output.checksum();
+         fc::raw::pack(output, cs);
+      });
       return true;
    } FC_LOG_AND_DROP()
+   safety_write_failed = true;
+   fc_elog(vote_logger, "Finalizer safety persistence failed; voting disabled until operator-verified restart");
    return false;
 }
 
@@ -316,7 +308,7 @@ my_finalizers_t::fsi_map my_finalizers_t::load_finalizer_safety_info() {
 
    if (!std::filesystem::exists(persist_file_path)) {
       if (!std::filesystem::exists(persist_file_path.parent_path()))
-         std::filesystem::create_directories(persist_file_path.parent_path());
+         durable_file::create_directories(persist_file_path.parent_path());
       fc_ilog(vote_logger, "finalizer safety persistence file ${p} does not exist (which is expected on the first use of a BLS finalizer key)",
               ("p", persist_file_path));
       return res;

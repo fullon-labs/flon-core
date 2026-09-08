@@ -69,6 +69,7 @@ void net_api_plugin::plugin_startup() {
 void net_api_plugin::plugin_initialize(const variables_map& options) {
    try {
       const auto& _http_plugin = app().get_plugin<http_plugin>();
+      _http_plugin.validate_management_api(api_category::net_rw);
       if( !_http_plugin.is_on_loopback(api_category::net_rw)) {
          wlog( "\n"
                "**********SECURITY WARNING**********\n"

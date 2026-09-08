@@ -300,6 +300,12 @@ public:
     */
    bool get(const std::string& key, std::string& value);
 
+   // Safety-sensitive callers must distinguish absence from storage failure.
+   rocksdb::Status get_status(const std::string& key, std::string& value);
+   // Throws on unreadable/corrupt/exhausted counters, or a missing counter
+   // with existing account indexes. Only a genuinely new account starts at 0.
+   uint64_t read_account_sequence(const std::string& account);
+
    /** Retrieve a group of keys using RocksDB's batched read path. */
    std::vector<rocksdb::Status> multi_get(const std::vector<std::string>& keys,
                                           std::vector<std::string>& values) const;
@@ -335,8 +341,8 @@ public:
    /**
     * Atomically write one accepted block together with the inverse mutations
     * needed to restore its parent. Public history keys are append-only; only
-    * `_internal_` keys are read before the batch to preserve overwritten
-    * values in the undo record.
+    * `_internal_` keys preserve previous values in the undo record. Account
+    * index keys are also checked for absence to reject stale sequence cursors.
     */
    bool batch_write_with_undo(
       uint32_t block_num,

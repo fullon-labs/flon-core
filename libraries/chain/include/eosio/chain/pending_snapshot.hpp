@@ -2,6 +2,7 @@
 
 #include <eosio/chain/controller.hpp>
 #include <eosio/chain/types.hpp>
+#include <eosio/chain/snapshot_file.hpp>
 
 #include <string>
 
@@ -46,10 +47,7 @@ public:
                    ("block_id", block_id));
       }
 
-      fs::rename(fs::path(pending_path), fs::path(final_path), ec);
-      EOS_ASSERT(!ec, chain::snapshot_finalization_exception,
-                 "Unable to finalize valid snapshot of block number ${bn}: [code: ${ec}] ${message}",
-                 ("bn", get_height())("ec", ec.value())("message", ec.message()));
+      snapshot_file::rename(fs::path(pending_path), fs::path(final_path));
 
       ilog("Snapshot created at block ${bn} available at ${fn}", ("bn", block_ptr->block_num())("fn", final_path));
 

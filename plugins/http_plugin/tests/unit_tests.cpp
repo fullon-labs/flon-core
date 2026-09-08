@@ -706,6 +706,33 @@ BOOST_AUTO_TEST_CASE(test_on_loopback) {
    BOOST_CHECK(!on_loopback({"test", "--plugin=eosio::http_plugin", "--http-server-address", "example.com:8888"}));
 }
 
+BOOST_AUTO_TEST_CASE(management_apis_require_private_transport_or_explicit_opt_in) {
+   const auto validate = [](std::initializer_list<const char*> args, bool wallet = true) {
+      appbase::scoped_app app;
+      BOOST_REQUIRE(app->initialize<http_plugin>(args.size(), const_cast<char**>(args.begin())));
+      if (wallet) app->get_plugin<http_plugin>().validate_management_api(api_category::node);
+      for (const auto category : {api_category::producer_rw,
+                                 api_category::snapshot, api_category::net_rw,
+                                 api_category::test_control}) {
+         app->get_plugin<http_plugin>().validate_management_api(category);
+      }
+   };
+   BOOST_CHECK_THROW(validate({"test", "--http-server-address=0.0.0.0:8888"}),
+                     chain::plugin_config_exception);
+   BOOST_CHECK_NO_THROW(validate({"test", "--http-server-address=127.0.0.1:8888"}));
+   BOOST_CHECK_NO_THROW(validate({"test", "--http-server-address", "", "--unix-socket-path=a"}));
+   BOOST_CHECK_NO_THROW(validate({"test", "--http-server-address=0.0.0.0:8888",
+                                 "--http-allow-insecure-management-api=true"}));
+   BOOST_CHECK_NO_THROW(validate({"test", "--http-server-address=http-category-address",
+      "--plugin=eosio::chain_api_plugin", "--plugin=eosio::producer_api_plugin",
+      "--http-category-address=chain_ro,0.0.0.0:8888",
+      "--http-category-address=producer_rw,127.0.0.1:8889"}, false));
+   BOOST_CHECK_THROW(validate({"test", "--http-server-address=http-category-address",
+      "--plugin=eosio::chain_api_plugin", "--plugin=eosio::producer_api_plugin",
+      "--http-category-address=chain_ro,127.0.0.1:8888",
+      "--http-category-address=snapshot,0.0.0.0:8889"}, false), chain::plugin_config_exception);
+}
+
 BOOST_FIXTURE_TEST_CASE(bytes_in_flight, http_plugin_test_fixture) {
    http_plugin* http_plugin = init({"--plugin=eosio::http_plugin",
                                     "--http-server-address=127.0.0.1:8891",

@@ -38,3 +38,15 @@ INSTALL( TARGETS
 )
 
 INSTALL( FILES ${HEADERS} DESTINATION "include/eosio/transaction_history_plugin" )
+
+# Storage and request-budget tests do not need CDT or compiled test contracts.
+add_executable(history_plugin_unit_tests EXCLUDE_FROM_ALL
+   tests/main.cpp
+   tests/query_budget_tests.cpp
+   ${CMAKE_SOURCE_DIR}/unittests/transaction_history_plugin_tests.cpp)
+target_link_libraries(history_plugin_unit_tests PRIVATE
+   transaction_history_plugin eosio_testing Boost::included_unit_test_framework)
+add_test(NAME history_plugin_unit_tests COMMAND history_plugin_unit_tests)
+
+add_executable(history_smoke_driver EXCLUDE_FROM_ALL tests/smoke_driver.cpp)
+target_link_libraries(history_smoke_driver PRIVATE transaction_history_plugin eosio_chain_wrap)

@@ -119,6 +119,11 @@ namespace eosio { namespace chain {
           */
          static void smoke_test(const std::filesystem::path& block_dir, uint32_t n);
 
+         // Read-only recovery preflight. Requires an unpruned, contiguous active
+         // log containing the checkpoint anchor; never repairs an index/log.
+         static uint32_t check_recovery_anchor(const std::filesystem::path& block_dir,
+                                              const chain_id_type&, const block_id_type&);
+
          static void split_blocklog(const std::filesystem::path& block_dir, const std::filesystem::path& dest_dir, uint32_t stride);
          static void merge_blocklogs(const std::filesystem::path& block_dir, const std::filesystem::path& dest_dir);
    private:

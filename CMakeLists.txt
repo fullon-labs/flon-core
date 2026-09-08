@@ -19,7 +19,7 @@ set( CXX_STANDARD_REQUIRED ON)
 
 set(VERSION_MAJOR 0)
 set(VERSION_MINOR 8)
-set(VERSION_PATCH 2)
+set(VERSION_PATCH 3)
 # set(VERSION_SUFFIX alpha)
 
 if(VERSION_SUFFIX)
@@ -186,13 +186,15 @@ add_compile_definitions(BOOST_TEST_DEFAULTS_TO_CORE_DUMP)
 # which includes a definition for `float16_t` conflicting with the one in `libraries/softfloat`.
 add_compile_definitions(BOOST_UNORDERED_DISABLE_NEON)
 
+option(BUILD_TESTS "Build unit tests" OFF)
+include(NodeProfile)
+
 add_subdirectory( libraries )
 add_subdirectory( plugins )
 add_subdirectory( programs )
 add_subdirectory( scripts )
 add_subdirectory( tools )
 
-option(BUILD_TESTS "Build unit tests" OFF)
 option(DISABLE_WASM_SPEC_TESTS "disable building of wasm spec unit tests" OFF)
 
 if(BUILD_TESTS)
@@ -222,7 +224,7 @@ configure_file(${CMAKE_SOURCE_DIR}/CMakeModules/ChainCoreCheckVersion.cmake ${CM
 # Install the project config files
 install(FILES ${CMAKE_BINARY_DIR}/modules/ChainCore-config.cmake DESTINATION ${CMAKE_INSTALL_FULL_LIBDIR}/cmake/${PROJECT_NAME} COMPONENT dev EXCLUDE_FROM_ALL)
 install(FILES ${CMAKE_BINARY_DIR}/modules/ChainCoreTester.cmake DESTINATION ${CMAKE_INSTALL_FULL_LIBDIR}/cmake/${PROJECT_NAME} COMPONENT dev EXCLUDE_FROM_ALL)
-install(FILES ${CMAKE_SOURCE_DIR}/modules/ChainCoreCheckVersion.cmake DESTINATION ${CMAKE_INSTALL_FULL_LIBDIR}/cmake/${PROJECT_NAME} COMPONENT dev EXCLUDE_FROM_ALL)
+install(FILES ${CMAKE_BINARY_DIR}/modules/ChainCoreCheckVersion.cmake DESTINATION ${CMAKE_INSTALL_FULL_LIBDIR}/cmake/${PROJECT_NAME} COMPONENT dev EXCLUDE_FROM_ALL)
 
 configure_file(LICENSE                                                     licenses/${PROJECT_NAME}/LICENSE           COPYONLY)
 configure_file(libraries/softfloat/COPYING.txt                             licenses/${PROJECT_NAME}/LICENSE.softfloat COPYONLY)
@@ -241,6 +243,7 @@ install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/libraries/testing/contracts DESTIN
         PATTERN "CMakeFiles" EXCLUDE
         PATTERN "*.cmake" EXCLUDE
         PATTERN "Makefile" EXCLUDE)
+if(BUILD_TESTS)
 install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/unittests/contracts DESTINATION ${CMAKE_INSTALL_FULL_DATAROOTDIR}/${PROJECT_NAME}_testing/unittests COMPONENT dev EXCLUDE_FROM_ALL
         PATTERN "CMakeFiles" EXCLUDE
         PATTERN "*.cmake" EXCLUDE
@@ -272,20 +275,23 @@ else()
 
    # The `make package` installation of symlinks happens via the `postinst` script installed in cmake.package via the line below
 endif()
+endif() # BUILD_TESTS: only install generated test fixtures and harness links when built
 
 configure_file(${CMAKE_SOURCE_DIR}/libraries/cli11/bash-completion/completions/util.in
                ${CMAKE_BINARY_DIR}/programs/util/bash-completion/completions/${UTIL_EXECUTABLE_NAME} @ONLY)
 configure_file(${CMAKE_SOURCE_DIR}/libraries/cli11/bash-completion/completions/client.in
                ${CMAKE_BINARY_DIR}/programs/client/bash-completion/completions/${CLIENT_EXECUTABLE_NAME} @ONLY)
 
-install(FILES ${CMAKE_BINARY_DIR}/programs/util/bash-completion/completions/${UTIL_EXECUTABLE_NAME} DESTINATION ${CMAKE_INSTALL_FULL_DATAROOTDIR}/bash-completion/completions COMPONENT base)
-install(FILES ${CMAKE_BINARY_DIR}/programs/client/bash-completion/completions/${CLIENT_EXECUTABLE_NAME} DESTINATION ${CMAKE_INSTALL_FULL_DATAROOTDIR}/bash-completion/completions COMPONENT base)
+if(FLON_BUILD_CLIENT_TOOLS)
+  install(FILES ${CMAKE_BINARY_DIR}/programs/util/bash-completion/completions/${UTIL_EXECUTABLE_NAME} DESTINATION ${CMAKE_INSTALL_FULL_DATAROOTDIR}/bash-completion/completions COMPONENT base)
+  install(FILES ${CMAKE_BINARY_DIR}/programs/client/bash-completion/completions/${CLIENT_EXECUTABLE_NAME} DESTINATION ${CMAKE_INSTALL_FULL_DATAROOTDIR}/bash-completion/completions COMPONENT base)
+endif()
 
 # Add the boost submodule we used to build to our install package, so headers can be found for libtester
 install(DIRECTORY "${CMAKE_SOURCE_DIR}/libraries/boost/"
         DESTINATION ${CMAKE_INSTALL_FULL_DATAROOTDIR}/${PROJECT_NAME}_boost
         COMPONENT dev EXCLUDE_FROM_ALL
-        PATTERN ".git/*" EXCLUDE
+        PATTERN ".git" EXCLUDE
         PATTERN "example/*" EXCLUDE
         PATTERN "bench/*" EXCLUDE
         PATTERN "doc/*" EXCLUDE

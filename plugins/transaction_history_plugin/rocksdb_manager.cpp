@@ -1,4 +1,5 @@
 #include <eosio/transaction_history_plugin/rocksdb_manager.hpp>
+#include <eosio/transaction_history_plugin/history_json.hpp>
 #include <fc/log/logger.hpp>
 #include <fc/io/json.hpp>
 #include <fc/scoped_exit.hpp>
@@ -44,13 +45,8 @@ bool parse_undo_key(std::string_view key, uint32_t& block_num) {
 
 bool extract_json_block_num(const std::string& value, uint32_t& block_num) {
    try {
-      fc::variant data = fc::json::from_string(value);
-      if (!data.is_object()) {
-         return false;
-      }
-
-      const auto& obj = data.get_object();
-      if (!obj.contains("block_num")) {
+      const auto obj = history_record_object(fc::json::from_string(value));
+      if (obj.find("block_num") == obj.end()) {
          return false;
       }
 
@@ -333,19 +329,25 @@ bool rocksdb_manager::put(const std::string& key, const std::string& value) {
 }
 
 bool rocksdb_manager::get(const std::string& key, std::string& value) {
-   if (!db_) return false;
+   return get_status(key, value).ok();
+}
+
+rocksdb::Status rocksdb_manager::get_status(const std::string& key, std::string& value) {
+   value.clear();
+   if (!db_) return rocksdb::Status::IOError("history database is not open");
 
    // Add retry logic for transient read failures
    const int max_retries = 3;
+   rocksdb::Status status;
    for (int retry = 0; retry < max_retries; ++retry) {
-      rocksdb::Status status = db_->Get(rocksdb::ReadOptions(), key, &value);
+      status = db_->Get(rocksdb::ReadOptions(), key, &value);
 
       if (status.ok()) {
-         return true;
+         return status;
       }
 
       if (status.IsNotFound()) {
-         return false; // Key doesn't exist, no point in retrying
+         return status; // Key doesn't exist, no point in retrying
       }
 
       // For other errors, implement retry with exponential backoff
@@ -359,7 +361,39 @@ bool rocksdb_manager::get(const std::string& key, std::string& value) {
       }
    }
 
-   return false;
+   value.clear();
+   return status;
+}
+
+uint64_t rocksdb_manager::read_account_sequence(const std::string& account) {
+   std::string value;
+   const auto status = get_status("_internal_account_sequence:" + account, value);
+   if (status.IsNotFound()) {
+      const std::string prefix = "acc:" + account + ":";
+      std::unique_ptr<rocksdb::Iterator> iterator(db_->NewIterator(rocksdb::ReadOptions()));
+      iterator->Seek(prefix);
+      if (!iterator->status().ok())
+         throw std::runtime_error("Cannot verify new history account: " + iterator->status().ToString());
+      if (iterator->Valid() && iterator->key().starts_with(prefix))
+         throw std::runtime_error("Missing history sequence for existing account " + account);
+      return 0;
+   }
+   if (!status.ok())
+      throw std::runtime_error("Cannot read history sequence for " + account + ": " + status.ToString());
+   uint64_t sequence = 0;
+   // Parse canonical unsigned decimal only. stoull accepts signs, spaces and
+   // trailing garbage, none of which are valid persisted sequence counters.
+   if (value.empty() || (value.size() > 1 && value.front() == '0'))
+      throw std::runtime_error("Invalid history sequence for " + account);
+   for (const char digit : value) {
+      if (digit < '0' || digit > '9' ||
+          sequence > (std::numeric_limits<uint64_t>::max() - (digit - '0')) / 10)
+         throw std::runtime_error("Invalid history sequence for " + account);
+      sequence = sequence * 10 + (digit - '0');
+   }
+   if (sequence == std::numeric_limits<uint64_t>::max())
+      throw std::runtime_error("Exhausted history sequence for " + account);
+   return sequence;
 }
 
 std::vector<rocksdb::Status> rocksdb_manager::multi_get(
@@ -883,7 +917,7 @@ bool rocksdb_manager::validate_database_impl(bool repair,
             if (value.size() <= max_history_record_bytes &&
                 extract_json_block_num(value.ToString(), key_block_num)) {
                highest_block_found = std::max(highest_block_found, key_block_num);
-               parsed_value = fc::json::from_string(value.ToString());
+               parsed_value = history_record_object(fc::json::from_string(value.ToString()));
             } else {
                key_is_valid = false;
                invalid_keys_found++;
@@ -894,7 +928,7 @@ bool rocksdb_manager::validate_database_impl(bool repair,
             if (value.size() <= max_history_record_bytes &&
                 extract_json_block_num(value.ToString(), key_block_num)) {
                highest_block_found = std::max(highest_block_found, key_block_num);
-               parsed_value = fc::json::from_string(value.ToString());
+               parsed_value = history_record_object(fc::json::from_string(value.ToString()));
             } else {
                key_is_valid = false;
                invalid_keys_found++;
@@ -932,8 +966,9 @@ bool rocksdb_manager::validate_database_impl(bool repair,
             } else if (key.starts_with("trx:") && object.contains("traces") &&
                        object["traces"].is_array()) {
                for (const auto& trace : object["traces"].get_array()) {
-                  if (!trace.is_object() || !trace.get_object().contains("action_ref")) continue;
-                  const std::string reference = trace.get_object()["action_ref"].as_string();
+                  const auto fields = history_record_object(trace);
+                  if (fields.find("action_ref") == fields.end()) continue;
+                  const std::string reference = fields["action_ref"].as_string();
                   queue_reference(reference, "act:");
                }
             }
@@ -1179,6 +1214,15 @@ bool rocksdb_manager::batch_write_with_undo(
          }
 
          if (append_only) {
+            if (key.starts_with("acc:")) {
+               std::string existing;
+               const auto status = db_->Get(rocksdb::ReadOptions(), key, &existing);
+               if (!status.IsNotFound()) {
+                  elog("Refusing account history index overwrite or unreadable key ${key}: ${status}",
+                       ("key", key)("status", status.ToString()));
+                  return false;
+               }
+            }
             undo.erase.push_back(key);
             return true;
          }
@@ -1199,8 +1243,9 @@ bool rocksdb_manager::batch_write_with_undo(
       };
 
       // Accepted-block public keys (trx:/act:/acc:/blk:) are append-only.
-      // Avoid a point read for every new history row; metadata and sequence
-      // cursors are the only values updated in place.
+      // Avoid point reads for immutable transaction/action/block rows. Account
+      // rows additionally verify absence; a bad counter must not overwrite an
+      // older index that the erase-only undo record could not restore.
       for (const auto& [key, value] : writes) {
          if (!capture_previous(key, !key.starts_with("_internal_"))) return false;
       }
@@ -1319,6 +1364,27 @@ bool rocksdb_manager::rollback_with_undo(uint32_t block_num) {
    }
    if (current < block_num) return false;
 
+   // Keep every group crash-consistent: the restored accepted-block cursor
+   // and deleted undo records are committed together. A restart can resume
+   // from that cursor even if a later group fails.
+   constexpr size_t max_group_blocks = 64;
+   constexpr size_t max_group_bytes = 16 * 1024 * 1024;
+   rocksdb::WriteBatch batch;
+   size_t group_blocks = 0;
+   const auto flush_group = [&]() {
+      if (group_blocks == 0) return true;
+      rocksdb::WriteOptions options;
+      options.sync = true;
+      const auto write_status = db_->Write(options, &batch);
+      if (!write_status.ok()) {
+         elog("Failed to apply transaction history undo group: ${error}",
+              ("error", write_status.ToString()));
+         return false;
+      }
+      batch.Clear();
+      group_blocks = 0;
+      return true;
+   };
    for (uint32_t undo_block = current; undo_block > block_num; --undo_block) {
       const std::string undo_key = make_undo_key(undo_block);
       std::string undo_value;
@@ -1344,19 +1410,18 @@ bool rocksdb_manager::rollback_with_undo(uint32_t block_num) {
          return false;
       }
 
-      rocksdb::WriteBatch batch;
+      if (group_blocks != 0 &&
+          (group_blocks >= max_group_blocks ||
+           undo_value.size() >= max_group_bytes ||
+           batch.GetDataSize() > max_group_bytes - undo_value.size())) {
+         if (!flush_group()) return false;
+      }
       for (const auto& entry : undo.restore) batch.Put(entry.key, entry.value);
       for (const auto& key : undo.erase) batch.Delete(key);
       batch.Delete(undo_key);
-      rocksdb::WriteOptions options;
-      options.sync = true;
-      status = db_->Write(options, &batch);
-      if (!status.ok()) {
-         elog("Failed to apply transaction history undo record for block ${block}: ${error}",
-              ("block", undo_block)("error", status.ToString()));
-         return false;
-      }
+      ++group_blocks;
    }
+   if (!flush_group()) return false;
 
    status = db_->Get(rocksdb::ReadOptions(), "_internal_last_accepted_block_num", &current_text);
    if (!status.ok()) return false;

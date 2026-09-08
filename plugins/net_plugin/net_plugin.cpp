@@ -2,6 +2,7 @@
 #include <eosio/net_plugin/protocol.hpp>
 #include <eosio/net_plugin/net_utils.hpp>
 #include <eosio/net_plugin/auto_bp_peering.hpp>
+#include <eosio/net_plugin/sync_range.hpp>
 #include <eosio/chain/types.hpp>
 #include <eosio/chain/controller.hpp>
 #include <eosio/chain/exceptions.hpp>
@@ -224,10 +225,7 @@ namespace eosio {
       uint32_t       sync_last_requested_num GUARDED_BY(sync_mtx) {0};  // end block number of the last requested range, inclusive
       uint32_t       sync_next_expected_num  GUARDED_BY(sync_mtx) {0};  // the next block number we need from peer
       connection_ptr sync_source             GUARDED_BY(sync_mtx);      // connection we are currently syncing from
-      struct requested_sync_range {
-         uint32_t start = 0;
-         uint32_t end = 0;
-      };
+      using requested_sync_range = ::eosio::detail::sync_range;
       struct issued_sync_range {
          connection_ptr source;
          requested_sync_range range;
@@ -2480,8 +2478,9 @@ namespace eosio {
    void sync_manager::sync_timeout(const connection_ptr& c, const boost::system::error_code& ec) {
       if( !ec ) {
          peer_dlog(c, "sync timed out");
-         sync_reassign_fetch( c );
-         close(true);
+         ::eosio::detail::handle_sync_timeout(c, [this](const auto& source) {
+            sync_reassign_fetch(source);
+         });
       } else if( ec != boost::asio::error::operation_aborted ) { // don't log on operation_aborted, called on destroy
          peer_elog( c, "setting timer for sync request got error ${ec}", ("ec", ec.message()) );
       }
@@ -2785,10 +2784,12 @@ namespace eosio {
             if (!blk_applied) {
                auto range = active_sync_ranges.find(c);
                bool range_complete = false;
+               bool range_progress = false;
                if (range != active_sync_ranges.end() &&
                    blk_num >= range->second.start && blk_num <= range->second.end) {
                   received_sync_blocks.insert(blk_num);
-                  range_complete = blk_num >= range->second.end;
+                  range_progress = range->second.receive(blk_num);
+                  range_complete = range->second.complete();
                }
                while (received_sync_blocks.erase(sync_next_expected_num) != 0) {
                   ++sync_next_expected_num;
@@ -2799,7 +2800,7 @@ namespace eosio {
                   c->cancel_sync_wait();
                   active_sync_ranges.erase(range);
                   if (c == sync_source) sync_source.reset();
-               } else if (range != active_sync_ranges.end()) {
+               } else if (range_progress) {
                   peer_dlog(c, "calling sync_wait, block ${b}", ("b", blk_num));
                   c->sync_wait();
                }

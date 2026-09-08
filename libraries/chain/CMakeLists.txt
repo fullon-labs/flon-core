@@ -1,4 +1,17 @@
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/genesis_state_root_key.cpp.in ${CMAKE_CURRENT_BINARY_DIR}/genesis_state_root_key.cpp)
+add_executable(snapshot_file_test EXCLUDE_FROM_ALL tests/snapshot_file_tests.cpp)
+target_include_directories(snapshot_file_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+target_link_libraries(snapshot_file_test PRIVATE fc Boost::unit_test_framework)
+add_test(NAME snapshot_file_test COMMAND snapshot_file_test)
+add_executable(chain_safety_unit_tests EXCLUDE_FROM_ALL
+  tests/safety_tests.cpp
+  ${CMAKE_SOURCE_DIR}/unittests/vote_processor_tests.cpp
+  ${CMAKE_SOURCE_DIR}/unittests/finalizer_tests.cpp)
+file(GENERATE OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/safety-test-include/test-data.hpp
+  CONTENT "#define UNITTEST_TEST_DATA_DIR \"${CMAKE_SOURCE_DIR}/unittests/test-data\"\n")
+target_include_directories(chain_safety_unit_tests PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/safety-test-include)
+target_link_libraries(chain_safety_unit_tests PRIVATE eosio_testing eosio_chain fc Boost::unit_test_framework)
+add_test(NAME chain_safety_unit_tests COMMAND chain_safety_unit_tests)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/include/eosio/chain/chain_config_defines.hpp.in ${CMAKE_CURRENT_BINARY_DIR}/include/eosio/chain/chain_config_defines.hpp @ONLY)
 
 file(GLOB HEADERS "include/eosio/chain/*.hpp"
@@ -193,4 +206,3 @@ install( DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/eosio/chain/
       COMPONENT dev EXCLUDE_FROM_ALL
       FILES_MATCHING PATTERN "*.hpp" PATTERN "*.h" EXCLUDE
 )
-

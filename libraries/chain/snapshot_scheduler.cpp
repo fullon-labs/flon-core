@@ -179,11 +179,13 @@ void snapshot_scheduler::create_snapshot(next_function<snapshot_information> nex
       if(predicate) predicate();
       fs::create_directory(p.parent_path());
       auto snap_out = std::ofstream(p.generic_string(), (std::ios::out | std::ios::binary));
+      snap_out.exceptions(std::ios::badbit | std::ios::failbit);
       auto writer = std::make_shared<ostream_snapshot_writer>(snap_out);
       chain.write_snapshot(writer);
       writer->finalize();
       snap_out.flush();
       snap_out.close();
+      snapshot_file::sync(p);
    };
 
    // If in irreversible mode, create snapshot and return path to snapshot immediately.
@@ -191,11 +193,7 @@ void snapshot_scheduler::create_snapshot(next_function<snapshot_information> nex
       try {
          ilog("Starting snapshot creation at block ${bn}", ("bn", head_block_num));
          write_snapshot(temp_path);
-         std::error_code ec;
-         fs::rename(temp_path, snapshot_path, ec);
-         EOS_ASSERT(!ec, snapshot_finalization_exception,
-                    "Unable to finalize valid snapshot of block number ${bn}: [code: ${ec}] ${message}",
-                    ("bn", head_block_num)("ec", ec.value())("message", ec.message()));
+         snapshot_file::rename(temp_path, snapshot_path);
 
          ilog("Snapshot creation at block ${bn} complete; snapshot placed at ${fn}", ("bn", head_block_num)("fn", snapshot_path));
          next(snapshot_information{head_id, head_block_num, head_block_time, chain_snapshot_header::current_version, snapshot_path.generic_string()});
@@ -224,12 +222,7 @@ void snapshot_scheduler::create_snapshot(next_function<snapshot_information> nex
          ilog("Starting snapshot creation at block ${bn}", ("bn", head_block_num));
          write_snapshot(temp_path);// create a new pending snapshot
 
-         std::error_code ec;
-         fs::rename(temp_path, pending_path, ec);
-         EOS_ASSERT(!ec, snapshot_finalization_exception,
-                    "Unable to promote temp snapshot ${t} to pending ${p} for block number ${bn}: [code: ${ec}] ${message}",
-                    ("t", temp_path.generic_string())("p", pending_path.generic_string())
-                    ("bn", head_block_num)("ec", ec.value())("message", ec.message()));
+         snapshot_file::rename(temp_path, pending_path);
          ilog("Snapshot creation at block ${bn} complete; snapshot will be available once block becomes irreversible", ("bn", head_block_num));
          _pending_snapshot_index.emplace(head_id, next, pending_path.generic_string(), snapshot_path.generic_string());
          add_pending_snapshot_info(snapshot_information{head_id, head_block_num, head_block_time, chain_snapshot_header::current_version, pending_path.generic_string()});

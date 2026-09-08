@@ -115,6 +115,7 @@ namespace eosio {
         void post_http_thread_pool(std::function<void()> f);
 
         bool is_on_loopback(api_category category) const;
+        void validate_management_api(api_category category) const;
 
         static bool verbose_errors();
 

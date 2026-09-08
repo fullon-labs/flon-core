@@ -1,4 +1,5 @@
 #include <eosio/chain/application.hpp>
+#include <chainbase/persistence.hpp>
 
 #include <eosio/chain_plugin/chain_plugin.hpp>
 #include <eosio/http_plugin/http_plugin.hpp>
@@ -147,6 +148,7 @@ enum return_codes {
    SUCCESS           = 0,
    BAD_ALLOC         = 1,
    DATABASE_DIRTY    = 2,
+   STATE_SAVE_FAIL   = 3,
    FIXED_REVERSIBLE  = SUCCESS,
    EXTRACTED_GENESIS = SUCCESS,
    NODE_MANAGEMENT_SUCCESS = 5
@@ -245,6 +247,10 @@ int main(int argc, char** argv)
       return OTHER_FAIL;
    }
 
+   if (chainbase::had_persistence_failure()) {
+      elog("State persistence failed during shutdown; preserve the state directory and inspect storage errors before recovery");
+      return STATE_SAVE_FAIL;
+   }
    ilog("${name} successfully exiting", ("name", node::config::node_executable_name));
    return SUCCESS;
 }

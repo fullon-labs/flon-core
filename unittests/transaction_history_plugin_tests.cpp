@@ -21,6 +21,35 @@ using namespace eosio::testing;
 
 BOOST_AUTO_TEST_SUITE(transaction_history_plugin_tests)
 
+BOOST_AUTO_TEST_CASE(account_sequence_errors_never_reset_or_overwrite_indexes) {
+   fc::temp_directory temp;
+   rocksdb_manager manager;
+   std::string value;
+   BOOST_CHECK(!manager.get_status("missing", value).IsNotFound());
+   BOOST_CHECK_THROW(manager.read_account_sequence("alice"), std::runtime_error);
+   BOOST_REQUIRE(manager.open((temp.path() / "history").string()));
+   BOOST_CHECK(manager.get_status("missing", value).IsNotFound());
+   BOOST_CHECK_EQUAL(manager.read_account_sequence("alice"), 0u);
+   const std::string key = "_internal_account_sequence:alice";
+   for (const auto* invalid : {"", "-1", "+1", " 1", "1x", "01", "18446744073709551615", "18446744073709551616"}) {
+      BOOST_REQUIRE(manager.put(key, invalid));
+      BOOST_CHECK_THROW(manager.read_account_sequence("alice"), std::runtime_error);
+   }
+   BOOST_REQUIRE(manager.put(key, "42"));
+   BOOST_CHECK_EQUAL(manager.read_account_sequence("alice"), 42u);
+   const std::string index = "acc:alice:00000000000000000000";
+   BOOST_REQUIRE(manager.put(index, "original"));
+   BOOST_REQUIRE(manager.remove(key));
+   BOOST_CHECK_THROW(manager.read_account_sequence("alice"), std::runtime_error);
+   BOOST_REQUIRE(manager.put(key, "0")); // valid encoding but stale/corrupt cursor
+   BOOST_CHECK(!manager.batch_write_with_undo(1, {{index, "replacement"}, {key, "1"}}, {}));
+   BOOST_REQUIRE(manager.get(index, value));
+   BOOST_CHECK_EQUAL(value, "original");
+   BOOST_REQUIRE(manager.get(key, value));
+   BOOST_CHECK_EQUAL(value, "0");
+   BOOST_CHECK(!manager.has_undo_point(1));
+}
+
 BOOST_AUTO_TEST_CASE(rocksdb_manager_basic_operations) {
    rocksdb_manager manager;
    std::string test_path = "/tmp/test_rocksdb_" + std::to_string(std::time(nullptr));
@@ -76,7 +105,7 @@ BOOST_AUTO_TEST_CASE(rocksdb_manager_json_validation_and_cleanup) {
    BOOST_REQUIRE(manager.open((temp_dir.path() / "history").string()));
 
    auto history_record = [](uint32_t block_num) {
-      return std::map<std::string, fc::variant>{{"block_num", block_num}, {"payload", "test"}};
+      return fc::mutable_variant_object("block_num", block_num)("payload", "test");
    };
 
    BOOST_REQUIRE(manager.put_object("trx:before", history_record(99)));
@@ -90,6 +119,9 @@ BOOST_AUTO_TEST_CASE(rocksdb_manager_json_validation_and_cleanup) {
    BOOST_REQUIRE(manager.put_object("trx:from", history_record(100)));
    BOOST_REQUIRE(manager.put_object("act:from", action_record(100)));
    BOOST_REQUIRE(manager.put_object("acc:after", history_record(101)));
+   const std::map<std::string, fc::variant> legacy_action{
+      {"block_num", 100}, {"action_trace", fc::mutable_variant_object()}};
+   BOOST_REQUIRE(manager.put_object("act:legacy", legacy_action));
    BOOST_REQUIRE(manager.put("trx:invalid", "not-json"));
    BOOST_REQUIRE(manager.update_last_block_number(101));
    BOOST_REQUIRE(manager.create_undo_baseline(99));
@@ -115,6 +147,7 @@ BOOST_AUTO_TEST_CASE(rocksdb_manager_json_validation_and_cleanup) {
    BOOST_CHECK(!manager.get("trx:from", value));
    BOOST_CHECK(!manager.get("act:from", value));
    BOOST_CHECK(!manager.get("acc:after", value));
+   BOOST_CHECK(!manager.get("act:legacy", value));
    BOOST_CHECK(manager.has_undo_point(99));
    BOOST_CHECK(!manager.has_undo_point(100));
 
@@ -250,6 +283,83 @@ BOOST_AUTO_TEST_CASE(async_worker_task_execution) {
    BOOST_CHECK_EQUAL(counter.load(), 2);
 
    worker.stop();
+}
+
+BOOST_AUTO_TEST_CASE(grouped_rollback_restores_metadata_across_group_boundaries) {
+   fc::temp_directory temp;
+   rocksdb_manager db(8 * 1024 * 1024);
+   const auto database_path = (temp.path() / "history").string();
+   BOOST_REQUIRE(db.open(database_path));
+   BOOST_REQUIRE(db.batch_write({{"_internal_last_accepted_block_num", "0"}}));
+   BOOST_REQUIRE(db.create_undo_baseline(0));
+   for (uint32_t height = 1; height <= 130; ++height) {
+      std::vector<std::pair<std::string, std::string>> writes{
+         {"trx:" + std::to_string(height), "test"},
+         {"_internal_last_accepted_block_num", std::to_string(height)},
+         {"_internal_account_sequence:alice", std::to_string(height)}};
+      if (height == 40) writes.emplace_back("_internal_account_index_gap_block", "40");
+      BOOST_REQUIRE(db.batch_write_with_undo(height, writes));
+   }
+   BOOST_REQUIRE(db.rollback_with_undo(20));
+   db.close();
+   BOOST_REQUIRE(db.open(database_path));
+   std::string value;
+   BOOST_REQUIRE(db.get("_internal_last_accepted_block_num", value));
+   BOOST_CHECK_EQUAL(value, "20");
+   BOOST_REQUIRE(db.get("_internal_account_sequence:alice", value));
+   BOOST_CHECK_EQUAL(value, "20");
+   BOOST_CHECK(!db.get("_internal_account_index_gap_block", value));
+   BOOST_CHECK(db.has_undo_point(20));
+   BOOST_CHECK(!db.has_undo_point(21));
+   BOOST_CHECK(db.get("trx:20", value));
+   BOOST_CHECK(!db.get("trx:130", value));
+   BOOST_REQUIRE(db.rollback_with_undo(0));
+   BOOST_CHECK(!db.get("_internal_account_sequence:alice", value));
+   db.close();
+}
+
+BOOST_AUTO_TEST_CASE(grouped_rollback_failure_leaves_resumable_cursor) {
+   fc::temp_directory temp;
+   rocksdb_manager db(8 * 1024 * 1024);
+   const auto path = (temp.path() / "history").string();
+   BOOST_REQUIRE(db.open(path));
+   BOOST_REQUIRE(db.batch_write({{"_internal_last_accepted_block_num", "0"}}));
+   for (uint32_t height = 1; height <= 130; ++height) {
+      BOOST_REQUIRE(db.batch_write_with_undo(height, {
+         {"_internal_last_accepted_block_num", std::to_string(height)},
+         {"_internal_account_sequence:alice", std::to_string(height)}}));
+   }
+   // Force a failure after the first 64-block group has been committed.
+   BOOST_REQUIRE(db.remove_undo_point(60));
+   BOOST_CHECK(!db.rollback_with_undo(0));
+   db.close();
+   BOOST_REQUIRE(db.open(path));
+   std::string value;
+   BOOST_REQUIRE(db.get("_internal_last_accepted_block_num", value));
+   BOOST_CHECK_EQUAL(value, "66");
+   BOOST_REQUIRE(db.get("_internal_account_sequence:alice", value));
+   BOOST_CHECK_EQUAL(value, "66");
+   BOOST_CHECK(!db.has_undo_point(67));
+   BOOST_CHECK(db.has_undo_point(66));
+   BOOST_REQUIRE(db.rollback_with_undo(60));
+   BOOST_REQUIRE(db.get("_internal_last_accepted_block_num", value));
+   BOOST_CHECK_EQUAL(value, "60");
+}
+
+BOOST_AUTO_TEST_CASE(legacy_history_array_references_are_validated) {
+   fc::temp_directory temp;
+   rocksdb_manager db(8 * 1024 * 1024);
+   BOOST_REQUIRE(db.open((temp.path() / "history").string()));
+   BOOST_REQUIRE(db.update_last_block_number(10));
+   const std::map<std::string, fc::variant> action{
+      {"block_num", 10}, {"action_trace", fc::mutable_variant_object()}};
+   const std::map<std::string, fc::variant> reference{{"action_ref", "act:legacy"}};
+   BOOST_REQUIRE(db.put_object("act:legacy", action));
+   BOOST_REQUIRE(db.put_object("trx:legacy", fc::mutable_variant_object("block_num", 10)
+      ("traces", std::vector<fc::variant>{fc::variant(reference)})));
+   BOOST_CHECK(db.validate_database());
+   BOOST_REQUIRE(db.remove("act:legacy"));
+   BOOST_CHECK(!db.validate_database());
 }
 
 BOOST_AUTO_TEST_CASE(async_worker_queue_limits) {

@@ -94,13 +94,12 @@ namespace eosio::chain {
       const std::filesystem::path       persist_file_path;     // where we save the safety data
       std::atomic<bool>                 has_voted{false};      // true if this node has voted and updated safety info
       mutable std::mutex                mtx;
-      mutable fc::datastream<fc::cfile> cfile_ds;              // we want to keep the file open for speed
-      mutable persist_file_t            persist_file{cfile_ds};// we want to calculate checksum
+      mutable fc::datastream<fc::cfile> cfile_ds;              // startup reader only
+      mutable persist_file_t            persist_file{cfile_ds};
       finalizer_map_t                   finalizers;            // the active finalizers for this node, loaded at startup, not mutated afterwards
       fsi_map                           inactive_safety_info;  // loaded at startup, not mutated afterwards
       fsi_t                             default_fsi = fsi_t::unset_fsi(); // default provided at fullon startup
-      mutable long                      inactive_safety_info_written_pos{0};
-      mutable boost::crc_32_type        inactive_crc32; // cached value
+      mutable bool                      safety_write_failed{false}; // guarded by mtx; sticky until restart
 
    public:
       explicit my_finalizers_t(const std::filesystem::path& persist_file_path)
@@ -130,6 +129,8 @@ namespace eosio::chain {
          // Possible improvement in the future, look at locking only individual finalizers and releasing the lock for writing the file.
          // Would require making sure that only the latest is ever written to the file and that the file access was protected separately.
          std::unique_lock g(mtx);
+         if (safety_write_failed)
+            return;
 
          // first accumulate all the votes
          // optimized for finalizers of size one which should be the normal configuration outside of tests

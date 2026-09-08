@@ -22,7 +22,9 @@ test_control_api_plugin::test_control_api_plugin() = default;
 test_control_api_plugin::~test_control_api_plugin() = default;
 
 void test_control_api_plugin::set_program_options(options_description&, options_description&) {}
-void test_control_api_plugin::plugin_initialize(const variables_map&) {}
+void test_control_api_plugin::plugin_initialize(const variables_map&) {
+   app().get_plugin<http_plugin>().validate_management_api(api_category::test_control);
+}
 
 #define CALL_WITH_API_400(api_name, api_handle, api_namespace, call_name, http_response_code, params_type) \
 {std::string("/v1/" #api_name "/" #call_name), \

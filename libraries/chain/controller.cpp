@@ -1,4 +1,5 @@
 #include <eosio/chain/controller.hpp>
+#include <chainbase/persistence.hpp>
 #include <eosio/chain/transaction_context.hpp>
 
 #include <eosio/chain/block_log.hpp>
@@ -1007,7 +1008,16 @@ struct controller_impl {
    protocol_feature_manager        protocol_features;
    controller::config              conf;
    // persist chain_head after vote_processor shutdown, avoids concurrent access, after chain_head & conf since this uses them
-   fc::scoped_exit<std::function<void()>> write_chain_head = [&]() { chain_head.write(conf.state_dir / config::chain_head_filename); };
+   fc::scoped_exit<std::function<void()>> write_chain_head = [&]() {
+      try {
+         chain_head.write(conf.state_dir / config::chain_head_filename);
+      } catch (...) {
+         // This callback runs before db destruction. Do not let scoped_exit's
+         // no-throw behavior hide a failed metadata save or permit clean state.
+         chainbase::persistence_failed.store(true);
+         elog("Failed to persist chain_head.dat; state must remain dirty");
+      }
+   };
    const chain_id_type             chain_id; // read by thread_pool threads, value will not be changed
    bool                            replaying = false;
    bool                            is_producer_node = false; // true if node is configured as a block producer
@@ -1683,6 +1693,20 @@ struct controller_impl {
 
       assert(start_block_num <= blog_head->block_num());
 
+      if (skip_db_sessions(controller::block_status::irreversible)) {
+         // A clean physical checkpoint can still contain undo records for its
+         // then-reversible head. The next log block proves that head is now on
+         // the irreversible chain. Commit those records BEFORE no-session
+         // replay mutates state, otherwise the final set_revision() rejects the
+         // leftover undo stack (or later undo could roll back finalized state).
+         const auto next = blog.read_block_header_by_num(start_block_num);
+         EOS_ASSERT(next && next->previous == chain_head.id(), block_log_exception,
+                    "State head does not connect to the irreversible replay log; undo history was not discarded");
+         EOS_ASSERT(db.revision() == chain_head.block_num(), database_exception,
+                    "State revision does not match the replay starting head");
+         db.commit(chain_head.block_num());
+      }
+
       std::exception_ptr except_ptr;
       ilog( "existing block log, attempting to replay from ${s} to ${n} blocks", ("s", start_block_num)("n", blog_head->block_num()) );
       try {
@@ -1742,7 +1766,8 @@ struct controller_impl {
       ilog( "${n} irreversible blocks replayed", ("n", 1 + chain_head.block_num() - start_block_num) );
       ilog( "replayed ${n} blocks in ${duration} seconds, ${mspb} ms/block",
             ("n", chain_head.block_num() + 1 - start_block_num)("duration", (end-start).count()/1000000)
-            ("mspb", ((end-start).count()/1000.0)/(chain_head.block_num()-start_block_num)) );
+            ("mspb", chain_head.block_num() + 1 == start_block_num ? 0.0 :
+                      ((end-start).count()/1000.0)/(chain_head.block_num() + 1 - start_block_num)) );
 
       // if the irreverible log is played without undo sessions enabled, we need to sync the
       // revision ordinal to the appropriate expected value here.

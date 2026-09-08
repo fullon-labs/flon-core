@@ -167,6 +167,8 @@ void producer_api_plugin::plugin_startup() {
 void producer_api_plugin::plugin_initialize(const variables_map& options) {
    try {
       const auto& _http_plugin = app().get_plugin<http_plugin>();
+      _http_plugin.validate_management_api(api_category::producer_rw);
+      _http_plugin.validate_management_api(api_category::snapshot);
       if( !_http_plugin.is_on_loopback(api_category::producer_rw)) {
          wlog( "\n"
                "**********SECURITY WARNING**********\n"

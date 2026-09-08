@@ -1,4 +1,6 @@
 #include <eosio/chain/fork_database.hpp>
+#include <eosio/chain/durable_file.hpp>
+#include <chainbase/persistence.hpp>
 #include <eosio/chain/exceptions.hpp>
 #include <boost/multi_index_container.hpp>
 #include <boost/multi_index/ordered_index.hpp>
@@ -637,7 +639,12 @@ namespace eosio::chain {
    }
 
    fork_database::~fork_database() {
-      close();
+      try {
+         close();
+      } catch (...) {
+         chainbase::persistence_failed.store(true);
+         elog("Failed to persist fork_db.dat; state must remain dirty");
+      }
    }
 
    void fork_database::close() {
@@ -658,7 +665,7 @@ namespace eosio::chain {
               (legacy_valid && savanna_valid && (in_use_value == in_use_t::both)) );
 
       ilog("Persisting to fork_database file: ${f}", ("f", fork_db_file));
-      std::ofstream out( fork_db_file.generic_string().c_str(), std::ios::out | std::ios::binary | std::ofstream::trunc );
+      durable_file::replace(fork_db_file, [&](std::ofstream& out) {
 
       fc::raw::pack( out, magic_number );
 
@@ -681,6 +688,7 @@ namespace eosio::chain {
       fc::raw::pack(out, savanna_valid);
       if (savanna_valid)
          fork_db_s.close(out);
+      });
    }
 
    bool fork_database::file_exists() const {

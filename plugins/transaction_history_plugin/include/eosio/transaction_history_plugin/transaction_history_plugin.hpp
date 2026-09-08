@@ -21,6 +21,13 @@ class transaction_history_plugin; // Forward declaration
 
 namespace transaction_history_apis {
 
+struct query_status {
+   uint32_t indexed_through_block = 0;
+   bool recording_healthy = false;
+   bool filtered = false;
+   std::optional<uint32_t> account_index_gap_block;
+};
+
 class read_only {
 public:
    struct get_transaction_params {
@@ -37,6 +44,8 @@ public:
       std::vector<fc::variant> traces;
       fc::variant res_usage;
       fc::variant gas_traces;
+      std::optional<bool> account_index_complete; // absent on legacy records
+      std::optional<query_status> history_status;
    };
 
    struct get_actions_params {
@@ -50,6 +59,7 @@ public:
       uint32_t last_irreversible_block;
       bool more = false;
       std::optional<bool> time_limit_exceeded_error;
+      std::optional<query_status> history_status;
    };
 
    struct get_transaction_count_params {
@@ -61,6 +71,7 @@ public:
       uint64_t count;
       uint32_t start_block;
       uint32_t end_block;
+      std::optional<query_status> history_status;
    };
 
    struct get_key_accounts_params {
@@ -183,11 +194,12 @@ private:
 } // namespace eosio
 
 FC_REFLECT(eosio::transaction_history_apis::read_only::get_transaction_params, (id)(block_num_hint))
-FC_REFLECT(eosio::transaction_history_apis::read_only::get_transaction_result, (id)(trx)(block_time)(block_num)(last_irreversible_block)(traces)(res_usage)(gas_traces))
+FC_REFLECT(eosio::transaction_history_apis::query_status, (indexed_through_block)(recording_healthy)(filtered)(account_index_gap_block))
+FC_REFLECT(eosio::transaction_history_apis::read_only::get_transaction_result, (id)(trx)(block_time)(block_num)(last_irreversible_block)(traces)(res_usage)(gas_traces)(account_index_complete)(history_status))
 FC_REFLECT(eosio::transaction_history_apis::read_only::get_actions_params, (account_name)(pos)(offset))
-FC_REFLECT(eosio::transaction_history_apis::read_only::get_actions_result, (actions)(last_irreversible_block)(more)(time_limit_exceeded_error))
+FC_REFLECT(eosio::transaction_history_apis::read_only::get_actions_result, (actions)(last_irreversible_block)(more)(time_limit_exceeded_error)(history_status))
 FC_REFLECT(eosio::transaction_history_apis::read_only::get_transaction_count_params, (start_block)(end_block))
-FC_REFLECT(eosio::transaction_history_apis::read_only::get_transaction_count_result, (count)(start_block)(end_block))
+FC_REFLECT(eosio::transaction_history_apis::read_only::get_transaction_count_result, (count)(start_block)(end_block)(history_status))
 FC_REFLECT(eosio::transaction_history_apis::read_only::get_key_accounts_params, (public_key))
 FC_REFLECT(eosio::transaction_history_apis::read_only::get_key_accounts_result, (account_names))
 FC_REFLECT(eosio::transaction_history_apis::read_only::get_controlled_accounts_params, (controlling_account))

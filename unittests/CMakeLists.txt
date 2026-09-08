@@ -85,9 +85,15 @@ add_custom_command(
 
 ### BUILD UNIT TEST EXECUTABLE ###
 file(GLOB UNIT_TESTS "*.cpp") # find all unit test suites
+if(NOT TARGET transaction_history_plugin)
+  list(FILTER UNIT_TESTS EXCLUDE REGEX "/transaction_history_plugin_tests\\.cpp$")
+endif()
 add_executable( unit_test ${UNIT_TESTS} protocol_feature_digest_tests.cpp) # build unit tests as one executable
 
-target_link_libraries( unit_test eosio_chain_wrap state_history chainbase eosio_testing fc custom_appbase flon_abi transaction_history_plugin ${PLATFORM_SPECIFIC_LIBS} )
+target_link_libraries( unit_test eosio_chain_wrap state_history chainbase eosio_testing fc custom_appbase flon_abi ${PLATFORM_SPECIFIC_LIBS} )
+if(TARGET transaction_history_plugin)
+  target_link_libraries(unit_test transaction_history_plugin)
+endif()
 
 target_compile_options(unit_test PUBLIC -DDISABLE_EOSLIB_SERIALIZE)
 target_include_directories( unit_test PUBLIC

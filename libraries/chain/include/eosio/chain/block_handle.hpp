@@ -38,7 +38,7 @@ public:
    size_t                  trx_size() const { return block()->transactions.size(); }
 
    void write(const std::filesystem::path& state_file);
-   bool read(const std::filesystem::path& state_file);
+   bool read(const std::filesystem::path& state_file, bool consume = true);
 };
 
 } // namespace eosio::chain

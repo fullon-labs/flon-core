@@ -1,4 +1,5 @@
 #include <eosio/chain/block_handle.hpp>
+#include <eosio/chain/durable_file.hpp>
 #include <fc/io/cfile.hpp>
 #include <filesystem>
 
@@ -20,15 +21,14 @@ void block_handle::write(const std::filesystem::path& state_file) {
 
    ilog("Writing chain_head block ${bn} ${id}", ("bn", block_num())("id", id()));
 
-   fc::datastream<fc::cfile> f;
-   f.set_file_path(state_file);
-   f.open("wb");
-   fc::raw::pack(f, chain_head_magic);
-   fc::raw::pack(f, chain_head_version);
-   fc::raw::pack(f, *this);
+   durable_file::replace(state_file, [&](std::ofstream& f) {
+      fc::raw::pack(f, chain_head_magic);
+      fc::raw::pack(f, chain_head_version);
+      fc::raw::pack(f, *this);
+   });
 }
 
-bool block_handle::read(const std::filesystem::path& state_file) {
+bool block_handle::read(const std::filesystem::path& state_file, bool consume) {
    if (!std::filesystem::exists(state_file))
       return false;
 
@@ -53,7 +53,7 @@ bool block_handle::read(const std::filesystem::path& state_file) {
    } FC_CAPTURE_AND_RETHROW( (state_file) );
 
    // remove the `chain_head.dat` file only if we were able to successfully load it.
-   std::filesystem::remove(state_file);
+   if (consume) std::filesystem::remove(state_file);
    return true;
 }
 

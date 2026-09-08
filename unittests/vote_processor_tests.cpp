@@ -124,6 +124,41 @@ vote_message_ptr make_vote_message(const block_state_ptr& bsp) {
 
 BOOST_AUTO_TEST_SUITE(vote_processor_tests)
 
+BOOST_AUTO_TEST_CASE(admission_bounds_blocked_executor_and_local_votes_bypass_it) {
+   vote_signal_t signal;
+   std::promise<void> entered, release;
+   auto released = release.get_future().share();
+   std::atomic<bool> first{true}, local_processed{false}, failed{false};
+   vote_processor_t vp{signal, [&](const block_id_type& id) -> block_state_ptr {
+      if (block_header::num_from_id(id) == 3) local_processed = true;
+      else if (first.exchange(false)) { entered.set_value(); released.wait(); }
+      return {};
+   }};
+   // Release a blocked handler even if an assertion throws, before vp destruction joins it.
+   bool did_release = false;
+   auto cleanup = fc::make_scoped_exit([&] { if (!did_release) release.set_value(); });
+   vp.start(1, [&](const fc::exception&) { failed = true; });
+   vp.process_vote_message(1, make_empty_message(make_block_id(2)), async_t::yes);
+   BOOST_REQUIRE(entered.get_future().wait_for(std::chrono::seconds(5)) == std::future_status::ready);
+   for (size_t i = 0; i < 5000; ++i)
+      vp.process_vote_message(1, make_empty_message(make_block_id(2)), async_t::yes);
+   BOOST_CHECK_EQUAL(vp.pending_votes(), 2500u);
+   BOOST_CHECK_GT(vp.dropped_votes(), 0u);
+   for (size_t i = 0; i < 5000; ++i) vp.notify_new_block(async_t::yes);
+   vp.process_vote_message(0, make_empty_message(make_block_id(3)), async_t::yes);
+   for (size_t i = 0; i < 500 && !local_processed; ++i)
+      std::this_thread::sleep_for(std::chrono::milliseconds(10));
+   BOOST_CHECK(local_processed.load());
+   BOOST_CHECK_LE(vp.pending_votes(), 2501u);
+   vp.notify_lib(10);
+   release.set_value(); did_release = true;
+   vp.notify_new_block(async_t::yes);
+   for (size_t i = 0; i < 500 && vp.pending_votes() != 0; ++i)
+      std::this_thread::sleep_for(std::chrono::milliseconds(10));
+   BOOST_CHECK_EQUAL(vp.pending_votes(), 0u);
+   BOOST_CHECK(!failed.load());
+}
+
 BOOST_AUTO_TEST_CASE( vote_processor_test ) {
    vote_signal_t voted_block;
 
