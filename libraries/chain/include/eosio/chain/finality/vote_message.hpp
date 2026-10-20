@@ -3,6 +3,7 @@
 #include <eosio/chain/types.hpp>
 #include <fc/crypto/bls_public_key.hpp>
 #include <fc/crypto/bls_signature.hpp>
+#include <utility>
 
 
 namespace eosio::chain {
@@ -17,6 +18,13 @@ namespace eosio::chain {
       bool                strong{false};
       bls_public_key      finalizer_key;
       bls_signature       sig;
+
+      vote_message() = default;
+      vote_message(block_id_type block_id, bool strong, bls_public_key finalizer_key, bls_signature sig)
+         : block_id(std::move(block_id)),
+           strong(strong),
+           finalizer_key(std::move(finalizer_key)),
+           sig(std::move(sig)) {}
 
       auto operator<=>(const vote_message&) const = default;
       bool operator==(const vote_message&) const = default;
