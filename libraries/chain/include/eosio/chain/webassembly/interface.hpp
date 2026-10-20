@@ -344,6 +344,26 @@ namespace webassembly {
          int32_t get_active_producers(legacy_span<account_name> producers) const;
 
          /**
+          * Return deterministic producer statistics for slots between the current
+          * chain head and the pending block. Slots before the pending block are
+          * necessarily missed; the pending block slot is counted as produced by
+          * its validated producer.
+          *
+          * The output is a tightly packed array of producer_slot_stats_v0 records,
+          * sorted by producer name. Passing an empty buffer returns the required
+          * byte size. The requested range may be chunked by callers.
+          *
+          * @param from_slot - first slot to inspect (inclusive)
+          * @param to_slot - last slot to inspect (inclusive)
+          * @param[out] stats - output buffer
+          *
+          * @return number of bytes required (if the buffer is empty), or the
+          *         number of bytes written to the buffer.
+          */
+         int32_t get_producer_slot_stats(uint32_t from_slot, uint32_t to_slot,
+                                         legacy_span<char> stats) const;
+
+         /**
           * Tests a given public key with the recovered public key from digest and signature.
           *
           * @ingroup crypto

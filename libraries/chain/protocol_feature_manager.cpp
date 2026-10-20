@@ -400,6 +400,17 @@ Enables new `get_last_irreversible_block_num` intrinsic which returns the last i
 */
             {}
          } )
+         (  builtin_protocol_feature_t::producer_slot_stats, builtin_protocol_feature_spec {
+            "PRODUCER_SLOT_STATS",
+            fc::variant("e2ebbbc97cde24e7acd17d94dac5c2580c38e3759facc3e1196a6ed9eb97934c").as<digest_type>(),
+            // SHA256 hash of the raw message below within the comment delimiters (exclude newline after /*) (do not modify message below).
+/*
+Builtin protocol feature: PRODUCER_SLOT_STATS
+
+Enables new `get_producer_slot_stats` intrinsic which returns deterministic expected, produced, and missed block-slot statistics for each scheduled producer over a bounded slot range.
+*/
+            {}
+         } )
    ;
 
 

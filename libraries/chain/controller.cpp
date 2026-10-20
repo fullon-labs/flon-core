@@ -6412,6 +6412,13 @@ void controller_impl::on_activation<builtin_protocol_feature_t::block_reference_
    } );
 }
 
+template<>
+void controller_impl::on_activation<builtin_protocol_feature_t::producer_slot_stats>() {
+   db.modify( db.get<protocol_state_object>(), [&]( auto& ps ) {
+      add_intrinsic_to_whitelist( ps.whitelisted_intrinsics, "get_producer_slot_stats" );
+   } );
+}
+
 /// End of protocol feature activation handlers
 
 } /// eosio::chain

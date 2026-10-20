@@ -1,7 +1,19 @@
 #include <eosio/chain/webassembly/interface.hpp>
 #include <eosio/chain/apply_context.hpp>
+#include <eosio/chain/producer_slot_stats.hpp>
+
+#include <algorithm>
+#include <cstring>
+#include <limits>
 
 namespace eosio { namespace chain { namespace webassembly {
+   namespace {
+      // Bound a single host call so a block following a long outage cannot spend
+      // unbounded native CPU. Contracts can cover the full gap using chunks.
+      constexpr uint32_t max_producer_stats_slots_per_call = 100'000;
+
+   }
+
    int32_t interface::get_active_producers( legacy_span<account_name> producers ) const {
       auto active_producers = context.get_active_producers();
 
@@ -13,5 +25,44 @@ namespace eosio { namespace chain { namespace webassembly {
       std::memcpy( producers.data(), active_producers.data(), copy_size );
 
       return copy_size;
+   }
+
+   int32_t interface::get_producer_slot_stats(uint32_t from_slot, uint32_t to_slot,
+                                               legacy_span<char> stats) const {
+      const auto head_slot = context.control.head().timestamp().slot;
+      const auto pending_slot = context.control.pending_block_timestamp().slot;
+
+      EOS_ASSERT(from_slot > head_slot, wasm_execution_error,
+                 "producer slot statistics must start after the current head slot");
+      EOS_ASSERT(from_slot <= to_slot, wasm_execution_error,
+                 "producer slot statistics range is invalid");
+      EOS_ASSERT(to_slot <= pending_slot, wasm_execution_error,
+                 "producer slot statistics cannot inspect slots after the pending block");
+
+      const uint64_t slot_count = uint64_t(to_slot) - from_slot + 1;
+      EOS_ASSERT(slot_count <= max_producer_stats_slots_per_call, wasm_execution_error,
+                 "producer slot statistics range exceeds ${max} slots",
+                 ("max", max_producer_stats_slots_per_call));
+
+      const auto actual_producer = context.control.pending_block_producer();
+      const auto result = calculate_producer_slot_stats(
+         from_slot, to_slot, pending_slot, actual_producer,
+         [&](block_timestamp_type timestamp) -> const producer_authority_schedule& {
+            const auto& schedule = context.control.head_active_producers(timestamp);
+            EOS_ASSERT(!schedule.producers.empty(), wasm_execution_error,
+                       "active producer schedule is empty");
+            return schedule;
+         });
+
+      const size_t required_size = result.size() * sizeof(producer_slot_stats_v0);
+      EOS_ASSERT(required_size <= std::numeric_limits<int32_t>::max(), wasm_execution_error,
+                 "producer slot statistics result is too large");
+      if (stats.size_bytes() == 0) {
+         return static_cast<int32_t>(required_size);
+      }
+
+      const size_t copy_size = std::min(stats.size_bytes(), required_size);
+      std::memcpy(stats.data(), result.data(), copy_size);
+      return static_cast<int32_t>(copy_size);
    }
 }}} // ns eosio::chain::webassembly
