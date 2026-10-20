@@ -46,6 +46,7 @@ jobs:
         with:
           ref: ${{ env.RELEASE_TAG }}
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Check out configured submodules
         shell: bash
@@ -114,6 +115,7 @@ jobs:
           fi
           cmake -S . -B build-release-core -G Ninja \
             -DCMAKE_BUILD_TYPE="$CMAKE_BUILD_TYPE" \
+            -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
             -DCMAKE_PREFIX_PATH="$llvm_prefix" \
             -DBUILD_TESTS=OFF \
             -DFLON_NODE_VARIANT=core \
@@ -144,6 +146,7 @@ jobs:
           fi
           cmake -S . -B build-release-history -G Ninja \
             -DCMAKE_BUILD_TYPE="$CMAKE_BUILD_TYPE" \
+            -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
             -DCMAKE_PREFIX_PATH="$llvm_prefix" \
             -DBUILD_TESTS=OFF \
             -DFLON_NODE_VARIANT=history \
@@ -205,6 +208,7 @@ jobs:
         with:
           ref: ${{ env.RELEASE_TAG }}
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Download all release artifacts
         uses: actions/download-artifact@v4
