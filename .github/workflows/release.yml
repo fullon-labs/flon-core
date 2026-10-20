@@ -226,3 +226,4 @@ jobs:
               --generate-notes
           fi
           gh release upload "$RELEASE_TAG" release-assets/* --clobber
+          gh release edit "$RELEASE_TAG" --draft=false
