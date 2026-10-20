@@ -46,7 +46,16 @@ jobs:
         with:
           ref: ${{ env.RELEASE_TAG }}
           fetch-depth: 0
-          submodules: recursive
+
+      - name: Check out configured submodules
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git config --file .gitmodules --get-regexp path | wc -l | tr -d ' ')" -gt 0
+          git submodule sync --recursive
+          git config --file .gitmodules --get-regexp path | awk '{print $2}' | while IFS= read -r submodule; do
+            git submodule update --init --recursive -- "$submodule"
+          done
 
       - name: Validate tag and source version
         shell: bash
@@ -88,9 +97,11 @@ jobs:
           set -euo pipefail
           brew install cmake llvm ninja rocksdb
           llvm_prefix=$(brew --prefix llvm)
-          echo "LLVM_PREFIX=$llvm_prefix" >> "$GITHUB_ENV"
-          echo "CC=$llvm_prefix/bin/clang" >> "$GITHUB_ENV"
-          echo "CXX=$llvm_prefix/bin/clang++" >> "$GITHUB_ENV"
+          {
+            echo "LLVM_PREFIX=$llvm_prefix"
+            echo "CC=$llvm_prefix/bin/clang"
+            echo "CXX=$llvm_prefix/bin/clang++"
+          } >> "$GITHUB_ENV"
           echo "$llvm_prefix/bin" >> "$GITHUB_PATH"
 
       - name: Configure core build
