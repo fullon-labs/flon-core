@@ -36,7 +36,7 @@ jobs:
           - name: macOS
             runner: macos-14
             artifact: macos
-            llvm_prefix: auto
+            llvm_prefix: /opt/homebrew
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 180
 
@@ -95,23 +95,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          brew install cmake llvm ninja rocksdb
-          llvm_prefix=$(brew --prefix llvm)
-          {
-            echo "LLVM_PREFIX=$llvm_prefix"
-            echo "CC=$llvm_prefix/bin/clang"
-            echo "CXX=$llvm_prefix/bin/clang++"
-          } >> "$GITHUB_ENV"
-          echo "$llvm_prefix/bin" >> "$GITHUB_PATH"
+          brew install cmake ninja rocksdb
 
       - name: Configure core build
         shell: bash
         run: |
           set -euo pipefail
           llvm_prefix="${{ matrix.llvm_prefix }}"
-          if [[ "$llvm_prefix" == auto ]]; then
-            llvm_prefix="$LLVM_PREFIX"
-          fi
           cmake -S . -B build-release-core -G Ninja \
             -DCMAKE_BUILD_TYPE="$CMAKE_BUILD_TYPE" \
             -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
@@ -140,9 +130,6 @@ jobs:
         run: |
           set -euo pipefail
           llvm_prefix="${{ matrix.llvm_prefix }}"
-          if [[ "$llvm_prefix" == auto ]]; then
-            llvm_prefix="$LLVM_PREFIX"
-          fi
           cmake -S . -B build-release-history -G Ninja \
             -DCMAKE_BUILD_TYPE="$CMAKE_BUILD_TYPE" \
             -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
