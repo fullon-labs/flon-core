@@ -33,7 +33,7 @@ if (DPKG_FOUND)
 else()
     set(CPACK_DEBIAN_PACKAGE_ARCHITECTURE "${CMAKE_SYSTEM_PROCESSOR}")
 endif()
-string(REGEX REPLACE "^${CMAKE_PROJECT_NAME}-(.*)$" "${CMAKE_PROJECT_NAME}_\\1_${CPACK_DEBIAN_PACKAGE_ARCHITECTURE}" CPACK_DEBIAN_FILE_NAME "${CPACK_PACKAGE_FILE_NAME}")
+string(REGEX REPLACE "^${CMAKE_PROJECT_NAME}-(.*)$" "${CMAKE_PROJECT_NAME}_\\1_${CPACK_DEBIAN_PACKAGE_ARCHITECTURE}.deb" CPACK_DEBIAN_FILE_NAME "${CPACK_PACKAGE_FILE_NAME}")
 
 string(APPEND CPACK_PACKAGE_FILE_NAME "-${CMAKE_SYSTEM_PROCESSOR}")
 
@@ -64,8 +64,10 @@ endif()
 #enable per component packages for .deb; ensure main package is just "${CMAKE_PROJECT_NAME}", not "${CMAKE_PROJECT_NAME}-base", and make the dev package have "${CMAKE_PROJECT_NAME}-dev" at the front not the back
 set(CPACK_DEB_COMPONENT_INSTALL ON)
 set(CPACK_DEBIAN_BASE_PACKAGE_NAME "${CMAKE_PROJECT_NAME}")
-set(CPACK_DEBIAN_BASE_FILE_NAME "${CPACK_DEBIAN_FILE_NAME}.deb")
-string(REGEX REPLACE "^(${CMAKE_PROJECT_NAME})" "\\1-dev" CPACK_DEBIAN_DEV_FILE_NAME "${CPACK_DEBIAN_BASE_FILE_NAME}")
+set(CPACK_DEBIAN_BASE_FILE_NAME "${CPACK_DEBIAN_FILE_NAME}")
+string(REGEX REPLACE "^(${CMAKE_PROJECT_NAME})" "\\1-node" CPACK_DEBIAN_NODE_FILE_NAME "${CPACK_DEBIAN_FILE_NAME}")
+string(REGEX REPLACE "^(${CMAKE_PROJECT_NAME})" "\\1-tools" CPACK_DEBIAN_TOOLS_FILE_NAME "${CPACK_DEBIAN_FILE_NAME}")
+string(REGEX REPLACE "^(${CMAKE_PROJECT_NAME})" "\\1-dev" CPACK_DEBIAN_DEV_FILE_NAME "${CPACK_DEBIAN_FILE_NAME}")
 
 #deb package tooling will be unable to detect deps for the dev package. llvm is tricky since we don't know what package could have been used; try to figure it out
 set(CPACK_DEBIAN_DEV_PACKAGE_DEPENDS "libgmp-dev, python3-distutils, python3-numpy, zlib1g-dev")
