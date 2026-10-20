@@ -8,6 +8,7 @@
 #include <eosio/chain/database_utils.hpp>
 #include <eosio/chain/global_property_object.hpp>
 #include <algorithm>
+#include <utility>
 
 namespace eosio { namespace chain {
 
@@ -190,6 +191,13 @@ struct core_gas_accessor {
    contract_table_utils::core_asset_account_ptr sys_gas_account;
    contract_table_utils::core_asset_account_ptr payer_gas_account;
    uint64_t convertible_gas   = 0;
+
+   core_gas_accessor(contract_table_utils::core_asset_account_ptr sys_gas_account,
+                     contract_table_utils::core_asset_account_ptr payer_gas_account,
+                     uint64_t convertible_gas)
+      : sys_gas_account(std::move(sys_gas_account)),
+        payer_gas_account(std::move(payer_gas_account)),
+        convertible_gas(convertible_gas) {}
 
    static core_gas_accessor_ptr create(chainbase::database& db, const account_name& payer);
    void pay_gas(chainbase::database& db, uint64_t gas);
