@@ -4,7 +4,8 @@
 2. [Supported Operating Systems](#supported-operating-systems)
 3. [Binary Installation](#binary-installation)
 4. [Build and Install from Source](#build-and-install-from-source)
-5. [Bash Autocomplete](#bash-autocomplete)
+5. [Node Packaging and Runtime Roles](#node-packaging-and-runtime-roles)
+6. [Bash Autocomplete](#bash-autocomplete)
 
 fullon is a C++ implementation of the [FullOn](https://github.com/fullon-labs) protocol with support for Savanna consensus. It contains blockchain node software and supporting tools for developers and node operators.
 
@@ -218,6 +219,17 @@ It is also possible to install using `make` instead:
 ```bash
 sudo make install
 ```
+
+## Node Packaging and Runtime Roles
+
+FLON uses two node build variants and four runtime role presets. BP, RPC, and
+seed nodes share the smaller `core` binary; history indexing is isolated in the
+`history` binary. Command-line and wallet utilities are distributed separately
+as `flon-tools`.
+
+See [Node packaging, build variants, and runtime roles](./docs/node-build-profiles.md)
+for package contents, build commands, role selection, deployment boundaries,
+and history-node operating guidance.
 
 ## Bash Autocomplete
 `fucli` and `flon-util` offer a substantial amount of functionality. Consider using bash's autocompletion support which makes it easier to discover all their various options.

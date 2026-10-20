@@ -3,9 +3,9 @@ add_executable( ${NODE_EXECUTABLE_NAME} main.cpp )
 add_executable(funod-state-inspect state_inspect.cpp)
 target_link_libraries(funod-state-inspect PRIVATE eosio_chain fc)
 copy_bin(funod-state-inspect)
-install(TARGETS funod-state-inspect RUNTIME DESTINATION ${CMAKE_INSTALL_FULL_BINDIR} COMPONENT base)
+install(TARGETS funod-state-inspect RUNTIME DESTINATION ${CMAKE_INSTALL_FULL_BINDIR} COMPONENT tools)
 install(PROGRAMS ${CMAKE_SOURCE_DIR}/scripts/state_checkpoint.py
-        DESTINATION ${CMAKE_INSTALL_FULL_BINDIR} RENAME funod-state-checkpoint COMPONENT base)
+        DESTINATION ${CMAKE_INSTALL_FULL_BINDIR} RENAME funod-state-checkpoint COMPONENT tools)
 if(UNIX)
   find_program(FLON_CHECKPOINT_PYTHON NAMES python3)
   if(FLON_CHECKPOINT_PYTHON)
@@ -68,5 +68,10 @@ include(additionalPlugins)
 
 copy_bin( ${NODE_EXECUTABLE_NAME} )
 install( TARGETS
-   ${NODE_EXECUTABLE_NAME} RUNTIME DESTINATION ${CMAKE_INSTALL_FULL_BINDIR} COMPONENT base
+   ${NODE_EXECUTABLE_NAME} RUNTIME DESTINATION ${CMAKE_INSTALL_FULL_BINDIR} COMPONENT node
 )
+
+install(DIRECTORY ${CMAKE_SOURCE_DIR}/config/node/
+        DESTINATION ${CMAKE_INSTALL_FULL_SYSCONFDIR}/flon/node
+        COMPONENT node
+        FILES_MATCHING PATTERN "*.ini")

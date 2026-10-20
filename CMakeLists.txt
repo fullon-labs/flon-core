@@ -283,8 +283,10 @@ configure_file(${CMAKE_SOURCE_DIR}/libraries/cli11/bash-completion/completions/c
                ${CMAKE_BINARY_DIR}/programs/client/bash-completion/completions/${CLIENT_EXECUTABLE_NAME} @ONLY)
 
 if(FLON_BUILD_CLIENT_TOOLS)
-  install(FILES ${CMAKE_BINARY_DIR}/programs/util/bash-completion/completions/${UTIL_EXECUTABLE_NAME} DESTINATION ${CMAKE_INSTALL_FULL_DATAROOTDIR}/bash-completion/completions COMPONENT base)
-  install(FILES ${CMAKE_BINARY_DIR}/programs/client/bash-completion/completions/${CLIENT_EXECUTABLE_NAME} DESTINATION ${CMAKE_INSTALL_FULL_DATAROOTDIR}/bash-completion/completions COMPONENT base)
+  install(FILES ${CMAKE_BINARY_DIR}/programs/util/bash-completion/completions/${UTIL_EXECUTABLE_NAME} DESTINATION ${CMAKE_INSTALL_FULL_DATAROOTDIR}/bash-completion/completions COMPONENT tools)
+  install(FILES ${CMAKE_BINARY_DIR}/programs/client/bash-completion/completions/${CLIENT_EXECUTABLE_NAME} DESTINATION ${CMAKE_INSTALL_FULL_DATAROOTDIR}/bash-completion/completions COMPONENT tools)
+  install(FILES ${CMAKE_SOURCE_DIR}/packaging/flon-tools/README.md
+          DESTINATION ${CMAKE_INSTALL_FULL_DATAROOTDIR}/doc/flon-tools COMPONENT tools)
 endif()
 
 # Add the boost submodule we used to build to our install package, so headers can be found for libtester
