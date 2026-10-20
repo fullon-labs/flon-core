@@ -1,0 +1,228 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag to build
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+env:
+  CMAKE_BUILD_TYPE: Release
+  RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+
+jobs:
+  build:
+    name: Build ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Ubuntu 22.04 x86_64
+            runner: ubuntu-22.04
+            artifact: ubuntu-22.04-x86_64
+            llvm_prefix: /usr/lib/llvm-14
+          - name: macOS
+            runner: macos-14
+            artifact: macos
+            llvm_prefix: auto
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 180
+
+    steps:
+      - name: Check out release tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Validate tag and source version
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]
+          git rev-parse --verify "refs/tags/${RELEASE_TAG}^{commit}"
+
+          major=$(sed -nE 's/^set\(VERSION_MAJOR ([0-9]+)\)$/\1/p' CMakeLists.txt)
+          minor=$(sed -nE 's/^set\(VERSION_MINOR ([0-9]+)\)$/\1/p' CMakeLists.txt)
+          patch=$(sed -nE 's/^set\(VERSION_PATCH ([0-9]+)\)$/\1/p' CMakeLists.txt)
+          version="${major}.${minor}.${patch}"
+          test "v${version}" = "$RELEASE_TAG"
+          echo "VERSION=${version}" >> "$GITHUB_ENV"
+
+      - name: Install Ubuntu dependencies
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential \
+            cmake \
+            file \
+            git \
+            libcurl4-openssl-dev \
+            libgmp-dev \
+            librocksdb-dev \
+            llvm-14-dev \
+            ninja-build \
+            python3-numpy \
+            zlib1g-dev
+
+      - name: Install macOS dependencies
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -euo pipefail
+          brew install cmake llvm ninja rocksdb
+          llvm_prefix=$(brew --prefix llvm)
+          echo "LLVM_PREFIX=$llvm_prefix" >> "$GITHUB_ENV"
+          echo "CC=$llvm_prefix/bin/clang" >> "$GITHUB_ENV"
+          echo "CXX=$llvm_prefix/bin/clang++" >> "$GITHUB_ENV"
+          echo "$llvm_prefix/bin" >> "$GITHUB_PATH"
+
+      - name: Configure core build
+        shell: bash
+        run: |
+          set -euo pipefail
+          llvm_prefix="${{ matrix.llvm_prefix }}"
+          if [[ "$llvm_prefix" == auto ]]; then
+            llvm_prefix="$LLVM_PREFIX"
+          fi
+          cmake -S . -B build-release-core -G Ninja \
+            -DCMAKE_BUILD_TYPE="$CMAKE_BUILD_TYPE" \
+            -DCMAKE_PREFIX_PATH="$llvm_prefix" \
+            -DBUILD_TESTS=OFF \
+            -DFLON_NODE_VARIANT=core \
+            -DFLON_BUILD_CLIENT_TOOLS=ON
+
+      - name: Build core node and tools archives
+        shell: bash
+        run: |
+          set -euo pipefail
+          cmake --build build-release-core \
+            --target flon-node-package flon-tools-package \
+            --parallel 4
+
+      - name: Build Ubuntu DEB packages
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          cmake --build build-release-core --target package --parallel 4
+
+      - name: Configure history build
+        shell: bash
+        run: |
+          set -euo pipefail
+          llvm_prefix="${{ matrix.llvm_prefix }}"
+          if [[ "$llvm_prefix" == auto ]]; then
+            llvm_prefix="$LLVM_PREFIX"
+          fi
+          cmake -S . -B build-release-history -G Ninja \
+            -DCMAKE_BUILD_TYPE="$CMAKE_BUILD_TYPE" \
+            -DCMAKE_PREFIX_PATH="$llvm_prefix" \
+            -DBUILD_TESTS=OFF \
+            -DFLON_NODE_VARIANT=history \
+            -DFLON_BUILD_CLIENT_TOOLS=OFF
+
+      - name: Build history node archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          cmake --build build-release-history \
+            --target flon-node-package \
+            --parallel 4
+
+      - name: Stage and verify release assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p release-assets
+          cp build-release-core/packages/*.tar.gz release-assets/
+          cp build-release-core/packages/*.zip release-assets/
+          cp build-release-history/packages/*.tar.gz release-assets/
+          cp build-release-history/packages/*.zip release-assets/
+          if [[ "$RUNNER_OS" == Linux ]]; then
+            cp build-release-core/*.deb release-assets/
+          fi
+
+          test "$(find release-assets -maxdepth 1 -type f -name '*.tar.gz' | wc -l | tr -d ' ')" -eq 3
+          test "$(find release-assets -maxdepth 1 -type f -name '*.zip' | wc -l | tr -d ' ')" -eq 3
+          if [[ "$RUNNER_OS" == Linux ]]; then
+            test "$(find release-assets -maxdepth 1 -type f -name '*.deb' | wc -l | tr -d ' ')" -ge 3
+          fi
+
+          checksum_file="SHA256SUMS-${{ matrix.artifact }}.txt"
+          if command -v sha256sum >/dev/null 2>&1; then
+            (cd release-assets && sha256sum ./*) > "$RUNNER_TEMP/$checksum_file"
+          else
+            (cd release-assets && shasum -a 256 ./*) > "$RUNNER_TEMP/$checksum_file"
+          fi
+          mv "$RUNNER_TEMP/$checksum_file" "release-assets/$checksum_file"
+          ls -lh release-assets
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.artifact }}
+          path: release-assets/*
+          if-no-files-found: error
+          retention-days: 14
+
+  publish:
+    name: Publish GitHub Release
+    needs: build
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out release tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+          fetch-depth: 0
+
+      - name: Download all release artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: release-*
+          path: release-assets
+          merge-multiple: true
+
+      - name: Verify release assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          git rev-parse --verify "refs/tags/${RELEASE_TAG}^{commit}"
+          test "$(find release-assets -maxdepth 1 -type f -name '*.tar.gz' | wc -l | tr -d ' ')" -eq 6
+          test "$(find release-assets -maxdepth 1 -type f -name '*.zip' | wc -l | tr -d ' ')" -eq 6
+          test "$(find release-assets -maxdepth 1 -type f -name '*.deb' | wc -l | tr -d ' ')" -ge 3
+          test "$(find release-assets -maxdepth 1 -type f -name 'SHA256SUMS-*.txt' | wc -l | tr -d ' ')" -eq 2
+          ls -lh release-assets
+
+      - name: Create or update release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release create "$RELEASE_TAG" \
+              --verify-tag \
+              --title "FLON Core ${RELEASE_TAG}" \
+              --generate-notes
+          fi
+          gh release upload "$RELEASE_TAG" release-assets/* --clobber
