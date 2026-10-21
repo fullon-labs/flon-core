@@ -36,7 +36,7 @@ block 开始时读取，因此增量归入前一个已完成 slot，避免 epoch
 取消当期奖励并让资金继续留在 `flon.gas`。
 
 单块通常只更新当前排班涉及的节点；结算总工作量仍为 O(51)，但拆成上限明确的
-多笔交易，避免单笔 `settleepoch` 扫描全部节点。
+多笔交易，避免单笔结算交易扫描全部节点。
 
 ## 资格与确定性
 
@@ -51,7 +51,8 @@ block 开始时读取，因此增量归入前一个已完成 slot，避免 epoch
 
 ## 上线顺序
 
-1. 升级 core/CDT，并激活 `PRODUCER_SLOT_STATS` 和 `GAS_FEE_TOTALS`；
+1. 升级 core/CDT，并依次激活 `BLOCK_REFERENCE_DATA`、`PRODUCER_SLOT_STATS` 和
+   `GAS_FEE_TOTALS`；
 2. 创建 `gas.reward`，部署并 `init`；
 3. 部署新版 `flon.system`；
 4. 将 `flon.gas@active` 授权给 `flon@eosio.code`，仅用于 epoch 资金划转；
