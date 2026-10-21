@@ -1338,6 +1338,7 @@ struct controller_impl {
       set_activation_handler<builtin_protocol_feature_t::savanna>();
       set_activation_handler<builtin_protocol_feature_t::action_data_to_json>();
       set_activation_handler<builtin_protocol_feature_t::block_reference_data>();
+      set_activation_handler<builtin_protocol_feature_t::producer_slot_stats>();
 
       irreversible_block.connect([this](const block_signal_params& t) {
          const auto& [ block, id] = t;
