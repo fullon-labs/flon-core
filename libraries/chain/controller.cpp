@@ -3378,8 +3378,21 @@ struct controller_impl {
             onblock_trace = push_transaction( onbtrx, fc::time_point::maximum(), fc::microseconds::maximum(),
                                       gpo.configuration.min_transaction_cpu_usage, true, 0 );
             if( onblock_trace->except ) {
-               wlog("onblock ${block_num} is REJECTING: ${entire_trace}",
-                    ("block_num", chain_head.block_num() + 1)("entire_trace", onblock_trace));
+               // A failing system onblock is intentionally non-fatal: the node
+               // must still be able to produce an empty block. Do not serialize
+               // the complete transaction trace here. Besides being unbounded,
+               // repeatedly formatting the nested trace on every speculative
+               // block can exhaust the logging path while the contract remains
+               // broken. Keep the diagnostic bounded to the exception itself.
+               auto error = onblock_trace->except->top_message();
+               constexpr size_t max_onblock_error_log_size = 1024;
+               if( error.size() > max_onblock_error_log_size ) {
+                  error.resize(max_onblock_error_log_size);
+                  error += "...";
+               }
+               wlog("onblock ${block_num} failed; continuing block generation: ${error}",
+                    ("block_num", chain_head.block_num() + 1)
+                    ("error", error));
             }
          } catch( const std::bad_alloc& e ) {
             elog( "on block transaction failed due to a std::bad_alloc" );

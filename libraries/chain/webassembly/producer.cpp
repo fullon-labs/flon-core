@@ -34,8 +34,11 @@ namespace eosio { namespace chain { namespace webassembly {
       const auto head_slot = context.control.head().timestamp().slot;
       const auto pending_slot = context.control.pending_block_timestamp().slot;
 
-      EOS_ASSERT(from_slot > head_slot, wasm_execution_error,
-                 "producer slot statistics must start after the current head slot");
+      // onblock executes while the block being applied is already exposed as
+      // head(), so its timestamp is a valid lower bound. Ordinary transaction
+      // execution still cannot inspect slots before the current head.
+      EOS_ASSERT(from_slot >= head_slot, wasm_execution_error,
+                 "producer slot statistics must start at or after the current head slot");
       EOS_ASSERT(from_slot <= to_slot, wasm_execution_error,
                  "producer slot statistics range is invalid");
       EOS_ASSERT(to_slot <= pending_slot, wasm_execution_error,
