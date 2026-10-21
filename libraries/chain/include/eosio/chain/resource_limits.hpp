@@ -113,6 +113,8 @@ namespace eosio { namespace chain {
          uint64_t get_total_cpu_usage() const;
          uint64_t get_total_net_usage() const;
          uint64_t get_total_ram_usage() const;
+         uint64_t get_total_gas_consumed() const;
+         uint64_t get_total_gas_value_flon() const;
 
          uint64_t get_virtual_block_cpu_limit() const;
          uint64_t get_virtual_block_net_limit() const;

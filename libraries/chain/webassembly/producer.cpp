@@ -1,6 +1,8 @@
 #include <eosio/chain/webassembly/interface.hpp>
 #include <eosio/chain/apply_context.hpp>
 #include <eosio/chain/producer_slot_stats.hpp>
+#include <eosio/chain/gas_fee_totals.hpp>
+#include <eosio/chain/resource_limits.hpp>
 
 #include <algorithm>
 #include <cstring>
@@ -63,6 +65,23 @@ namespace eosio { namespace chain { namespace webassembly {
 
       const size_t copy_size = std::min(stats.size_bytes(), required_size);
       std::memcpy(stats.data(), result.data(), copy_size);
+      return static_cast<int32_t>(copy_size);
+   }
+
+   int32_t interface::get_gas_fee_totals(legacy_span<char> totals) const {
+      const auto& resource_limits = context.control.get_resource_limits_manager();
+      const gas_fee_totals_v0 result{
+         resource_limits.get_total_gas_consumed(),
+         resource_limits.get_total_gas_value_flon()
+      };
+
+      constexpr size_t required_size = sizeof(gas_fee_totals_v0);
+      if (totals.size_bytes() == 0) {
+         return static_cast<int32_t>(required_size);
+      }
+
+      const size_t copy_size = std::min(totals.size_bytes(), required_size);
+      std::memcpy(totals.data(), &result, copy_size);
       return static_cast<int32_t>(copy_size);
    }
 }}} // ns eosio::chain::webassembly

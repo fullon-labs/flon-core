@@ -68,6 +68,22 @@ constexpr uint64_t expected_exponential_average_iterations( uint64_t from, uint6
 
 BOOST_AUTO_TEST_SUITE(resource_limits_test)
 
+   BOOST_FIXTURE_TEST_CASE(gas_fee_totals_track_actual_transaction_usage, resource_limits_fixture) try {
+      const account_name account(42);
+      initialize_account(account, false);
+      set_account_limits(account, 1'000'000'000, false);
+
+      transaction_res_usage res_usage(account);
+      std::optional<account_gas_trace> gas_trace;
+      res_usage.set_res_usage(100, 300);
+      add_transaction_usage(res_usage, gas_trace, false);
+
+      const uint64_t expected = res_usage.net_gas + res_usage.cpu_gas;
+      BOOST_REQUIRE(expected > 0);
+      BOOST_REQUIRE_EQUAL(get_total_gas_consumed(), expected);
+      BOOST_REQUIRE_EQUAL(get_total_gas_value_flon(), expected);
+   } FC_LOG_AND_RETHROW()
+
    BOOST_FIXTURE_TEST_CASE(trx_usage_test, resource_limits_fixture) try {
 
       auto& db = this->db();

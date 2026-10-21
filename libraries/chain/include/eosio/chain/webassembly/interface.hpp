@@ -364,6 +364,12 @@ namespace webassembly {
                                          legacy_span<char> stats) const;
 
          /**
+          * Return deterministic cumulative Gas consumption and its corresponding
+          * FLON value. Passing an empty buffer returns the required byte size.
+          */
+         int32_t get_gas_fee_totals(legacy_span<char> totals) const;
+
+         /**
           * Tests a given public key with the recovered public key from digest and signature.
           *
           * @ingroup crypto

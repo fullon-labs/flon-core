@@ -411,6 +411,17 @@ Enables new `get_producer_slot_stats` intrinsic which returns deterministic expe
 */
             {}
          } )
+         (  builtin_protocol_feature_t::gas_fee_totals, builtin_protocol_feature_spec {
+            "GAS_FEE_TOTALS",
+            fc::variant("4f547f190fb9393c446690c93524fed3d1dab6bc2ccb72a2f2f63b06db82dd55").as<digest_type>(),
+            // SHA256 hash of the raw message below within the comment delimiters (exclude newline after /*) (do not modify message below).
+/*
+Builtin protocol feature: GAS_FEE_TOTALS
+
+Enables new `get_gas_fee_totals` intrinsic which returns deterministic cumulative consumed Gas and corresponding FLON value.
+*/
+            {}
+         } )
    ;
 
 

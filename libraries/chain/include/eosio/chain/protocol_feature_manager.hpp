@@ -43,6 +43,7 @@ enum class builtin_protocol_feature_t : uint32_t {
    action_data_to_json = 100,
    block_reference_data = 101,
    producer_slot_stats = 102,
+   gas_fee_totals = 103,
    reserved_private_fork_protocol_features = 500000,
 };
 
