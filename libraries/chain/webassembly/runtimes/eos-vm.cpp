@@ -659,6 +659,9 @@ REGISTER_CF_HOST_FUNCTION( get_last_irreversible_block_num );
 // producer_slot_stats protocol feature
 REGISTER_LEGACY_CF_HOST_FUNCTION( get_producer_slot_stats );
 
+// gas_fee_totals protocol feature
+REGISTER_LEGACY_CF_HOST_FUNCTION( get_gas_fee_totals );
+
 } // namespace webassembly
 } // namespace chain
 } // namespace eosio

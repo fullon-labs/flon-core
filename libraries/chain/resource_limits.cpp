@@ -390,6 +390,9 @@ void resource_limits_manager::add_transaction_usage(transaction_res_usage& res_u
       gas_trace->used_gas = used_gas;
 
       res_utils::set_account_reserved_gas(_db, acc_limits, reserved_gas, _get_deep_mind_logger(is_trx_transient));
+
+      calc_utils::verify_add(state.total_gas_consumed, used_gas, "used gas to total gas consumed");
+      calc_utils::verify_add(state.total_gas_value_flon, used_gas, "used gas value to total gas value in FLON");
    } else {
       res_usage.set_gas_usage(0, 0);
    }
@@ -419,6 +422,8 @@ void resource_limits_manager::add_transaction_usage(transaction_res_usage& res_u
 
       rls.total_cpu_usage += cpu_usage;
       rls.total_net_usage += net_usage;
+      rls.total_gas_consumed += used_gas;
+      rls.total_gas_value_flon += used_gas;
    });
 
    EOS_ASSERT( state.pending_cpu_usage <= config.cpu_limit_parameters.max, block_resource_exhausted, "Block has insufficient cpu resources" );
@@ -524,6 +529,14 @@ void resource_limits_manager::add_ram_usage( const account_name account, int64_t
          }
 
          res_utils::set_account_reserved_gas(_db, acc_limits, reserved_gas, _get_deep_mind_logger(is_trx_transient));
+
+         const auto& state = _db.get<resource_limits_state_object>();
+         calc_utils::verify_add(state.total_gas_consumed, used_gas, "ram gas to total gas consumed");
+         calc_utils::verify_add(state.total_gas_value_flon, used_gas, "ram gas value to total gas value in FLON");
+         _db.modify(state, [&](resource_limits_state_object& rls) {
+            rls.total_gas_consumed += used_gas;
+            rls.total_gas_value_flon += used_gas;
+         });
 
          res_utils::verify_delta_converting(used_gas, "converting ram gas decreased delta");
          gas_trace->used_gas                 = used_gas;
@@ -661,6 +674,14 @@ uint64_t resource_limits_manager::get_total_net_usage() const {
 uint64_t resource_limits_manager::get_total_ram_usage() const {
    const auto& state = _db.get<resource_limits_state_object>();
    return state.total_ram_usage;
+}
+
+uint64_t resource_limits_manager::get_total_gas_consumed() const {
+   return _db.get<resource_limits_state_object>().total_gas_consumed;
+}
+
+uint64_t resource_limits_manager::get_total_gas_value_flon() const {
+   return _db.get<resource_limits_state_object>().total_gas_value_flon;
 }
 
 uint64_t resource_limits_manager::get_virtual_block_cpu_limit() const {
