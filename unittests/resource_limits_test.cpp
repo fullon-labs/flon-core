@@ -84,6 +84,20 @@ BOOST_AUTO_TEST_SUITE(resource_limits_test)
       BOOST_REQUIRE_EQUAL(get_total_gas_value_flon(), expected);
    } FC_LOG_AND_RETHROW()
 
+   BOOST_FIXTURE_TEST_CASE(gas_fee_totals_track_ram_usage, resource_limits_fixture) try {
+      const account_name account(43);
+      initialize_account(account, false);
+      set_account_limits(account, 1'000'000'000, false);
+
+      std::optional<account_gas_trace> gas_trace;
+      add_ram_usage(account, 1024, gas_trace, false);
+
+      BOOST_REQUIRE(gas_trace.has_value());
+      BOOST_REQUIRE(gas_trace->used_gas > 0);
+      BOOST_REQUIRE_EQUAL(get_total_gas_consumed(), gas_trace->used_gas);
+      BOOST_REQUIRE_EQUAL(get_total_gas_value_flon(), gas_trace->used_gas);
+   } FC_LOG_AND_RETHROW()
+
    BOOST_FIXTURE_TEST_CASE(trx_usage_test, resource_limits_fixture) try {
 
       auto& db = this->db();

@@ -24,6 +24,11 @@ core 在 CPU/NET 和 RAM Gas 实际扣费成功时累计：
 应出、实出和漏块；备用节点通过 `standbyproof` 持续证明在线。Gas totals 在 pending
 block 开始时读取，因此增量归入前一个已完成 slot，避免 epoch 边界错记。epoch 结束后：
 
+启用或重新启用奖励时，当前未完成 epoch 只用于建立 Gas 基线，不参与奖励；奖励从
+下一个完整 epoch 开始。每个 epoch 同时冻结当期门槛及分池比例，后续治理配置变化
+不会追溯改变已经完成 epoch 的结算结果。角色直接保存在节点统计行中，因此首块最多
+创建 51 条节点记录，而不是分别创建角色和统计两套记录。
+
 1. `beginsettle` 冻结该 epoch 的 Gas 增量和 10% 奖励池；
 2. `settlenext(epoch, max_nodes)` 每次最多处理 10 个节点，第一遍判定资格并累计
    分母，第二遍按确定顺序计算分配；
