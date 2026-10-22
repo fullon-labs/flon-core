@@ -26,14 +26,14 @@ static_assert(sizeof(producer_slot_stats_v0) == 32);
 /**
  * Calculate deterministic producer statistics for an inclusive range of slots.
  * The resolver must return the producer schedule effective at the supplied slot.
- * Only pending_slot can contain a produced block; every other slot in the range
- * represents a missed block between the chain head and that pending block.
+ * Only produced_slot can contain a produced block; every other slot in the
+ * range represents a missed block preceding that committed block.
  */
 template <typename ScheduleResolver>
 std::vector<producer_slot_stats_v0> calculate_producer_slot_stats(
    uint32_t from_slot,
    uint32_t to_slot,
-   uint32_t pending_slot,
+   uint32_t produced_slot,
    account_name actual_producer,
    ScheduleResolver&& resolve_schedule) {
    struct accumulator {
@@ -51,7 +51,7 @@ std::vector<producer_slot_stats_v0> calculate_producer_slot_stats(
       entry.result.producer = scheduled_producer;
       ++entry.result.expected;
 
-      const bool produced = slot == pending_slot && scheduled_producer == actual_producer;
+      const bool produced = slot == produced_slot && scheduled_producer == actual_producer;
       if (produced) {
          ++entry.result.produced;
          entry.seen_produced = true;

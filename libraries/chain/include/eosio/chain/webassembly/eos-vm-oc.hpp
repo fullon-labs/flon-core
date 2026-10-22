@@ -394,6 +394,8 @@ void register_eosvm_oc(Name n) {
    if(n == BOOST_HANA_STRING("env.eosio_exit")) return;
    constexpr auto fn = create_function<F, Preconditions, injected>();
    constexpr auto index = find_intrinsic_index(n.c_str());
+   static_assert(index < intrinsic_table_size(),
+                 "EOS VM OC host function is missing from the intrinsic jump table");
    [[maybe_unused]] intrinsic the_intrinsic(
       n.c_str(),
       wasm_function_type_provider<std::remove_pointer_t<decltype(fn)>>::type(),

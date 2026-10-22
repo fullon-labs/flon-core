@@ -344,10 +344,10 @@ namespace webassembly {
          int32_t get_active_producers(legacy_span<account_name> producers) const;
 
          /**
-          * Return deterministic producer statistics for slots between the current
-          * chain head and the pending block. Slots before the pending block are
-          * necessarily missed; the pending block slot is counted as produced by
-          * its validated producer.
+          * Return deterministic producer statistics from the last accounted slot
+          * through the current committed chain head. Earlier slots in the range
+          * are missed; the head slot is counted as produced by its validated
+          * producer.
           *
           * The output is a tightly packed array of producer_slot_stats_v0 records,
           * sorted by producer name. Passing an empty buffer returns the required

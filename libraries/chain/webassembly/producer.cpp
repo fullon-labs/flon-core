@@ -32,26 +32,23 @@ namespace eosio { namespace chain { namespace webassembly {
    int32_t interface::get_producer_slot_stats(uint32_t from_slot, uint32_t to_slot,
                                                legacy_span<char> stats) const {
       const auto head_slot = context.control.head().timestamp().slot;
-      const auto pending_slot = context.control.pending_block_timestamp().slot;
 
-      // onblock executes while the block being applied is already exposed as
-      // head(), so its timestamp is a valid lower bound. Ordinary transaction
-      // execution still cannot inspect slots before the current head.
-      EOS_ASSERT(from_slot >= head_slot, wasm_execution_error,
-                 "producer slot statistics must start at or after the current head slot");
       EOS_ASSERT(from_slot <= to_slot, wasm_execution_error,
                  "producer slot statistics range is invalid");
-      EOS_ASSERT(to_slot <= pending_slot, wasm_execution_error,
-                 "producer slot statistics cannot inspect slots after the pending block");
+      // onblock contains the header of the already committed head. Its payload
+      // can lag the speculative block being assembled by one block, so account
+      // the inclusive gap ending exactly at that committed head.
+      EOS_ASSERT(to_slot == head_slot, wasm_execution_error,
+                 "producer slot statistics range must end at the current head slot");
 
       const uint64_t slot_count = uint64_t(to_slot) - from_slot + 1;
       EOS_ASSERT(slot_count <= max_producer_stats_slots_per_call, wasm_execution_error,
                  "producer slot statistics range exceeds ${max} slots",
                  ("max", max_producer_stats_slots_per_call));
 
-      const auto actual_producer = context.control.pending_block_producer();
+      const auto actual_producer = context.control.head().producer();
       const auto result = calculate_producer_slot_stats(
-         from_slot, to_slot, pending_slot, actual_producer,
+         from_slot, to_slot, head_slot, actual_producer,
          [&](block_timestamp_type timestamp) -> const producer_authority_schedule& {
             const auto& schedule = context.control.head_active_producers(timestamp);
             EOS_ASSERT(!schedule.producers.empty(), wasm_execution_error,
