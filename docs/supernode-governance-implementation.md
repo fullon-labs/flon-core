@@ -195,8 +195,8 @@ availability = produced_blocks / expected_blocks
 | --- | --- |
 | `>= 99%` | 100% 绩效奖励 |
 | `95%–99%` | 绩效奖按线性系数折减 |
-| `90%–95%` | BP 与投票人当期奖励为零，记 1 次警告 |
-| `< 90%` | 零奖励、停权 1 个 epoch、备用递补 |
+| `90%–95%` | 基础出块奖励及投票人分享为零，记 1 次警告；GAS Active 奖励仍按实际出块数占比计算 |
+| `< 90%` | 基础出块奖励及投票人分享为零、停权 1 个 epoch、备用递补；已完成区块对应的 GAS Active 占比不追溯取消 |
 | 30 天内 3 次 `< 90%` | 停权 7 天、最低自质押提高 25% 后方可恢复 |
 | 连续漏块达到紧急阈值 | 本 epoch 临时停权，下一备用 BP 递补 |
 
@@ -362,7 +362,8 @@ DAO 可治理：竞选参数、奖励比例、门限、国库支出、合约升�
 - `voteproducer`：改为平均分票并记录 epoch 快照。
 - `sealepoch`：常数时间封存出勤统计、排名快照、奖励参数和惩罚判定输入。
 - `settleprod(producer, max_epochs)`：permissionless 地按顺序结算指定 BP 最多若干个历史 Epoch，不能替 BP 领取。
-- `claimrewards(producer, max_epochs)`：由 BP 本人授权，按有界 epoch 数结算并领取自己的累计奖励。
+- `flon.system::claimrewards(producer, max_epochs)`：仅由 quorum Active BP 本人授权，按有界 epoch 数结算并领取基础出块奖励；Standby BP 不能领取该奖励。
+- `gas.reward::claimrewards(owner)`：由 quorum Active BP 或合格 Standby BP 本人授权，领取各自在 GAS 节点奖励池中的累计余额。
 - `suspendbp` / `resumebp`：仅允许确定性规则或 timelock 权限调用。
 - `submitevid` / `challenge` / `execslash`。
 - `update_elected_producers`：过滤不合格候选人并记录 active/standby 状态。

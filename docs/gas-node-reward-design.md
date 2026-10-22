@@ -113,17 +113,16 @@ flowchart TD
     gasVault -->|"奖励上限 10%"| nodePool["GAS 节点奖励池"]
     nodePool -->|"节点池 80% / GAS 价值上限 8%"| activePool["Active BP 池"]
     nodePool -->|"节点池 20% / GAS 价值上限 2%"| standbyPool["Standby BP 池"]
-    activePool -->|"40%"| basePool["基础服务份额"]
-    activePool -->|"60%"| performancePool["出块绩效份额"]
+    activePool -->|"池内 100%"| performancePool["出块绩效份额"]
     standbyPool --> standbyQualified["满足证明与轮换验证的 Standby BP"]
-    basePool --> gasReward["gas.reward 待领取账本"]
     performancePool --> gasReward
     standbyQualified --> gasReward
-    gasReward -->|"BP 本人 claimrewards"| bpWallet["BP FLON 账户"]
+    gasReward -->|"Active BP: gas.reward::claimrewards"| activeWallet["Active BP FLON 账户"]
+    gasReward -->|"合格 Standby BP: gas.reward::claimrewards"| standbyWallet["Standby BP FLON 账户"]
     lockedPool -->|"仅经 DAO 治理决定未来用途"| governedUse["白名单协议用途"]
 ```
 
-Active 与 Standby 的 80%/20% 是节点奖励池内部比例。节点不足时必须继续按 21/30 目标席位归一化，不能由少量 BP 瓜分全部 10%。GAS 节点奖励默认不进入投票人分享池；生产者基础挖矿奖励及其投票人分享属于另一条账路。
+Active 与 Standby 的 80%/20% 是节点奖励池内部比例。Active 池不按 21 个最终目标席位缩减：治理设定的全部 quorum Active BP 共同分享完整 Active 池，并严格按实际出块数占比分配。Standby 池仍按 30 个目标席位归一化。GAS 节点奖励默认不进入投票人分享池；生产者基础挖矿奖励及其投票人分享属于另一条账路。
 
 ### 5.2 活跃节点
 
@@ -133,19 +132,14 @@ Active 与 Standby 的 80%/20% 是节点奖励池内部比例。节点不足时�
 availability_i = produced_i / expected_i
 ```
 
-活跃池再分为：
+活跃池内部 100% 按出块绩效分配。Epoch 排班中的所有 quorum Active BP 都参与计算：
 
-- 40% 基础服务份额：在达到最低出勤率的活跃节点间等额分配；
-- 60% 出块绩效份额：按各节点 `produced_blocks` 占合格节点总实出块数的比例分配。
+```text
+active_pool = floor(epoch_node_pool * active_share_bps / 10_000)
+active_reward_i = floor(active_pool * produced_blocks_i / total_active_produced_blocks)
+```
 
-建议资格规则：
-
-| Epoch 出勤率 | 奖励系数 |
-| --- | ---: |
-| `>= 99%` | 1.00 |
-| `95%–99%` | 线性从 0.50 到 1.00 |
-| `< 95%` | 0 |
-| `expected_blocks` 不足最小样本 | 不处罚，不领取绩效份额 |
+不再除以 21，也不再根据 `eligible_active_count` 缩减 Active 池。零出块 BP 的权重自然为零；整数余数由确定性排序中的最后一个正权重 Active BP 吸收。出勤率门限继续用于警告、停权、冷却和排班递补，但不再对 GAS Active 池叠加第二套奖励系数。
 
 同一 epoch 超过三分之一活跃节点低于门限时，标记 `network_incident`：不自动处罚本金，奖励可暂缓到 DAO/timelock 复核，但原始统计必须永久保存。
 
@@ -194,7 +188,6 @@ gas.reward FLON balance >= total_unclaimed
 ```text
 gasrewardcfg:
   node_reward_bps, active_bps, standby_bps,
-  base_active_bps, performance_active_bps,
   epoch_slots, min_expected_blocks,
   standby_revalidate_epochs, paused
 
@@ -231,18 +224,19 @@ accumstats(epoch_id, from_slot, to_slot)
 standbyproof(epoch_id, owner, head_block_id, signature)
 sealepoch(epoch_id)
 settleprod(producer, max_epochs)
-claimrewards(owner, max_epochs)
-setgasrwcfg(...)
+gas.reward::claimrewards(owner)
+setgasrwcfg(enabled, epoch_slots, active_min_bp, standby_min_proofs,
+            pool_bp, active_share_bp)
 pausegasrw(bool)
 ```
 
 - `openepoch` 通常由 `onblock` 在边界内联调用，只写快照；
 - `accumstats` 在区块到达时只累计上次处理 slot 到当前 slot 之间受影响的活跃节点统计；正常出块时通常只更新一个节点，跨越漏块时才更新少数受影响节点；
 - 更新节点前先从 epoch 聚合值减去该节点的旧贡献，更新 `expected/produced/missed` 和资格状态后再加入新贡献，从而增量维护 `active_eligible`、`failed_active` 和 `eligible_produced_total`；epoch 结束时不需要再扫描 21 个活跃节点来计算分母；
-- `standbyproof` 到达时立即验证并把对应备用节点标记为本期合格，同时增加 `standby_eligible`，不在 epoch 结束时重新扫描证明；
+- `standbyproof` 到达时立即验证并把对应备用节点标记为本期合格，同时增加 `standby_eligible`，不在 epoch 结束时重新扫描证明；Active 奖励分母增量维护全部 quorum BP 的 `produced_blocks` 总和；
 - `sealepoch` 由 `onblock` 在 epoch 边界内联调用，只冻结 Gas 累计值、资格集合、奖励参数和计算分母；其复杂度必须为 `O(1)`，不得遍历 BP 或转账；
 - `settleprod` 按时间顺序结算指定 BP 最多 `max_epochs` 个已封账 epoch。它是 permissionless，任何账户都可替该 BP 推进记账，但调用者无权领取或改变收款人；
-- `claimrewards` 要求 BP 本人授权。它对该 BP 最多处理 `max_epochs` 个未结算 epoch，必要时先调用同一内部 `settle_producer_reward`，然后一次性领取其累计可领取 FLON；
+- `gas.reward::claimrewards` 要求受益节点本人授权，领取范围包括 quorum Active BP 和合格 Standby BP，最多为 21+30 个节点。它与只面向 quorum Active BP 的 `flon.system::claimrewards` 是不同 action；
 - `nodeepochrwds` 的 `(epoch_id, owner)` 唯一键和 `settled/claimed` 状态保证每个 BP 每个 epoch 只结算、只领取一次；
 - 一个 BP 未结算或未领取，不得阻塞其他 BP、投票人无关的奖励或下一 epoch 封账；不再需要全局 cursor、`settlenext` 或强制 `finalizeepoch`；
 - 若生产者奖励包含投票人分享，独立结算同时把该 BP 的投票人份额记入 `voter.reward`。BP 长期不领取时，任何人可调用 `settleprod`，所以投票人权益不会被 BP 卡住；
@@ -250,6 +244,7 @@ pausegasrw(bool)
 - 每次独立结算增加 epoch 的 `settled_count`、`allocated` 和 `unallocated` 聚合值。达到快照节点数时可以自动标记 `FULLY_SETTLED`，但该标记仅供审计，不是领取或开启下一 epoch 的门槛；
 - `flon.gas` 到 `gas.reward` 的资金准备必须在封账时按上限预留，或在独立结算时按该 BP 的确定额度划拨；无论采用哪种方式，都必须先记账再转账并维持资金守恒；
 - 参数变更只对下一 epoch 生效。
+- Active 池没有可治理的“基础服务份额”参数；`active_base_bp` 已从 action 和业务配置中删除，Active 池固定 100% 按出块绩效分配。
 
 ### 7.3 BP 独立惰性结算状态机
 
