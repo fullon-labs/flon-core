@@ -88,3 +88,6 @@ snapshots
 gpul
 gpus
 .env
+
+# Local daily status reports are not part of the source tree.
+/docs/DSR/
