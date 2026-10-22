@@ -351,7 +351,8 @@ namespace webassembly {
           *
           * The output is a tightly packed array of producer_slot_stats_v0 records,
           * sorted by producer name. Passing an empty buffer returns the required
-          * byte size. The requested range may be chunked by callers.
+          * byte size. Leading/trailing streaks allow successive head-bounded
+          * calls to be merged without losing a cross-call missed streak.
           *
           * @param from_slot - first slot to inspect (inclusive)
           * @param to_slot - last slot to inspect (inclusive)

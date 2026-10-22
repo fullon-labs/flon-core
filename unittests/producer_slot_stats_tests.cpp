@@ -58,7 +58,7 @@ BOOST_AUTO_TEST_CASE(intrinsic_requires_protocol_feature_activation) { try {
    chain.set_code(test_account, producer_slot_stats_wast);
 } FC_LOG_AND_RETHROW() }
 
-BOOST_AUTO_TEST_CASE(counts_missed_and_pending_slots) {
+BOOST_AUTO_TEST_CASE(counts_missed_slots_and_committed_head) {
    producer_authority_schedule schedule{
       1, {make_producer("alice"_n), make_producer("bob"_n)}
    };
