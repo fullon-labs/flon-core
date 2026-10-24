@@ -216,27 +216,30 @@ scheduled_producer = active_schedule[scheduled_index]
 链核心提供只读、确定性的出块统计 intrinsic，而不是让普通预言机报告结果：
 
 ```text
-get_producer_slot_stats(from_slot, to_slot)
+get_producer_slot_stats_v2(previous_produced_slot, from_slot, to_slot)
   -> [{
        producer,
        expected,
        produced,
        missed,
+       idle_skipped,
        longest_missed_streak,
        leading_missed_streak,
        trailing_missed_streak
      }]
 ```
 
-该 intrinsic 的输入只来自控制器已经验证过的活跃排班、区块时间戳、实际签名者和排班版本。它不访问网络、历史块数据库、外部服务或本地时钟，因此所有验证节点执行 `onblock` 时结果一致。`onblock` 携带的是当前已提交链头的区块头，所以查询范围必须结束于该链头：链头 slot 由其已验证生产者记为实出，范围内更早但没有区块的 slot 记为漏块。Core 对单次 intrinsic 调用设置 100,000 个 slot 的硬上限；系统合约采用更严格的 480-slot `onblock` 上限。若停链间隔超过合约上限，合约重置游标并将受影响 epoch 标记为不完整，避免在 `onblock` 中执行无界追赶。前导和尾随漏块长度用于无损合并正常范围内跨调用的连续漏块。
+V2 intrinsic 的输入只来自系统合约已经提交的上一实际出块 slot 游标、控制器已经验证过的活跃排班、当前区块时间戳、实际签名者以及链上 `prodconf.idle_block_interval_ms`。它不读取历史块数据库、网络、外部服务或本地时钟，因此快照、裁剪和重放节点得到相同结果。slot 分为三类：`produced` 是实际提交的区块；`missed` 是空闲心跳已经到期、本来必须出块但 BP 未出；`idle_skipped` 是弹性出块协议在空闲心跳到期前允许跳过的 slot。只有 `produced + missed` 进入 `expected`，`idle_skipped` 不降低在线率、不中断或增加漏块惩罚计数。以 500ms slot、12 秒空闲心跳为例，相邻区块正好间隔 12 秒时统计为 23 个 `idle_skipped`、1 个 `produced`、0 个 `missed`。
+
+旧 `get_producer_slot_stats` 和 32-byte wire format 保留用于兼容；新合约使用独立的 `PRODUCER_SLOT_STATS_V2` feature、`get_producer_slot_stats_v2` intrinsic 和 40-byte wire format。V2 activation handler 必须将新 intrinsic 加入链上 whitelist。Core 对单次调用设置 100,000 个 slot 的硬上限；系统合约采用更严格的 480-slot `onblock` 上限。若停链间隔超过合约上限，合约重置游标并将受影响 epoch 标记为不完整，避免在 `onblock` 中执行无界追赶。前导和尾随漏块长度用于无损合并正常范围内跨调用的连续漏块。
 
 该 intrinsic 已加入 `flon-core` 的 genesis intrinsic 注册表，并在 `flon-cdt` 提供 C API 与 C++ `std::vector<producer_slot_stats>` 包装。主网启用属于共识升级，必须要求所有验证节点在同一激活高度前升级兼容二进制，不能只升级系统合约。
 
 每个实际区块执行 `flon.system::onblock` 时：
 
 1. 从区块头取得当前 `timestamp.slot` 和实际 `producer`。
-2. 对上一个已处理 slot 到当前 slot 的区间调用统计 intrinsic；中间没有区块的 slot 计为对应计划 BP 的 missed。
-3. 更新 `bpstats`：`expected_blocks`、`produced_blocks`、`missed_blocks`、`consecutive_missed`。
+2. 对上一个已处理 slot 到当前 slot 的区间调用 V2 intrinsic；空闲窗口内的空 slot 计为 `idle_skipped`，心跳到期后的空 slot 才计为 `missed`。
+3. 更新 `bpstats`：`expected_blocks`、`produced_blocks`、`missed_blocks`、`idle_skipped_blocks`、`consecutive_missed`。
 4. 只累计数据，不在每个区块里遍历全部 BP 或立即罚没。
 5. 到 epoch 边界由系统内联动作 `sealepoch(epoch_id)` 以 `O(1)` 冻结不可变的 `epochstats`、奖励参数和分母，不遍历 BP、不转账；随后每个 BP 独立结算。
 
@@ -245,7 +248,7 @@ get_producer_slot_stats(from_slot, to_slot)
 ```text
 bpstats:
   producer, epoch_id, expected_blocks, produced_blocks,
-  missed_blocks, longest_missed_streak, status, warning_count
+  missed_blocks, idle_skipped_blocks, longest_missed_streak, status, warning_count
 
 epochstats:
   epoch_id, start_slot, end_slot, schedule_hash,
@@ -362,8 +365,7 @@ DAO 可治理：竞选参数、奖励比例、门限、国库支出、合约升�
 - `voteproducer`：改为平均分票并记录 epoch 快照。
 - `sealepoch`：常数时间封存出勤统计、排名快照、奖励参数和惩罚判定输入。
 - `settleprod(producer, max_epochs)`：permissionless 地按顺序结算指定 BP 最多若干个历史 Epoch，不能替 BP 领取。
-- `flon.system::claimrewards(producer, max_epochs)`：仅由 quorum Active BP 本人授权，按有界 epoch 数结算并领取基础出块奖励；Standby BP 不能领取该奖励。
-- `gas.reward::claimrewards(owner)`：由 quorum Active BP 或合格 Standby BP 本人授权，领取各自在 GAS 节点奖励池中的累计余额。
+- `flon::claimrewards(caller, producer, max_steps)`：统一领取入口；`caller` 本人授权并承担资源，`producer` 始终是唯一收款人。它按有界步骤消费该 BP 已封存的基础奖励和 GAS 奖励记录；Active BP 可同时领取两类奖励，合格 Standby BP 只能领取 GAS 奖励。基础奖励由 `flon` 支付，GAS 奖励由 `flon.gas` 支付。
 - `suspendbp` / `resumebp`：仅允许确定性规则或 timelock 权限调用。
 - `submitevid` / `challenge` / `execslash`。
 - `update_elected_producers`：过滤不合格候选人并记录 active/standby 状态。

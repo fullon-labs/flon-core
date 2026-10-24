@@ -68,6 +68,49 @@ namespace eosio { namespace chain { namespace webassembly {
       return static_cast<int32_t>(copy_size);
    }
 
+   int32_t interface::get_producer_slot_stats_v2(uint32_t previous_produced_slot,
+                                                  uint32_t from_slot, uint32_t to_slot,
+                                                  legacy_span<char> stats) const {
+      const auto head = context.control.head();
+      const auto head_slot = head.timestamp().slot;
+      EOS_ASSERT(from_slot <= to_slot, wasm_execution_error,
+                 "producer slot statistics range is invalid");
+      EOS_ASSERT(to_slot <= head_slot, wasm_execution_error,
+                 "producer slot statistics range exceeds the current head slot");
+      EOS_ASSERT(from_slot > previous_produced_slot, wasm_execution_error,
+                 "producer slot statistics range must follow the previous committed block");
+
+      const uint64_t slot_count = uint64_t(to_slot) - from_slot + 1;
+      EOS_ASSERT(slot_count <= max_producer_stats_slots_per_call, wasm_execution_error,
+                 "producer slot statistics range exceeds ${max} slots",
+                 ("max", max_producer_stats_slots_per_call));
+
+      const uint64_t idle_ms = context.control.get_idle_block_interval_ms();
+      const uint64_t idle_slots_64 = std::max<uint64_t>(
+         1, (idle_ms + config::block_interval_ms - 1) / config::block_interval_ms);
+      EOS_ASSERT(idle_slots_64 <= std::numeric_limits<uint32_t>::max(), wasm_execution_error,
+                 "idle block interval is too large");
+
+      const auto result = calculate_producer_slot_stats_v2(
+         from_slot, to_slot, previous_produced_slot, head_slot,
+         static_cast<uint32_t>(idle_slots_64), head.producer(),
+         [&](block_timestamp_type timestamp) -> const producer_authority_schedule& {
+            const auto& schedule = context.control.head_active_producers(timestamp);
+            EOS_ASSERT(!schedule.producers.empty(), wasm_execution_error,
+                       "active producer schedule is empty");
+            return schedule;
+         });
+
+      const size_t required_size = result.size() * sizeof(producer_slot_stats_v1);
+      EOS_ASSERT(required_size <= std::numeric_limits<int32_t>::max(), wasm_execution_error,
+                 "producer slot statistics result is too large");
+      if (stats.size_bytes() == 0) return static_cast<int32_t>(required_size);
+
+      const size_t copy_size = std::min(stats.size_bytes(), required_size);
+      std::memcpy(stats.data(), result.data(), copy_size);
+      return static_cast<int32_t>(copy_size);
+   }
+
    int32_t interface::get_gas_fee_totals(legacy_span<char> totals) const {
       const auto& resource_limits = context.control.get_resource_limits_manager();
       const gas_fee_totals_v0 result{

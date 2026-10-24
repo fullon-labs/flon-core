@@ -284,6 +284,7 @@ inline constexpr auto get_intrinsic_table() {
       "env.get_recent_block_id",
       "env.get_last_irreversible_block_num",
       "env.get_producer_slot_stats",
+      "env.get_producer_slot_stats_v2",
       "env.get_gas_fee_totals"
    );
 }

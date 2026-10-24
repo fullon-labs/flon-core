@@ -23,6 +23,14 @@ const char producer_slot_stats_wast[] = R"=====(
 )
 )=====";
 
+const char producer_slot_stats_v2_wast[] = R"=====(
+(module
+  (import "env" "get_producer_slot_stats_v2"
+    (func $get_producer_slot_stats_v2 (param i32 i32 i32 i32 i32) (result i32)))
+  (func (export "apply") (param i64 i64 i64))
+)
+)=====";
+
 producer_authority make_producer(account_name producer) {
    return producer_authority{producer, block_signing_authority_v0{}};
 }
@@ -35,6 +43,7 @@ const producer_slot_stats_v0& find_stats(const std::vector<producer_slot_stats_v
    BOOST_REQUIRE(itr != stats.end());
    return *itr;
 }
+
 }
 
 BOOST_AUTO_TEST_CASE(intrinsic_requires_protocol_feature_activation) { try {
@@ -110,6 +119,76 @@ BOOST_AUTO_TEST_CASE(uses_schedule_effective_for_each_slot) {
    BOOST_REQUIRE(std::is_sorted(stats.begin(), stats.end(), [](const auto& lhs, const auto& rhs) {
       return lhs.producer < rhs.producer;
    }));
+}
+
+BOOST_AUTO_TEST_CASE(v2_intrinsic_requires_its_own_protocol_feature) { try {
+   tester chain(setup_policy::preactivate_feature_and_new_bios);
+   const account_name test_account = "slotstats"_n;
+   chain.create_account(test_account);
+   chain.produce_block();
+
+   const auto& manager = chain.control->get_protocol_feature_manager();
+   const auto v1 = manager.get_builtin_digest(builtin_protocol_feature_t::producer_slot_stats);
+   const auto v2 = manager.get_builtin_digest(builtin_protocol_feature_t::producer_slot_stats_v2);
+   BOOST_REQUIRE(v1);
+   BOOST_REQUIRE(v2);
+   chain.preactivate_protocol_features({*v1});
+   chain.produce_block();
+   BOOST_CHECK_EXCEPTION(chain.set_code(test_account, producer_slot_stats_v2_wast),
+                         wasm_exception,
+                         fc_exception_message_is("env.get_producer_slot_stats_v2 unresolveable"));
+   chain.preactivate_protocol_features({*v2});
+   chain.produce_block();
+   chain.set_code(test_account, producer_slot_stats_v2_wast);
+} FC_LOG_AND_RETHROW() }
+
+BOOST_AUTO_TEST_CASE(v2_excludes_elastic_idle_slots_from_misses) {
+   producer_authority_schedule schedule{1, {make_producer("alice"_n)}};
+   const auto stats = calculate_producer_slot_stats_v2(
+      101, 124, 100, 124, 24, "alice"_n,
+      [&](block_timestamp_type) -> const producer_authority_schedule& { return schedule; });
+
+   BOOST_REQUIRE_EQUAL(stats.size(), 1u);
+   const auto& row = stats.front();
+   BOOST_REQUIRE_EQUAL(row.expected, 1u);
+   BOOST_REQUIRE_EQUAL(row.produced, 1u);
+   BOOST_REQUIRE_EQUAL(row.missed, 0u);
+   BOOST_REQUIRE_EQUAL(row.idle_skipped, 23u);
+   BOOST_REQUIRE_EQUAL(row.longest_missed_streak, 0u);
+}
+
+BOOST_AUTO_TEST_CASE(v2_counts_only_overdue_slots_as_missed) {
+   producer_authority_schedule schedule{1, {make_producer("alice"_n)}};
+   const auto stats = calculate_producer_slot_stats_v2(
+      101, 130, 100, 130, 24, "alice"_n,
+      [&](block_timestamp_type) -> const producer_authority_schedule& { return schedule; });
+
+   const auto& row = stats.front();
+   BOOST_REQUIRE_EQUAL(row.expected, 7u);
+   BOOST_REQUIRE_EQUAL(row.produced, 1u);
+   BOOST_REQUIRE_EQUAL(row.missed, 6u);
+   BOOST_REQUIRE_EQUAL(row.idle_skipped, 23u);
+   BOOST_REQUIRE_EQUAL(row.longest_missed_streak, 6u);
+   BOOST_REQUIRE_EQUAL(row.leading_missed_streak, 6u);
+   BOOST_REQUIRE_EQUAL(row.trailing_missed_streak, 0u);
+}
+
+BOOST_AUTO_TEST_CASE(v2_chunking_preserves_idle_classification) {
+   producer_authority_schedule schedule{1, {make_producer("alice"_n)}};
+   const auto resolve = [&](block_timestamp_type) -> const producer_authority_schedule& {
+      return schedule;
+   };
+   const auto first = calculate_producer_slot_stats_v2(
+      101, 112, 100, 124, 24, "alice"_n, resolve);
+   const auto second = calculate_producer_slot_stats_v2(
+      113, 124, 100, 124, 24, "alice"_n, resolve);
+
+   BOOST_REQUIRE_EQUAL(first.size(), 1u);
+   BOOST_REQUIRE_EQUAL(second.size(), 1u);
+   BOOST_REQUIRE_EQUAL(first.front().idle_skipped + second.front().idle_skipped, 23u);
+   BOOST_REQUIRE_EQUAL(first.front().expected + second.front().expected, 1u);
+   BOOST_REQUIRE_EQUAL(first.front().produced + second.front().produced, 1u);
+   BOOST_REQUIRE_EQUAL(first.front().missed + second.front().missed, 0u);
 }
 
 BOOST_AUTO_TEST_SUITE_END()

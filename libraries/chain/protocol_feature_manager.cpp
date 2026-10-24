@@ -422,6 +422,17 @@ Enables new `get_gas_fee_totals` intrinsic which returns deterministic cumulativ
 */
             {}
          } )
+         (  builtin_protocol_feature_t::producer_slot_stats_v2, builtin_protocol_feature_spec {
+            "PRODUCER_SLOT_STATS_V2",
+            fc::variant("31ba9a3e812b9781346ebf9fe624f006c9fac141bd380293014aeab220c8d158").as<digest_type>(),
+            // SHA256 hash of the raw message below within the comment delimiters (exclude newline after /*) (do not modify message below).
+/*
+Builtin protocol feature: PRODUCER_SLOT_STATS_V2
+
+Enables new `get_producer_slot_stats_v2` intrinsic which accepts the last accounted committed block slot and separates protocol-authorized idle-skipped slots from mandatory produced and missed slots for each scheduled producer over a bounded slot range.
+*/
+            {builtin_protocol_feature_t::producer_slot_stats}
+         } )
    ;
 
 

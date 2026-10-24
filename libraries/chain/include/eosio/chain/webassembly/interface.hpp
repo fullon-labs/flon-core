@@ -365,6 +365,14 @@ namespace webassembly {
                                          legacy_span<char> stats) const;
 
          /**
+          * Elastic-block-aware producer statistics. Protocol-authorized idle
+          * skips are returned separately and excluded from expected/missed.
+          */
+         int32_t get_producer_slot_stats_v2(uint32_t previous_produced_slot,
+                                            uint32_t from_slot, uint32_t to_slot,
+                                            legacy_span<char> stats) const;
+
+         /**
           * Return deterministic cumulative Gas consumption and its corresponding
           * FLON value. Passing an empty buffer returns the required byte size.
           */

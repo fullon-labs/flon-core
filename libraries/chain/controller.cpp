@@ -1340,6 +1340,7 @@ struct controller_impl {
       set_activation_handler<builtin_protocol_feature_t::block_reference_data>();
       set_activation_handler<builtin_protocol_feature_t::producer_slot_stats>();
       set_activation_handler<builtin_protocol_feature_t::gas_fee_totals>();
+      set_activation_handler<builtin_protocol_feature_t::producer_slot_stats_v2>();
 
       irreversible_block.connect([this](const block_signal_params& t) {
          const auto& [ block, id] = t;
@@ -6438,6 +6439,13 @@ template<>
 void controller_impl::on_activation<builtin_protocol_feature_t::gas_fee_totals>() {
    db.modify( db.get<protocol_state_object>(), [&]( auto& ps ) {
       add_intrinsic_to_whitelist( ps.whitelisted_intrinsics, "get_gas_fee_totals" );
+   } );
+}
+
+template<>
+void controller_impl::on_activation<builtin_protocol_feature_t::producer_slot_stats_v2>() {
+   db.modify( db.get<protocol_state_object>(), [&]( auto& ps ) {
+      add_intrinsic_to_whitelist( ps.whitelisted_intrinsics, "get_producer_slot_stats_v2" );
    } );
 }
 
