@@ -117,11 +117,18 @@ std::vector<producer_slot_stats_v1> calculate_producer_slot_stats_v2(
    for (uint64_t slot = from_slot; slot <= to_slot; ++slot) {
       const block_timestamp_type timestamp{static_cast<uint32_t>(slot)};
       const auto& schedule = resolve_schedule(timestamp);
-      const auto scheduled_producer = schedule.get_scheduled_producer(timestamp).producer_name;
-      auto& entry = by_producer[scheduled_producer];
-      entry.result.producer = scheduled_producer;
+      const auto resolved_producer = schedule.get_scheduled_producer(timestamp).producer_name;
+      // The committed header is authoritative for the one slot that actually
+      // contains a block. During an IF proposer-policy transition, the head
+      // state no longer retains every historical policy needed to resolve the
+      // skipped slots preceding the first block of the new schedule. Never
+      // turn that consensus-validated block into a miss merely because the
+      // best-effort historical resolver returns the adjacent policy.
+      const auto slot_producer = slot == produced_slot ? actual_producer : resolved_producer;
+      auto& entry = by_producer[slot_producer];
+      entry.result.producer = slot_producer;
 
-      const bool produced = slot == produced_slot && scheduled_producer == actual_producer;
+      const bool produced = slot == produced_slot;
       if (produced) {
          ++entry.result.expected;
          ++entry.result.produced;

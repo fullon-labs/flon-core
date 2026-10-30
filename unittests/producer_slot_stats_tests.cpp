@@ -35,8 +35,8 @@ producer_authority make_producer(account_name producer) {
    return producer_authority{producer, block_signing_authority_v0{}};
 }
 
-const producer_slot_stats_v0& find_stats(const std::vector<producer_slot_stats_v0>& stats,
-                                         account_name producer) {
+template <typename Stats>
+const Stats& find_stats(const std::vector<Stats>& stats, account_name producer) {
    const auto itr = std::find_if(stats.begin(), stats.end(), [&](const auto& row) {
       return row.producer == producer;
    });
@@ -171,6 +171,39 @@ BOOST_AUTO_TEST_CASE(v2_counts_only_overdue_slots_as_missed) {
    BOOST_REQUIRE_EQUAL(row.longest_missed_streak, 6u);
    BOOST_REQUIRE_EQUAL(row.leading_missed_streak, 6u);
    BOOST_REQUIRE_EQUAL(row.trailing_missed_streak, 0u);
+}
+
+BOOST_AUTO_TEST_CASE(committed_producer_overrides_transition_resolver) {
+   producer_authority_schedule stale_schedule{
+      4, {make_producer("alice"_n), make_producer("bob"_n)}
+   };
+   constexpr uint32_t previous_produced_slot = 100;
+   constexpr uint32_t produced_slot = 124;
+
+   // Model the first committed block after a proposer-policy transition: the
+   // accepted header is from carol, while historical resolution from the head
+   // state still returns the adjacent policy for this slot.
+   const auto stats = calculate_producer_slot_stats_v2(
+      previous_produced_slot + 1, produced_slot, previous_produced_slot,
+      produced_slot, 24, "carol"_n,
+      [&](block_timestamp_type) -> const producer_authority_schedule& {
+         return stale_schedule;
+      });
+
+   const auto& carol = find_stats(stats, "carol"_n);
+   BOOST_REQUIRE_EQUAL(carol.expected, 1u);
+   BOOST_REQUIRE_EQUAL(carol.produced, 1u);
+   BOOST_REQUIRE_EQUAL(carol.missed, 0u);
+
+   const auto produced_total = std::accumulate(stats.begin(), stats.end(), uint32_t{0},
+      [](uint32_t total, const auto& row) { return total + row.produced; });
+   const auto expected_total = std::accumulate(stats.begin(), stats.end(), uint32_t{0},
+      [](uint32_t total, const auto& row) { return total + row.expected; });
+   const auto idle_total = std::accumulate(stats.begin(), stats.end(), uint32_t{0},
+      [](uint32_t total, const auto& row) { return total + row.idle_skipped; });
+   BOOST_REQUIRE_EQUAL(produced_total, 1u);
+   BOOST_REQUIRE_EQUAL(expected_total, 1u);
+   BOOST_REQUIRE_EQUAL(expected_total + idle_total, produced_slot - previous_produced_slot);
 }
 
 BOOST_AUTO_TEST_CASE(v2_chunking_preserves_idle_classification) {
