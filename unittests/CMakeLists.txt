@@ -5,6 +5,7 @@ set(EOSIO_WASM_OLD_BEHAVIOR "Off")
 find_package( flon.cdt REQUIRED )
 set(CMAKE_ARGS_VAL  -DCMAKE_BUILD_TYPE=Release
                     -DCMAKE_TOOLCHAIN_FILE=${CDT_TOOLCHAIN_FILE}
+                    -DCDT_ROOT=${CDT_ROOT}
                     -DEOSIO_COMPILE_TEST_CONTRACTS=${EOSIO_COMPILE_TEST_CONTRACTS}
                     -DSYSTEM_ACCOUNT_NAME=${SYSTEM_ACCOUNT_NAME}
 )
@@ -18,6 +19,7 @@ ExternalProject_Add(
   SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/system_contracts/contracts
   BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR}/system_contracts
   CMAKE_ARGS -DCMAKE_TOOLCHAIN_FILE=${CDT_TOOLCHAIN_FILE}
+             -DCDT_ROOT=${CDT_ROOT}
              -DCMAKE_BUILD_TYPE=Release
              -DSYSTEM_CONFIGURABLE_WASM_LIMITS=On
              -DSYSTEM_BLOCKCHAIN_PARAMETERS=On
@@ -89,6 +91,10 @@ if(NOT TARGET transaction_history_plugin)
   list(FILTER UNIT_TESTS EXCLUDE REGEX "/transaction_history_plugin_tests\\.cpp$")
 endif()
 add_executable( unit_test ${UNIT_TESTS} protocol_feature_digest_tests.cpp) # build unit tests as one executable
+add_dependencies( unit_test system_contracts_project )
+if( EOSIO_COMPILE_TEST_CONTRACTS )
+   add_dependencies( unit_test contracts_project test_contracts_project )
+endif()
 
 target_link_libraries( unit_test eosio_chain_wrap state_history chainbase eosio_testing fc custom_appbase flon_abi ${PLATFORM_SPECIFIC_LIBS} )
 if(TARGET transaction_history_plugin)

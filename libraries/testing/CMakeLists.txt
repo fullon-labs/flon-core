@@ -6,6 +6,7 @@ if( EOSIO_COMPILE_TEST_CONTRACTS )
     find_package( flon.cdt REQUIRED )
     set(CMAKE_ARGS_VAL  -DCMAKE_BUILD_TYPE=Release
                         -DCMAKE_TOOLCHAIN_FILE=${CDT_TOOLCHAIN_FILE}
+                        -DCDT_ROOT=${CDT_ROOT}
                         -DEOSIO_COMPILE_TEST_CONTRACTS=${EOSIO_COMPILE_TEST_CONTRACTS} )
 
     message( STATUS "Building contracts in directory `./libraries/contracts/`" )
@@ -36,6 +37,11 @@ if( EOSIO_COMPILE_TEST_CONTRACTS )
 endif()
 
 configure_file(contracts.cpp.in contracts.cpp ESCAPE_QUOTES)
+
+if( EOSIO_COMPILE_TEST_CONTRACTS )
+   set_property(SOURCE ${CMAKE_CURRENT_BINARY_DIR}/contracts.cpp APPEND PROPERTY OBJECT_DEPENDS
+      "${CMAKE_CURRENT_BINARY_DIR}/contracts/sys.bios/sys.bios.wasm;${CMAKE_CURRENT_BINARY_DIR}/contracts/sys.bios/sys.bios.abi;${CMAKE_CURRENT_BINARY_DIR}/contracts/sys.boot/sys.boot.wasm;${CMAKE_CURRENT_BINARY_DIR}/contracts/sys.boot/sys.boot.abi")
+endif()
 
 ## SORT .cpp by most likely to change / break compile
 add_library( eosio_testing

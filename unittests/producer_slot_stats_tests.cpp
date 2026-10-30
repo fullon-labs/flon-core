@@ -103,7 +103,9 @@ BOOST_AUTO_TEST_CASE(uses_schedule_effective_for_each_slot) {
       2, {make_producer("carol"_n), make_producer("dan"_n)}
    };
    constexpr uint32_t transition_slot = 24;
-   constexpr uint32_t to_slot = 30;
+   // Cover a complete two-producer round after the transition so both
+   // producers from the replacement schedule have expected slots.
+   constexpr uint32_t to_slot = 47;
    const auto actual = second.get_scheduled_producer(block_timestamp_type{to_slot}).producer_name;
 
    const auto stats = calculate_producer_slot_stats(

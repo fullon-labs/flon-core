@@ -324,10 +324,15 @@ digest_type block_state::get_validation_mroot(block_num_type target_block_num) c
       return digest_type{};
    }
 
-   assert(valid->validation_mroots.size() > 0);
-   assert(core.last_final_block_num() <= target_block_num &&
-          target_block_num < core.last_final_block_num() + valid->validation_mroots.size());
-   assert(target_block_num - core.last_final_block_num() < valid->validation_mroots.size());
+   EOS_ASSERT(!valid->validation_mroots.empty(), block_validate_exception,
+              "validation mroot history is empty");
+   EOS_ASSERT(core.last_final_block_num() <= target_block_num &&
+                 target_block_num < core.last_final_block_num() + valid->validation_mroots.size(),
+              block_validate_exception,
+              "validation mroot block ${target} is outside available range [${first}, ${last}]",
+              ("target", target_block_num)
+              ("first", core.last_final_block_num())
+              ("last", core.last_final_block_num() + valid->validation_mroots.size() - 1));
 
    return valid->validation_mroots[target_block_num - core.last_final_block_num()];
 }

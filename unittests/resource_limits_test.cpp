@@ -3,6 +3,8 @@
 #include <algorithm>
 
 #include <eosio/chain/config.hpp>
+#include <eosio/chain/global_property_object.hpp>
+#include <eosio/chain/genesis_state.hpp>
 #include <eosio/chain/resource_limits.hpp>
 #include <eosio/chain/resource_limits_private.hpp>
 #include <eosio/chain/config.hpp>
@@ -22,7 +24,12 @@ class resource_limits_fixture: private chainbase_fixture<1024*1024>, public reso
       :chainbase_fixture()
       ,resource_limits_manager(*chainbase_fixture::_db, [](bool) { return nullptr; })
       {
+         static_cast<chain_config_v0&>(chain_config) = genesis_state{}.initial_configuration;
          add_indices();
+         chainbase_fixture::_db->add_index<global_property_multi_index>();
+         chainbase_fixture::_db->create<global_property_object>([&](auto& gpo) {
+            gpo.configuration = chain_config;
+         });
          initialize_database(chain_config);
       }
 
@@ -71,7 +78,7 @@ BOOST_AUTO_TEST_SUITE(resource_limits_test)
    BOOST_FIXTURE_TEST_CASE(gas_fee_totals_track_actual_transaction_usage, resource_limits_fixture) try {
       const account_name account(42);
       initialize_account(account, false);
-      set_account_limits(account, 1'000'000'000, false);
+      set_account_limits(account, std::numeric_limits<uint64_t>::max(), false, false);
 
       transaction_res_usage res_usage(account);
       std::optional<account_gas_trace> gas_trace;
@@ -87,7 +94,7 @@ BOOST_AUTO_TEST_SUITE(resource_limits_test)
    BOOST_FIXTURE_TEST_CASE(gas_fee_totals_track_ram_usage, resource_limits_fixture) try {
       const account_name account(43);
       initialize_account(account, false);
-      set_account_limits(account, 1'000'000'000, false);
+      set_account_limits(account, std::numeric_limits<uint64_t>::max(), false, false);
 
       std::optional<account_gas_trace> gas_trace;
       add_ram_usage(account, 1024, gas_trace, false);
@@ -147,7 +154,7 @@ BOOST_AUTO_TEST_SUITE(resource_limits_test)
       res_usage.set_res_usage(100, std::numeric_limits<uint64_t>::max() - 300 + 1);
       BOOST_CHECK_EXCEPTION( add_transaction_usage(res_usage, gas_trace, true),
          calc_overflow_exception, fc_exception_message_contains(
-            "Overflow when adding(uint64) new net usage to existed of transaction payer") );
+            "Overflow when adding(uint64) new cpu usage to existed of transaction payer") );
 
       // set_account_limits(account, 10'000'000'000'000'000'000ull, false);
       // // process_account_limit_updates();

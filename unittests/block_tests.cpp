@@ -362,14 +362,14 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(no_onblock_test, T, testers) { try {
    //   * eosio::newaccount is allowed only if it creates the rejectall account.
    c.set_code( config::system_account_name, test_contracts::reject_all_wasm() );
    c.produce_block();
-   const auto first_rejected_onblock_num = c.head_block_num() + 1;
+   const auto first_rejected_onblock_num = c.control->head_block_num() + 1;
    for (uint32_t i = 0; i < 32; ++i) {
       r = c.produce_block_ex(); // empty block, no valid onblock since it is rejected
       BOOST_TEST_REQUIRE(!!r.onblock_trace);
       BOOST_TEST(!r.onblock_trace->receipt);
       BOOST_TEST(!!r.onblock_trace->except);
       BOOST_TEST(!!r.onblock_trace->except_ptr);
-      BOOST_TEST(c.head_block_num() == first_rejected_onblock_num + i);
+      BOOST_TEST(c.control->head_block_num() == first_rejected_onblock_num + i);
    }
 
    // In Legacy, action_mroot is the mroot of all delivered action receipts.

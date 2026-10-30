@@ -1383,42 +1383,42 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(checktime_hashing_fail, T, validating_testers) { t
 
         //hit deadline exception, but cache the contract
         BOOST_CHECK_EXCEPTION( call_test( chain, test_api_action<TEST_METHOD("test_checktime", "checktime_sha1_failure")>{},
-                                          5000, 8, 8 ),
+                                          0, 8, 8 ),
                                deadline_exception, is_deadline_exception );
 
         BOOST_TEST( chain.is_code_cached("testapi"_n) );
 
         //the contract should be cached, now we should get deadline_exception because of calls to checktime() from hashing function
         BOOST_CHECK_EXCEPTION( call_test( chain, test_api_action<TEST_METHOD("test_checktime", "checktime_sha1_failure")>{},
-                                          5000, 3, 3 ),
+                                          0, 10, 3 ),
                                deadline_exception, is_deadline_exception );
 
         BOOST_CHECK_EXCEPTION( call_test( chain, test_api_action<TEST_METHOD("test_checktime", "checktime_assert_sha1_failure")>{},
-                                          5000, 3, 3 ),
+                                          0, 10, 3 ),
                                deadline_exception, is_deadline_exception );
 
         BOOST_CHECK_EXCEPTION( call_test( chain, test_api_action<TEST_METHOD("test_checktime", "checktime_sha256_failure")>{},
-                                          5000, 3, 3 ),
+                                          0, 10, 3 ),
                                deadline_exception, is_deadline_exception );
 
         BOOST_CHECK_EXCEPTION( call_test( chain, test_api_action<TEST_METHOD("test_checktime", "checktime_assert_sha256_failure")>{},
-                                          5000, 3, 3 ),
+                                          0, 10, 3 ),
                                deadline_exception, is_deadline_exception );
 
         BOOST_CHECK_EXCEPTION( call_test( chain, test_api_action<TEST_METHOD("test_checktime", "checktime_sha512_failure")>{},
-                                          5000, 3, 3 ),
+                                          0, 10, 3 ),
                                deadline_exception, is_deadline_exception );
 
         BOOST_CHECK_EXCEPTION( call_test( chain, test_api_action<TEST_METHOD("test_checktime", "checktime_assert_sha512_failure")>{},
-                                          5000, 3, 3 ),
+                                          0, 10, 3 ),
                                deadline_exception, is_deadline_exception );
 
         BOOST_CHECK_EXCEPTION( call_test( chain, test_api_action<TEST_METHOD("test_checktime", "checktime_ripemd160_failure")>{},
-                                          5000, 3, 3 ),
+                                          0, 10, 3 ),
                                deadline_exception, is_deadline_exception );
 
         BOOST_CHECK_EXCEPTION( call_test( chain, test_api_action<TEST_METHOD("test_checktime", "checktime_assert_ripemd160_failure")>{},
-                                          5000, 3, 3 ),
+                                          0, 10, 3 ),
                                deadline_exception, is_deadline_exception );
 
    BOOST_REQUIRE_EQUAL( chain.validate(), true );
@@ -1442,7 +1442,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(checktime_start, T, validating_testers) try {
    chain.produce_block();
 
    BOOST_CHECK_EXCEPTION( call_test( chain, test_api_action<TEST_METHOD("doesn't matter", "doesn't matter")>{},
-                                     5000, 3, 3 ),
+                                     0, 10, 3 ),
                           deadline_exception, is_deadline_exception );
 } FC_LOG_AND_RETHROW()
 
