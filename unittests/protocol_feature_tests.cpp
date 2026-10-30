@@ -1851,6 +1851,14 @@ static const char all_base_types_json[] = "{\"all_base_types_value\":{"
 
    // void testallbase(all_base_types all_base_types_value);
 
+BOOST_AUTO_TEST_CASE(action_data_to_json_digest_is_chain_stable) {
+   tester chain(setup_policy::none);
+   const auto& pfm = chain.control->get_protocol_feature_manager();
+   const auto digest = pfm.get_builtin_digest(builtin_protocol_feature_t::action_data_to_json);
+   BOOST_REQUIRE(digest);
+   BOOST_CHECK_EQUAL(digest->str(), "cd51c8e771fd38930275c515795748d7ecbbadd6eb48b86f08ad71ca9e89b667");
+}
+
 BOOST_AUTO_TEST_CASE_TEMPLATE(action_data_to_json_test, T, testers) { try {
    T c( setup_policy::preactivate_feature_and_new_bios );
 

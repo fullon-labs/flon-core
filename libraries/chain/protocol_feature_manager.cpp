@@ -378,7 +378,9 @@ host function call will trigger a transition to the Savanna consensus algorithm.
          } )
          (  builtin_protocol_feature_t::action_data_to_json, builtin_protocol_feature_spec {
             "ACTION_DATA_TO_JSON",
-            fc::variant("ff2d4ec8d5732ded62de39c2b80904871f0a4ac02904473a37ac5475274c861c").as<digest_type>(),
+            // This legacy digest is consensus-critical: changing it changes the
+            // feature digest and prevents replay of chains that already activated it.
+            fc::variant("980dbdaf3f7113763b62acebfd33b21b71f925f57e64b78bfd932b356190bdb1").as<digest_type>(),
             // SHA256 hash of the raw message below within the comment delimiters (exclude newline after /*) (do not modify message below).
 /*
 Builtin protocol feature: ACTION_DATA_TO_JSON
