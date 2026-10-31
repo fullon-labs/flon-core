@@ -67,6 +67,43 @@ BOOST_FIXTURE_TEST_CASE(policy_change, savanna_cluster::cluster_t) try {
    BOOST_REQUIRE_EQUAL(3u, A.lib_advances_by([&]() { A.produce_blocks(3); }));
 } FC_LOG_AND_RETHROW()
 
+BOOST_FIXTURE_TEST_CASE(standby_replaces_departed_finalizer, savanna_cluster::cluster_t) try {
+   auto& A = _nodes[0];
+   auto& B = _nodes[1];
+   auto& D = _nodes[3];
+   const auto initial_generation = A.head_active_finalizer_policy()->generation;
+
+   // D keeps its old key to sign the pending transition and also signs with
+   // the standby key that replaces B in the next active policy.
+   D.close();
+   D.set_node_finalizers(std::vector<account_name>{_fin_keys[3], _fin_keys[num_nodes()]});
+   D.open();
+   B.close();
+   BOOST_REQUIRE_EQUAL(2u, A.lib_advances_by([&]() { A.produce_blocks(2); }));
+
+   base_tester::finalizer_policy_input replacement;
+   replacement.finalizers.emplace_back(_fin_keys[0], 1);
+   replacement.finalizers.emplace_back(_fin_keys[2], 1);
+   replacement.finalizers.emplace_back(_fin_keys[num_nodes()], 1);
+   replacement.threshold = 3;
+   const auto replacement_keys = A.set_finalizers(replacement).pubkeys;
+   A.produce_block();
+
+   for (size_t i = 0; i < 10 && !A.head_pending_finalizer_policy(); ++i)
+      A.produce_block();
+   BOOST_REQUIRE(A.head_pending_finalizer_policy());
+
+   for (size_t i = 0; i < 10 &&
+        A.head_active_finalizer_policy()->generation == initial_generation; ++i)
+      A.produce_block();
+   BOOST_REQUIRE_EQUAL(initial_generation + 1, A.head_active_finalizer_policy()->generation);
+   BOOST_REQUIRE_EQUAL(3u, A.head_active_finalizer_policy()->finalizers.size());
+   BOOST_REQUIRE_EQUAL(3u, A.head_active_finalizer_policy()->threshold);
+   for (size_t i = 0; i < replacement_keys.size(); ++i)
+      BOOST_REQUIRE(A.head_active_finalizer_policy()->finalizers[i].public_key == replacement_keys[i]);
+   BOOST_REQUIRE_EQUAL(3u, A.lib_advances_by([&]() { A.produce_blocks(3); }));
+} FC_LOG_AND_RETHROW()
+
 // ---------------------------------------------------------------------------------------------------
 //                           Policy change including weight and threshold
 // ---------------------------------------------------------------------------------------------------
