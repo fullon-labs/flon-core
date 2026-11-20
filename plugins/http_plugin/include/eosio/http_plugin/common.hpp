@@ -61,6 +61,7 @@ struct abstract_conn {
    virtual ~abstract_conn() = default;
    virtual void send_busy_response(std::string&& what) = 0;
    virtual void handle_exception() = 0;
+   virtual http_response_deadline response_deadline() const { return http_response_deadline::max(); }
 
    virtual void send_response(std::string&& json_body, unsigned int code) = 0;
 };

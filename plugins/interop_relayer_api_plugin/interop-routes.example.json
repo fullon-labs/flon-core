@@ -1,0 +1,163 @@
+{
+  "schema_version": 1,
+  "signing_protocol": "fullon-interop-v1",
+  "routes": {
+    "eth": {
+      "signature_type": "secp",
+      "wallet_signing": "eth_personal",
+      "bind": {
+        "action": "bindeth",
+        "address_field": "l1_address",
+        "signature_field": "signature",
+        "wallet_fields": [
+          "msg_header",
+          "l1_pubkey",
+          "l2_pubkey"
+        ]
+      },
+      "execute": {
+        "action": "pusheth",
+        "address_field": "address",
+        "signature_field": "signature",
+        "wallet_fields": [
+          "msg_header"
+        ]
+      }
+    },
+    "bsc": {
+      "signature_type": "secp",
+      "wallet_signing": "eth_personal",
+      "bind": {
+        "action": "bindbsc",
+        "address_field": "l1_address",
+        "signature_field": "signature",
+        "wallet_fields": [
+          "msg_header",
+          "l1_pubkey",
+          "l2_pubkey"
+        ]
+      },
+      "execute": {
+        "action": "pushbsc",
+        "address_field": "address",
+        "signature_field": "signature",
+        "wallet_fields": [
+          "msg_header"
+        ]
+      }
+    },
+    "arb": {
+      "signature_type": "secp",
+      "wallet_signing": "eth_personal",
+      "bind": {
+        "action": "bindarb",
+        "address_field": "l1_address",
+        "signature_field": "signature",
+        "wallet_fields": [
+          "msg_header",
+          "l1_pubkey",
+          "l2_pubkey"
+        ]
+      },
+      "execute": {
+        "action": "pusharb",
+        "address_field": "address",
+        "signature_field": "signature",
+        "wallet_fields": [
+          "msg_header"
+        ]
+      }
+    },
+    "tron": {
+      "signature_type": "secp",
+      "wallet_signing": "tron_signed_message",
+      "bind": {
+        "action": "bindtron",
+        "address_field": "l1_address",
+        "signature_field": "signature",
+        "wallet_fields": [
+          "msg_header",
+          "l1_pubkey",
+          "l2_pubkey"
+        ]
+      },
+      "execute": {
+        "action": "pushtron",
+        "address_field": "address",
+        "signature_field": "signature",
+        "wallet_fields": [
+          "msg_header"
+        ]
+      }
+    },
+    "btc": {
+      "signature_type": "secp",
+      "wallet_signing": "bitcoin_signed_message",
+      "bind": {
+        "action": "bindbtc",
+        "address_field": "l1_address",
+        "signature_field": "signature",
+        "wallet_fields": [
+          "msg_header",
+          "l1_pubkey",
+          "l2_pubkey"
+        ]
+      },
+      "execute": null
+    },
+    "solana": {
+      "signature_type": "ed",
+      "wallet_signing": "solana_sign_message",
+      "bind": {
+        "action": "bindsol",
+        "address_field": "address",
+        "signature_field": "signature",
+        "wallet_fields": []
+      },
+      "execute": {
+        "action": "pushsol",
+        "address_field": "address",
+        "signature_field": "signature",
+        "wallet_fields": []
+      }
+    },
+    "ton": {
+      "signature_type": "ed",
+      "wallet_signing": "ton_proof",
+      "bind": {
+        "action": "bindton",
+        "address_field": "l1_address",
+        "signature_field": "l1_signature",
+        "wallet_fields": [
+          "msg_header1",
+          "msg_header2",
+          "l1_pubkey",
+          "l1_chain_id",
+          "l1_version",
+          "l1_revision",
+          "l1_bounce",
+          "l1_testnet"
+        ]
+      },
+      "execute": null
+    },
+    "statter": {
+      "signature_type": "rsa",
+      "wallet_signing": "statter_rsa_md5",
+      "bind": {
+        "action": "bindstatter",
+        "address_field": "l1_address",
+        "signature_field": "l1_signature",
+        "wallet_fields": [
+          "l1_pubkey"
+        ]
+      },
+      "execute": {
+        "action": "pushstatter",
+        "address_field": "l1_address",
+        "signature_field": "l1_signature",
+        "wallet_fields": []
+      }
+    }
+  }
+}

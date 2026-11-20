@@ -1,0 +1,8 @@
+add_library(interop_relayer_api_plugin interop_relayer_api_plugin.cpp)
+target_link_libraries(interop_relayer_api_plugin PUBLIC chain_plugin http_plugin signature_provider_plugin)
+
+if(BUILD_TESTS)
+  add_executable(interop_pending_submissions_test pending_submissions_test.cpp)
+  target_link_libraries(interop_pending_submissions_test PRIVATE eosio_chain)
+  add_test(NAME interop_pending_submissions_test COMMAND interop_pending_submissions_test)
+endif()

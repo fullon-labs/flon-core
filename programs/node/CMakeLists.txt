@@ -57,7 +57,7 @@ if(build_id_flag)
 endif()
 foreach(optional_plugin IN ITEMS state_history_plugin trace_api_plugin
         test_control_plugin test_control_api_plugin sign_transaction_plugin
-        sign_transaction_api_plugin transaction_history_plugin transaction_history_api_plugin)
+        sign_transaction_api_plugin interop_relayer_api_plugin transaction_history_plugin transaction_history_api_plugin)
   if(TARGET ${optional_plugin})
     target_link_libraries(${NODE_EXECUTABLE_NAME} PRIVATE
         -Wl,${whole_archive_flag} ${optional_plugin} -Wl,${no_whole_archive_flag})

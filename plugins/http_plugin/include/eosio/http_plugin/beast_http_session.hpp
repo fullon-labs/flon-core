@@ -78,6 +78,7 @@ class beast_http_session : public detail::abstract_conn,
 
    // time points for timeout measurement and perf metrics
    steady_clock::time_point session_begin_, read_begin_, handle_begin_, write_begin_;
+   http_response_deadline response_deadline_ = http_response_deadline::max();
    uint64_t read_time_us_ = 0, handle_time_us_ = 0, write_time_us_ = 0;
 
    // HTTP parser object
@@ -389,6 +390,8 @@ public:
          return;
       }
       completed_request_ = true;
+      response_deadline_ = plugin_state_->write_timeout.count() == 0 ? http_response_deadline::max()
+                            : steady_clock::now() + plugin_state_->write_timeout;
       arm_deadline(plugin_state_->write_timeout, "response generation");
 
       handle_begin_ = steady_clock::now();
@@ -502,6 +505,8 @@ public:
          do_eof();
       }
    }
+
+   http_response_deadline response_deadline() const override { return response_deadline_; }
 
    virtual void send_response(std::string&& json, unsigned int code) final {
       auto payload_size = json.size();

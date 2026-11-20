@@ -161,7 +161,12 @@ namespace eosio {
             handler.category = entry.category;
             handler.unix_socket_only = entry.unix_socket_only;
             const auto category = entry.category;
-            auto next_ptr = std::make_shared<url_handler>(std::move(entry.handler));
+            auto next_ptr = std::make_shared<deadline_url_handler>(
+               entry.handler_with_deadline ? std::move(entry.handler_with_deadline) :
+               deadline_url_handler{[next = std::move(entry.handler)](string&& path, string&& body,
+                                    url_response_callback&& cb, http_response_deadline) {
+                  next(std::move(path), std::move(body), std::move(cb));
+               }});
             handler.fn = [my=std::move(my), priority, to_queue, category, next_ptr=std::move(next_ptr)]
                        ( detail::abstract_conn_ptr conn, string&& r, string&& b, url_response_callback&& then ) {
                const size_t body_size = b.size();
@@ -180,20 +185,21 @@ namespace eosio {
                // sole ownership of the tracked body and the passed in parameters
                // we can't std::move() next_ptr because we post a new lambda for each http request and we need to keep the original
                try {
+                  const auto deadline = conn->response_deadline();
                   url_response_callback wrapped_then = [then=std::move(then)](
                      int code, std::optional<fc::variant> resp) mutable {
                      then(code, std::move(resp));
                   };
                   app().executor().post( priority, to_queue,
                      [next_ptr, conn=std::move(conn), r=std::move(r), b=std::move(b),
-                      wrapped_then=std::move(wrapped_then), state, body_size, category]() mutable {
+                      wrapped_then=std::move(wrapped_then), state, body_size, category, deadline]() mutable {
                         auto release_body = fc::make_scoped_exit(
                            [state, body_size] { state->release_bytes(body_size); });
                         auto release_request = fc::make_scoped_exit(
                            [state, category] { state->release_api_request(category); });
                         try {
                            if( app().is_quiting() ) return;
-                           (*next_ptr)(std::move(r), std::move(b), std::move(wrapped_then));
+                           (*next_ptr)(std::move(r), std::move(b), std::move(wrapped_then), deadline);
                         } catch(...) {
                            conn->handle_exception();
                         }
@@ -224,7 +230,7 @@ namespace eosio {
             handler.category = entry.category;
             handler.unix_socket_only = entry.unix_socket_only;
             const auto category = entry.category;
-            handler.fn = [next=std::move(entry.handler), state=my->plugin_state, category]
+            handler.fn = [next=std::move(entry.handler), timed=std::move(entry.handler_with_deadline), state=my->plugin_state, category]
                          ( const detail::abstract_conn_ptr& conn, string&& r, string&& b,
                            url_response_callback&& then ) mutable {
                const size_t body_size = b.size();
@@ -242,7 +248,10 @@ namespace eosio {
                auto release_request = fc::make_scoped_exit(
                   [state, category] { state->release_api_request(category); });
                try {
-                  next(std::move(r), std::move(b), std::move(then));
+                  if (timed)
+                     timed(std::move(r), std::move(b), std::move(then), conn->response_deadline());
+                  else
+                     next(std::move(r), std::move(b), std::move(then));
                } catch( ... ) {
                   conn->handle_exception();
                }

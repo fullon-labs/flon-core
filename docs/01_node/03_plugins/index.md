@@ -12,6 +12,7 @@ For information on specific plugins, just select from the list below:
 * [`chain_plugin`](chain_plugin/index.md)
 * [`db_size_api_plugin`](db_size_api_plugin/index.md)
 * [`http_plugin`](http_plugin/index.md)
+* [`interop_relayer_api_plugin`](interop_relayer_api_plugin/index.md)
 * [`net_api_plugin`](net_api_plugin/index.md)
 * [`net_plugin`](net_plugin/index.md)
 * [`producer_plugin`](producer_plugin/index.md)

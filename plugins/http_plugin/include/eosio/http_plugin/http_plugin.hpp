@@ -6,6 +6,7 @@
 #include <fc/exception/exception.hpp>
 #include <fc/reflect/reflect.hpp>
 #include <fc/io/json.hpp>
+#include <chrono>
 namespace eosio {
    using namespace appbase;
 
@@ -28,6 +29,8 @@ namespace eosio {
     * Arguments: url, request_body, response_callback
     **/
    using url_handler = std::function<void(string&&, string&&, url_response_callback&&)>;
+   using http_response_deadline = std::chrono::steady_clock::time_point;
+   using deadline_url_handler = std::function<void(string&&, string&&, url_response_callback&&, http_response_deadline)>;
 
    /**
     * @brief An API, containing URLs and handlers
@@ -43,6 +46,8 @@ namespace eosio {
       // Sensitive APIs can require Unix socket transport and remain unavailable
       // on TCP listeners even when the listener exposes the matching category.
       bool unix_socket_only = false;
+      // Optional alternative to handler. The deadline includes app-queue wait.
+      deadline_url_handler handler_with_deadline{};
    };
 
    using api_description = std::vector<api_entry>;
