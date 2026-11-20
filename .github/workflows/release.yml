@@ -34,7 +34,7 @@ jobs:
             artifact: ubuntu-22.04-x86_64
             llvm_prefix: /usr/lib/llvm-11
           - name: macOS
-            runner: macos-14
+            runner: macos-15
             artifact: macos
             llvm_prefix: /opt/homebrew
     runs-on: ${{ matrix.runner }}
