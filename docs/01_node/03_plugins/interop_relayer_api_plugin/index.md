@@ -91,8 +91,7 @@ curl --fail-with-body -sS http://127.0.0.1:8888/v1/interop/get_routes | jq .
 
 v1 和 v2 使用相同的字段顺序，待签消息前缀分别是
 `FullOn Interop v1:` 和 `FullOn Interop v2:`，签名不能互用。
-合约首次执行 `setchainid` 默认启用 v1。已配置 chain ID 的旧合约升级后，
-若 `global.signing_protocol` 尚未设置，仍使用 v2。
+新版合约在 `global.signing_protocol` 尚未设置时也使用 v1。节点仅对已核验的旧版 WASM 保留 v2 回退。
 
 要将旧部署切换到 v1，先升级代理合约，由其账号授权调用
 `setprotocol`（参数 `["v1"]`），再将节点配置改为

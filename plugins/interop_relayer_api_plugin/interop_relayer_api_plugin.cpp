@@ -34,6 +34,10 @@ namespace eosio {
 namespace {
 using namespace interop_relayer_detail;
 
+// Verified testnet builds that predate the v1 fallback.
+const digest_type legacy_manifestless_code(std::string("1724a7f7a555eaac473592d0edf6a5aac5eaf482711a80fb7e7beed388b86076"));
+const digest_type legacy_v2_default_code(std::string("994fd7fc5372a7009e26adcbcf9e8e6c1c07eff72cece371b078bae7b3667c09"));
+
 constexpr uint32_t signing_lifetime = 120;
 constexpr size_t max_request_size = 128 * 1024;
 
@@ -414,8 +418,7 @@ private:
       std::vector<contract_route> result;
       if (table == abi.tables.end()) {
          // Only the previously verified testnet WASM may use the legacy mapping.
-         static const digest_type legacy_code(std::string("1724a7f7a555eaac473592d0edf6a5aac5eaf482711a80fb7e7beed388b86076"));
-         if (routing.protocol != "v2"_n || code_hash != legacy_code)
+         if (routing.protocol != "v2"_n || code_hash != legacy_manifestless_code)
             throw request_error{503, "route_manifest_missing", "The proxy does not publish an interop route manifest"};
          for (const auto& r : default_routes)
             result.push_back({r.source, r.signature_type, r.bind.action, r.execute ? r.execute->action : chain::name{}});
@@ -609,9 +612,14 @@ private:
       EOS_ASSERT(row.contains("chain_id"), invalid_http_request, "Interop proxy chain ID is not configured");
       auto chain_id = row["chain_id"].as<digest_type>();
       EOS_ASSERT(chain_id == node->get_chain_id(), invalid_http_request, "Interop proxy chain ID differs from this node");
-      const auto deployed_protocol = row.contains("signing_protocol") && !row["signing_protocol"].is_null()
-         ? row["signing_protocol"].as<chain::name>()
-         : "v2"_n; // The first testnet deployment had a fixed v2 prefix.
+      auto deployed_protocol = "v1"_n;
+      if (row.contains("signing_protocol") && !row["signing_protocol"].is_null()) {
+         deployed_protocol = row["signing_protocol"].as<chain::name>();
+      } else {
+         const auto code = api.get_code_hash({proxy}, deadline).code_hash;
+         if (code == legacy_manifestless_code || code == legacy_v2_default_code)
+            deployed_protocol = "v2"_n;
+      }
       if (deployed_protocol != routing.protocol)
          throw request_error{503, "signing_protocol_mismatch", "Configured signing protocol differs from the proxy contract"};
       chain::name verifier;
