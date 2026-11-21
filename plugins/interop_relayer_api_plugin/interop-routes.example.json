@@ -1,6 +1,5 @@
 {
   "schema_version": 1,
-  "signing_protocol": "fullon-interop-v1",
   "routes": {
     "eth": {
       "signature_type": "secp",

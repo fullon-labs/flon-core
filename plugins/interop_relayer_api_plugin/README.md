@@ -72,17 +72,18 @@ its config directory at startup. Restart after changing it. If the file is
 absent, the built-in routes still work. An invalid file stops startup. The
 file replaces the entire route list.
 
-Select `fullon-interop-v1` (the default) or `fullon-interop-v2` (for older
-deployments) using `signing_protocol`. The configured version must match
-`interopproxy::global.signing_protocol`. An unset chain field defaults to v1,
-except for the verified legacy WASM builds that default to v2. The version
-selects the message prefix and leaves the field encoding fixed.
+Set `interop-signing-protocol` in `config.ini` (default `v1`).
+The value must be a non-empty canonical FullOn name. Invalid names fail startup.
+The node checks it against `interopproxy::global.signing_protocol`. An unset
+chain field defaults to v1. The version selects the message prefix and leaves
+the field encoding fixed. Older JSON route files still load, but their
+`signing_protocol` field is ignored.
 
 Each route names the contract actions, ABI field mappings, expected binding
 signature type, and wallet signing method. The proxy contract must already
 support the same source and protocol. The plugin checks configured routes
 against the published `routemap` and ABI, and caches validation by WASM and
-ABI hashes. The known legacy testnet WASM has a fixed compatibility mapping.
+ABI hashes. The contract must publish a current `routemap`.
 
 Use `GET /v1/interop/get_routes` to discover the enabled operations, signature
 type, wallet signing method, and required wallet fields per source. Bind

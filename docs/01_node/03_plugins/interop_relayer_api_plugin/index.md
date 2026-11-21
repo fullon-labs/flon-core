@@ -8,32 +8,51 @@ content_title: interop_relayer_api_plugin
 
 使用编入此插件的 `funod`。目标链上的代理合约须支持所选签名协议，`interopproxy::global.chain_id` 须与节点 `get_info` 返回的 `chain_id` 一致。中继账号须在该代理合约中处于有效的 miner 状态，并拥有调用相应 `bind*` 和 `push*` action 的权限。建议使用独立的中继子权限，并将其链接到需要开放的代理合约 actions。
 
-在现有 RPC 节点的 `config.ini` 中加入以下配置。将账号、权限和签名提供方的占位值替换成部署的实际值。
+### config.ini 配置
+
+下面使用分类 HTTP 监听，供 Nginx 通过 Unix socket 转发提交请求。合并到现有节点配置时，保留已有的分类监听条目，并替换账号、权限和签名提供方占位值。
 
 ```ini
 plugin = eosio::chain_api_plugin
 plugin = eosio::interop_relayer_api_plugin
-http-server-address = 127.0.0.1:8888
-unix-socket-path = /run/fullon/interop.sock
+http-server-address = http-category-address
+http-category-address = chain_ro,0.0.0.0:8888
+http-category-address = chain_rw,/run/fullon/interop.sock
 api-accept-transactions = true
+read-mode = head
 
 interop-contract = interopproxy
+interop-signing-protocol = v1
 interop-relayer-permission = relayminer@relay
 interop-signature-provider = <RELAYER_PUBLIC_KEY>=WALLET:unix:///run/fullon/wallet.sock/v1/wallet/sign_digest
 wallet-provider-timeout = 1000
 interop-signing-threads = 2
 interop-max-in-flight = 32
+interop-submit-tcp = false
 ```
+
+| 配置项 | 默认值和用途 |
+| --- | --- |
+| `interop-contract` | 默认 `interopproxy`，指定代理合约账户。 |
+| `interop-signing-protocol` | 默认 `v1`。接受任意非空、规范的 FullOn `name`，格式无效时节点启动失败。必须与链上 `global.signing_protocol` 一致。使用此选项需要编入该配置项的节点版本。 |
+| `interop-relayer-permission` | 无默认值，格式为 `account@permission`。与签名提供方成对配置。 |
+| `interop-signature-provider` | 无默认值，格式为 `公钥=WALLET:签名端点` 或 `公钥=KEY:私钥`。使用 `KEY:` 时限制 INI 文件的读取权限。 |
+| `wallet-provider-timeout` | 默认 5 ms，示例为 1000 ms。Interop 的 `WALLET:` 模式允许 1–30000 ms。 |
+| `interop-signing-threads` | 默认 2，范围 1–8。 |
+| `interop-max-in-flight` | 默认 32，范围 1–256。限制单节点待处理的中继提交数。 |
+| `interop-submit-tcp` | 默认 `false`。通过 Unix socket 转发时保持关闭。 |
+
+`get_routes` 和 `prepare` 属于 `chain_ro`，`submit` 属于 `chain_rw`。使用 `http-category-address` 时，省略 `unix-socket-path`，由分类地址直接指定 Unix socket。
 
 `WALLET:` 后须填写完整的签名端点，包含 `/v1/wallet/sign_digest`。例如上述 Unix socket 地址，也可使用 `https://wallet.example/v1/wallet/sign_digest`。`wallet-provider-timeout` 以毫秒计，须在 1 至 30000 之间。
 
-启动前，确保 socket 的父目录存在且运行 `funod` 的用户可以写入，签名提供方也可以访问对应的中继密钥。然后使用原有数据目录和网络配置启动或重启节点：
+启动前，创建 socket 的父目录，确保由 `funod` 的运行用户拥有，权限设为 `0700`。签名服务必须能访问中继密钥。然后使用原有数据目录和网络配置启动或重启节点：
 
 ```sh
 funod --config-dir /etc/fullon --data-dir /var/lib/fullon
 ```
 
-`interop-contract` 默认是 `interopproxy`。同时省略两个中继签名选项时，节点仅提供准备功能。配置提交功能的节点需接受 API 交易，不能使用 `read-mode = irreversible`。
+同时省略两个中继签名选项时，节点提供路由发现和请求准备。启用提交时，设置 `api-accept-transactions = true`，并使用支持接收交易的读取模式，例如 `read-mode = head`。
 
 默认情况下，`prepare` 可通过 TCP 调用，`submit` 只通过 Unix socket 调用。若部署在受认证且带限流的网关后面，并需要由网关通过 TCP 转交提交请求，可设置 `interop-submit-tcp = true`。远程客户端不需要访问钱包签名服务。
 
@@ -47,7 +66,7 @@ fucli -u "$NODE_URL" push action interopproxy syncroutes '[]' -p interopproxy@ac
 
 `syncroutes` 将该 WASM 实际支持的 `source`、签名类型和 action 写入
 `routemap`，并记录当前 WASM 哈希。节点只接受与链上清单及 ABI 都匹配的路由。
-已核验的旧测试链 v2 WASM 可继续使用原内置映射，其他部署需要发布清单。
+节点要求代理合约发布当前部署对应的路由清单。
 升级 WASM 后要重新发布。节点按 ABI 和 WASM 哈希使路由校验缓存失效。
 
 启用新账号绑定前，由 owner 合约账号调用 `interopowner::setbindrules`，
@@ -79,7 +98,7 @@ curl --fail-with-body -sS http://127.0.0.1:8888/v1/interop/get_routes | jq .
 因此只保留希望开放的 `source`。没有这个文件时使用内置路由。
 配置不合法时节点启动失败。修改文件后重启节点生效。若使用 `--config` 指定了其他配置文件，则以该文件实际所在目录为准。
 
-- `schema_version` 固定为 `1`。新部署建议使用默认的 `"signing_protocol": "fullon-interop-v1"`。旧部署若仍验 v2 前缀，可配置 `"fullon-interop-v2"`。
+- `schema_version` 固定为 `1`。签名协议在 `config.ini` 中用 `interop-signing-protocol` 设置，默认 `v1`。旧 JSON 文件中的 `signing_protocol` 字段会被忽略。
 - 每个路由声明 `signature_type`（`secp`、`ed` 或 `rsa`）、`wallet_signing` 和对应 action。
   没有执行入口时设置 `"execute": null`。
 - `prepare` 返回 `wallet_signing`，供客户端选择对应的钱包签名方法。
@@ -91,12 +110,12 @@ curl --fail-with-body -sS http://127.0.0.1:8888/v1/interop/get_routes | jq .
 
 v1 和 v2 使用相同的字段顺序，待签消息前缀分别是
 `FullOn Interop v1:` 和 `FullOn Interop v2:`，签名不能互用。
-新版合约在 `global.signing_protocol` 尚未设置时也使用 v1。节点仅对已核验的旧版 WASM 保留 v2 回退。
+新版合约在 `global.signing_protocol` 尚未设置时使用 v1。节点会核对 INI 设置与链上协议是否一致。
 
 要将旧部署切换到 v1，先升级代理合约，由其账号授权调用
-`setprotocol`（参数 `["v1"]`），再将节点配置改为
-`"signing_protocol": "fullon-interop-v1"` 并重启。
-节点发现 JSON 与链上协议不一致会返回 HTTP 503。
+`setprotocol`（参数 `["v1"]`），再将节点 `config.ini` 改为
+`interop-signing-protocol = v1` 并重启。
+节点发现 INI 与链上协议不一致会返回 HTTP 503。
 切换协议后，未提交的请求需要重新准备并签名。
 
 ## 准备并签署

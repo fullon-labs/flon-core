@@ -34,10 +34,6 @@ namespace eosio {
 namespace {
 using namespace interop_relayer_detail;
 
-// Verified testnet builds that predate the v1 fallback.
-const digest_type legacy_manifestless_code(std::string("1724a7f7a555eaac473592d0edf6a5aac5eaf482711a80fb7e7beed388b86076"));
-const digest_type legacy_v2_default_code(std::string("994fd7fc5372a7009e26adcbcf9e8e6c1c07eff72cece371b078bae7b3667c09"));
-
 constexpr uint32_t signing_lifetime = 120;
 constexpr size_t max_request_size = 128 * 1024;
 
@@ -96,7 +92,6 @@ operation_route load_operation(const fc::variant& value, const std::string& pref
 }
 
 struct route_config {
-   name protocol;
    std::vector<route> routes;
 };
 
@@ -107,18 +102,18 @@ std::string protocol_name(name protocol) {
 route_config load_routes(const std::filesystem::path& path) {
    // A missing optional file retains compatibility with existing deployments.
    if (!std::filesystem::exists(std::filesystem::symlink_status(path)))
-      return {"v1"_n, default_routes};
+      return {default_routes};
 
    EOS_ASSERT(std::filesystem::is_regular_file(path) && std::filesystem::file_size(path) <= max_request_size,
               plugin_config_exception, "Interop route config is not a regular JSON file of at most 128 KiB");
    const auto root = fc::json::from_file(path, fc::json::parse_type::strict_parser);
    const auto& config = root.get_object();
    const auto& version = config["schema_version"];
-   const auto& protocol = config["signing_protocol"].get_string();
-   EOS_ASSERT(config.size() == 3 &&
+   // Accept the retired JSON field so existing route files still load.
+   EOS_ASSERT(config.size() == (config.contains("signing_protocol") ? 3 : 2) &&
               (version.get_type() == fc::variant::uint64_type || version.get_type() == fc::variant::int64_type) &&
-              version.as_uint64() == 1 && (protocol == "fullon-interop-v1" || protocol == "fullon-interop-v2"),
-              plugin_config_exception, "Unsupported interop route schema or signing protocol");
+              version.as_uint64() == 1,
+              plugin_config_exception, "Unsupported interop route schema");
    const auto& configured = config["routes"].get_object();
    EOS_ASSERT(configured.size() > 0 && configured.size() <= 64, plugin_config_exception, "Expected 1 to 64 interop routes");
    std::vector<route> result;
@@ -140,7 +135,7 @@ route_config load_routes(const std::filesystem::path& path) {
                  plugin_config_exception, "Interop actions cannot be shared by multiple routes");
       result.push_back({source, kind, std::move(signing), std::move(bind), std::move(execute)});
    }
-   return {protocol == "fullon-interop-v1" ? "v1"_n : "v2"_n, std::move(result)};
+   return {std::move(result)};
 }
 
 template<typename F>
@@ -200,6 +195,7 @@ struct proxy_config {
    digest_type chain_id;
    name owner;
    name ton_verifier;
+   name signing_protocol;
 };
 
 struct binding {
@@ -244,6 +240,7 @@ public:
    void set_program_options(options_description&, options_description& cfg) override {
       cfg.add_options()
          ("interop-contract", boost::program_options::value<std::string>()->default_value("interopproxy"), "Interop proxy contract account")
+         ("interop-signing-protocol", boost::program_options::value<std::string>()->default_value("v1"), "Interop signing protocol name; must match the proxy contract")
          ("interop-relayer-permission", boost::program_options::value<std::string>(), "Dedicated relayer account@permission")
          ("interop-signature-provider", boost::program_options::value<std::string>(), "Signature provider for the relayer permission")
          ("interop-signing-threads", boost::program_options::value<uint32_t>()->default_value(2), "Dedicated interop signer threads (1–8)")
@@ -253,6 +250,14 @@ public:
 
    void plugin_initialize(const variables_map& opts) {
       proxy = chain::name(opts.at("interop-contract").as<std::string>());
+      const auto protocol = opts.at("interop-signing-protocol").as<std::string>();
+      try {
+         signing_protocol = chain::name(protocol);
+      } catch (const fc::exception&) {
+         EOS_THROW(plugin_config_exception, "interop-signing-protocol must be a valid FullOn name");
+      }
+      EOS_ASSERT(signing_protocol.value != 0 && signing_protocol.to_string() == protocol,
+                 plugin_config_exception, "interop-signing-protocol must be a non-empty canonical FullOn name");
       const auto path = app().full_config_file_path().parent_path() / "interop-routes.json";
       try {
          routing = load_routes(path);
@@ -348,6 +353,7 @@ public:
 
 private:
    chain::name proxy;
+   chain::name signing_protocol;
    route_config routing;
    permission_level permission;
    bool tcp_submit = false;
@@ -416,14 +422,8 @@ private:
       const auto table = std::find_if(abi.tables.begin(), abi.tables.end(),
                                       [](const auto& t) { return t.name == "routemap"_n; });
       std::vector<contract_route> result;
-      if (table == abi.tables.end()) {
-         // Only the previously verified testnet WASM may use the legacy mapping.
-         if (routing.protocol != "v2"_n || code_hash != legacy_manifestless_code)
-            throw request_error{503, "route_manifest_missing", "The proxy does not publish an interop route manifest"};
-         for (const auto& r : default_routes)
-            result.push_back({r.source, r.signature_type, r.bind.action, r.execute ? r.execute->action : chain::name{}});
-         return result;
-      }
+      if (table == abi.tables.end())
+         throw request_error{503, "route_manifest_missing", "The proxy does not publish an interop route manifest"};
 
       chain_apis::read_only::get_table_rows_params p;
       p.json = true;
@@ -595,7 +595,7 @@ private:
                ("bind", std::move(bind))("execute", std::move(execute))));
       }
       return fc::variant(fc::mutable_variant_object()("chain_id", cfg.chain_id)("proxy_contract", proxy)
-         ("owner_contract", cfg.owner)("signing_protocol", protocol_name(routing.protocol))
+         ("owner_contract", cfg.owner)("signing_protocol", protocol_name(cfg.signing_protocol))
          ("submission_enabled", bool(signer) && node->api_accept_transactions())("routes", advertised));
    }
 
@@ -613,14 +613,9 @@ private:
       auto chain_id = row["chain_id"].as<digest_type>();
       EOS_ASSERT(chain_id == node->get_chain_id(), invalid_http_request, "Interop proxy chain ID differs from this node");
       auto deployed_protocol = "v1"_n;
-      if (row.contains("signing_protocol") && !row["signing_protocol"].is_null()) {
+      if (row.contains("signing_protocol") && !row["signing_protocol"].is_null())
          deployed_protocol = row["signing_protocol"].as<chain::name>();
-      } else {
-         const auto code = api.get_code_hash({proxy}, deadline).code_hash;
-         if (code == legacy_manifestless_code || code == legacy_v2_default_code)
-            deployed_protocol = "v2"_n;
-      }
-      if (deployed_protocol != routing.protocol)
+      if (deployed_protocol != signing_protocol)
          throw request_error{503, "signing_protocol_mismatch", "Configured signing protocol differs from the proxy contract"};
       chain::name verifier;
       const auto field = row.contains("address_verifier_contracts") ? "address_verifier_contracts" : "pubkey_check_contracts";
@@ -633,7 +628,7 @@ private:
             }
          }
       }
-      return {chain_id, row["owner_contract"].as<chain::name>(), verifier};
+      return {chain_id, row["owner_contract"].as<chain::name>(), verifier, deployed_protocol};
    }
 
    static fc::variants table_rows(const chain_apis::read_only& api,
@@ -734,9 +729,9 @@ private:
       if (!r.bind)
          args("binding_id", id)("nonce", std::to_string(nonce))("txns", txns);
       return fc::variant(fc::mutable_variant_object()
-         ("signing_message", "FullOn Interop " + routing.protocol.to_string() + ":" + fc::to_hex(packed))
+         ("signing_message", "FullOn Interop " + cfg.signing_protocol.to_string() + ":" + fc::to_hex(packed))
          ("expires_at", expires)("chain_id", cfg.chain_id)("proxy_contract", proxy)
-         ("owner_contract", cfg.owner)("signing_protocol", protocol_name(routing.protocol))
+         ("owner_contract", cfg.owner)("signing_protocol", protocol_name(cfg.signing_protocol))
          ("wallet_signing", r.selected.wallet_signing)("submit_args", args));
    }
 
