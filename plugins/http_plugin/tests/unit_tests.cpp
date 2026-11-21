@@ -423,11 +423,13 @@ BOOST_FIXTURE_TEST_CASE(http_plugin_unit_tests, http_plugin_test_fixture) {
 }
 
 class app_log {
+   static constexpr int stderr_redirect_failed = 2;
    std::string result;
    int         fork_app_and_redirect_stderr(const char* redirect_filename, std::initializer_list<const char*> args) {
       int pid = fork();
       if (pid == 0) {
-         (void) freopen(redirect_filename, "w", stderr);
+         if (!freopen(redirect_filename, "w", stderr))
+            _exit(stderr_redirect_failed);
          bool ret = 0;
          try {
             appbase::scoped_app app;
@@ -448,7 +450,9 @@ class app_log {
    app_log(std::initializer_list<const char*> args) {
       fc::temp_directory dir;
       std::filesystem::path log = dir.path()/"test.stderr";
-      BOOST_CHECK(fork_app_and_redirect_stderr(log.c_str(), args));
+      const int status = fork_app_and_redirect_stderr(log.c_str(), args);
+      BOOST_REQUIRE_MESSAGE(status != stderr_redirect_failed, "Failed to redirect stderr to " << log);
+      BOOST_CHECK_EQUAL(status, 1);
       std::ifstream file(log.c_str());
       result.assign(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>());
       std::filesystem::remove(log);
