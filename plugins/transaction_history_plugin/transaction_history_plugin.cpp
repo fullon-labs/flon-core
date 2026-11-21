@@ -1137,8 +1137,8 @@ void transaction_history_plugin_impl::applied_transaction(
             }
          }
 
-         const auto receipted_actions = std::count_if(filtered_actions.begin(), filtered_actions.end(),
-            [](const auto* action) { return action->receipt.has_value(); });
+         const auto receipted_actions = static_cast<size_t>(std::count_if(filtered_actions.begin(), filtered_actions.end(),
+            [](const auto* action) { return action->receipt.has_value(); }));
          const bool index_incomplete = index_budget_exhausted || indexed_actions < receipted_actions;
          result.account_index_complete = !index_incomplete;
          for (auto& [key, value] : writes) {
