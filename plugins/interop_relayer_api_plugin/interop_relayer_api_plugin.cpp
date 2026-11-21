@@ -256,7 +256,7 @@ public:
       } catch (const fc::exception&) {
          EOS_THROW(plugin_config_exception, "interop-signing-protocol must be a valid FullOn name");
       }
-      EOS_ASSERT(signing_protocol.value != 0 && signing_protocol.to_string() == protocol,
+      EOS_ASSERT(!signing_protocol.empty() && signing_protocol.to_string() == protocol,
                  plugin_config_exception, "interop-signing-protocol must be a non-empty canonical FullOn name");
       const auto path = app().full_config_file_path().parent_path() / "interop-routes.json";
       try {
