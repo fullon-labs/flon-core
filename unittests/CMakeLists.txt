@@ -96,7 +96,7 @@ if( EOSIO_COMPILE_TEST_CONTRACTS )
    add_dependencies( unit_test contracts_project test_contracts_project )
 endif()
 
-target_link_libraries( unit_test eosio_chain_wrap state_history chainbase eosio_testing fc custom_appbase flon_abi ${PLATFORM_SPECIFIC_LIBS} )
+target_link_libraries( unit_test flon_chain_wrap state_history chainbase eosio_testing fc custom_appbase flon_abi ${PLATFORM_SPECIFIC_LIBS} )
 if(TARGET transaction_history_plugin)
   target_link_libraries(unit_test transaction_history_plugin)
 endif()

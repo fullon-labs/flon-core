@@ -10,7 +10,7 @@ target_include_directories(${UTIL_EXECUTABLE_NAME} PUBLIC ${CMAKE_CURRENT_BINARY
 
 target_link_libraries( ${UTIL_EXECUTABLE_NAME}
         PRIVATE appbase version
-        PRIVATE eosio_chain chain_plugin fc fullon-cli11 producer_plugin ${CMAKE_DL_LIBS} ${PLATFORM_SPECIFIC_LIBS} )
+        PRIVATE flon_chain chain_plugin fc fullon-cli11 producer_plugin ${CMAKE_DL_LIBS} ${PLATFORM_SPECIFIC_LIBS} )
 
 copy_bin( ${UTIL_EXECUTABLE_NAME} )
 install( TARGETS

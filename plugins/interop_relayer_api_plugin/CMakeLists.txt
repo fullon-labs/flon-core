@@ -3,6 +3,6 @@ target_link_libraries(interop_relayer_api_plugin PUBLIC chain_plugin http_plugin
 
 if(BUILD_TESTS)
   add_executable(interop_pending_submissions_test pending_submissions_test.cpp)
-  target_link_libraries(interop_pending_submissions_test PRIVATE eosio_chain)
+  target_link_libraries(interop_pending_submissions_test PRIVATE flon_chain)
   add_test(NAME interop_pending_submissions_test COMMAND interop_pending_submissions_test)
 endif()

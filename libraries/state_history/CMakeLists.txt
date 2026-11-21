@@ -8,7 +8,7 @@ add_library( state_history
            )
 
 target_link_libraries( state_history 
-                       PUBLIC eosio_chain fc chainbase softfloat
+                       PUBLIC flon_chain fc chainbase softfloat
                      )
 
 target_include_directories( state_history

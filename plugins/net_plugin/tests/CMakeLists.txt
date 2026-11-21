@@ -4,5 +4,5 @@ add_executable( test_net_plugin
         sync_range_unittest.cpp
         main.cpp
 )
-target_link_libraries( test_net_plugin net_plugin eosio_testing eosio_chain_wrap )
+target_link_libraries( test_net_plugin net_plugin eosio_testing flon_chain_wrap )
 add_test(NAME test_net_plugin COMMAND plugins/net_plugin/tests/test_net_plugin WORKING_DIRECTORY ${CMAKE_BINARY_DIR})

@@ -1,7 +1,7 @@
 add_executable( ${NODE_EXECUTABLE_NAME} main.cpp )
 
 add_executable(funod-state-inspect state_inspect.cpp)
-target_link_libraries(funod-state-inspect PRIVATE eosio_chain fc)
+target_link_libraries(funod-state-inspect PRIVATE flon_chain fc)
 copy_bin(funod-state-inspect)
 install(TARGETS funod-state-inspect RUNTIME DESTINATION ${CMAKE_INSTALL_FULL_BINDIR} COMPONENT tools)
 install(PROGRAMS ${CMAKE_SOURCE_DIR}/scripts/state_checkpoint.py
@@ -49,7 +49,7 @@ target_link_libraries( ${NODE_EXECUTABLE_NAME}
         PRIVATE -Wl,${whole_archive_flag} prometheus_plugin               -Wl,${no_whole_archive_flag}
 
         PRIVATE chain_plugin http_plugin producer_plugin http_client_plugin
-        PRIVATE eosio_chain_wrap fc ${CMAKE_DL_LIBS} ${PLATFORM_SPECIFIC_LIBS}
+        PRIVATE flon_chain_wrap fc ${CMAKE_DL_LIBS} ${PLATFORM_SPECIFIC_LIBS}
         Boost::dll )
 
 if(build_id_flag)

@@ -49,4 +49,4 @@ target_link_libraries(history_plugin_unit_tests PRIVATE
 add_test(NAME history_plugin_unit_tests COMMAND history_plugin_unit_tests)
 
 add_executable(history_smoke_driver EXCLUDE_FROM_ALL tests/smoke_driver.cpp)
-target_link_libraries(history_smoke_driver PRIVATE transaction_history_plugin eosio_chain_wrap)
+target_link_libraries(history_smoke_driver PRIVATE transaction_history_plugin flon_chain_wrap)
