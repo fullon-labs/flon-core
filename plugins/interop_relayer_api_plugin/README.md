@@ -2,6 +2,40 @@
 
 See the [node setup and wallet workflow guide](../../docs/01_node/03_plugins/interop_relayer_api_plugin/index.md) for a complete configuration and RPC examples.
 
+## JavaScript quick start
+
+The FullOn Interop JavaScript SDK is available on npm as
+[@fullonlabs/interop-js](https://www.npmjs.com/package/@fullonlabs/interop-js).
+
+```sh
+npm install @fullonlabs/interop-js
+```
+
+Configure the FullOn chain RPC and the relayer or gateway for the **same**
+network. Use the relayer's base URL, without an RPC method path.
+
+```js
+import MultichainInteropJs from '@fullonlabs/interop-js';
+
+MultichainInteropJs.setConfig({
+  chainApi: 'https://t.flonscan.io',
+  proxyApi: 'https://your-testnet-relayer.example',
+  proxyContract: 'interopproxy',
+  ownerContract: 'interopowner',
+});
+
+const { routes, signing_protocol } = await MultichainInteropJs.getRoutes();
+console.log(routes, signing_protocol);
+```
+
+Discover routes before presenting wallet options. The SDK supports both
+signing protocols and checks the prepared message before wallet signing.
+Bitcoin and TON binding require wallet adapters. See the [SDK integration
+guide](https://github.com/fullon-labs/interop.jssdk#fullon-interop-relayer)
+for wallet login and transaction examples.
+
+## Node setup
+
 Enable with `plugin = eosio::interop_relayer_api_plugin`. The plugin uses the
 signing protocol deployed by the `interopproxy` WASM contract and checks
 `global.chain_id` against the node's own chain ID on every request.
@@ -21,6 +55,15 @@ ingress when exposing submission over TCP. The plugin only signs transactions
 it builds with one configured proxy action. It does not accept an outer
 transaction from the caller.
 
+Before accepting binding requests:
+
+1. Verify that `interopproxy::global.chain_id` matches the node network.
+2. Match the contract's signing protocol in the relayer configuration.
+3. After any proxy WASM deployment, have the proxy account call `syncroutes`.
+4. Configure the owner binding subsidy policy with `interopowner::setbindrules`.
+   For TON, have the proxy account pin the deployed verifier hash with
+   `interopproxy::pinverifier`.
+
 ## Configuring routes
 
 To override the built-in routes, copy [the example file](interop-routes.example.json)
@@ -31,23 +74,22 @@ file replaces the entire route list.
 
 Select `fullon-interop-v1` (the default) or `fullon-interop-v2` (for older
 deployments) using `signing_protocol`. The configured version must match
-`interopproxy::global.signing_protocol`. A missing chain field denotes v2.
-The version selects the message prefix and leaves the field encoding fixed.
-Each route names the
-contract actions, ABI field mappings, expected binding signature type and
-wallet signing method. The proxy contract must already support the same
-source and protocol. After each WASM upgrade, call `interopproxy::syncroutes`
-with the proxy account's authority. The action publishes the code-hash-bound
-`routemap`. The plugin checks configured routes against the manifest and ABI,
-and caches the validation by both hashes. The known legacy testnet WASM
-has a fixed compatibility mapping.
+`interopproxy::global.signing_protocol`. An unset chain field defaults to v1,
+except for the verified legacy WASM builds that default to v2. The version
+selects the message prefix and leaves the field encoding fixed.
+
+Each route names the contract actions, ABI field mappings, expected binding
+signature type, and wallet signing method. The proxy contract must already
+support the same source and protocol. The plugin checks configured routes
+against the published `routemap` and ABI, and caches validation by WASM and
+ABI hashes. The known legacy testnet WASM has a fixed compatibility mapping.
 
 Use `GET /v1/interop/get_routes` to discover the enabled operations, signature
 type, wallet signing method, and required wallet fields per source. Bind
 readiness reflects the owner subsidy policy and any required verifier pin.
-Configure `interopowner::setbindrules` before allowing new accounts and
-`interopproxy::pinverifier` before enabling TON. Retired bindings are rejected
-for execution and still count as existing bindings. The top-level
+A `null` operation is unsupported. An operation with `ready: false` is
+supported but currently unavailable, with a reason in `readiness_code`.
+Retired bindings cannot execute or bind the same address again. The top-level
 `submission_enabled` reports whether this node is configured to relay.
 
 ## Prepare
@@ -107,6 +149,8 @@ Binding or nonce conflicts return HTTP 409, expired requests return 410, and
 a saturated relayer returns 429. The callback deadline leaves two seconds
 before the HTTP response-generation deadline. After reservation, a timeout
 returns HTTP 504 with the transaction ID. Check its status before retrying.
+A `504 request_deadline` without a transaction ID means the request ran
+out of response time before submission.
 
 ## Testing
 
