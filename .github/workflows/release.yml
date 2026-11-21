@@ -95,7 +95,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          brew install cmake ninja rocksdb
+          brew install ninja rocksdb
+          # CMake 4.5 rejects the bundled Boost.Locale source_group layout.
+          python3 -m venv "$RUNNER_TEMP/flon-release-tools"
+          "$RUNNER_TEMP/flon-release-tools/bin/python" -m pip install 'cmake==4.1.2'
+          "$RUNNER_TEMP/flon-release-tools/bin/cmake" --version
+          echo "$RUNNER_TEMP/flon-release-tools/bin" >> "$GITHUB_PATH"
 
       - name: Configure core build
         shell: bash
