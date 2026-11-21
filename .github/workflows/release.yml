@@ -44,7 +44,7 @@ jobs:
       - name: Check out release tag
         uses: actions/checkout@v4
         with:
-          ref: ${{ env.RELEASE_TAG }}
+          ref: ${{ github.event_name == 'push' && github.sha || format('refs/tags/{0}', env.RELEASE_TAG) }}
           fetch-depth: 0
 
       - name: Check out configured submodules
@@ -177,6 +177,7 @@ jobs:
             (cd release-assets && shasum -a 256 ./*) > "$RUNNER_TEMP/$checksum_file"
           fi
           mv "$RUNNER_TEMP/$checksum_file" "release-assets/$checksum_file"
+          git rev-parse HEAD > "release-assets/build-commit-${{ matrix.artifact }}.txt"
           ls -lh release-assets
 
       - name: Upload build artifacts
@@ -194,11 +195,10 @@ jobs:
     timeout-minutes: 15
 
     steps:
-      - name: Check out release tag
+      - name: Check out release workflow source
         uses: actions/checkout@v4
         with:
-          ref: ${{ env.RELEASE_TAG }}
-          fetch-depth: 0
+          ref: ${{ github.workflow_sha }}
 
       - name: Download all release artifacts
         uses: actions/download-artifact@v4
@@ -211,7 +211,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          git rev-parse --verify "refs/tags/${RELEASE_TAG}^{commit}"
+          build_commit=$(cat release-assets/build-commit-ubuntu-22.04-x86_64.txt)
+          [[ "$build_commit" =~ ^[0-9a-f]{40}$ ]]
+          test "$build_commit" = "$(cat release-assets/build-commit-macos.txt)"
+          for artifact in ubuntu-22.04-x86_64 macos; do
+            unlink "release-assets/build-commit-$artifact.txt"
+          done
+          echo "BUILD_COMMIT=$build_commit" >> "$GITHUB_ENV"
           test "$(find release-assets -maxdepth 1 -type f -name '*.tar.gz' | wc -l | tr -d ' ')" -eq 6
           test "$(find release-assets -maxdepth 1 -type f -name '*.zip' | wc -l | tr -d ' ')" -eq 6
           test "$(find release-assets -maxdepth 1 -type f -name '*.deb' | wc -l | tr -d ' ')" -ge 3
@@ -224,6 +230,17 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          tag_ref="refs/tags/$RELEASE_TAG"
+          tag_refs=$(git ls-remote --exit-code origin "$tag_ref" "$tag_ref^{}")
+          tag_commit=$(awk -v tag="$tag_ref" '
+            $2 == tag { direct = $1 }
+            $2 == tag "^{}" { peeled = $1 }
+            END { print (peeled != "" ? peeled : direct) }
+          ' <<< "$tag_refs")
+          if [[ "$tag_commit" != "$BUILD_COMMIT" ]]; then
+            echo "::error::Release tag no longer points to the built commit $BUILD_COMMIT"
+            exit 1
+          fi
           if ! gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
             gh release create "$RELEASE_TAG" \
               --verify-tag \
@@ -231,4 +248,13 @@ jobs:
               --generate-notes
           fi
           gh release upload "$RELEASE_TAG" release-assets/* --clobber
-          gh release edit "$RELEASE_TAG" --draft=false
+          asset_names=$(printf '%s\n' release-assets/* | sed 's#^release-assets/##' | jq -Rn '[inputs]')
+          assets_updated_at=$(gh release view "$RELEASE_TAG" --json assets |
+            jq -er --argjson names "$asset_names" '
+              [.assets[] | select(.name as $name | $names | index($name))]
+              | select(length == ($names | length))
+              | map(.updatedAt) | max')
+          actions_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/attempts/$GITHUB_RUN_ATTEMPT"
+          gh release view "$RELEASE_TAG" --json body --jq '.body' |
+            python3 .github/scripts/update-release-notes.py "$BUILD_COMMIT" "$assets_updated_at" "$actions_url" > "$RUNNER_TEMP/release-notes.md"
+          gh release edit "$RELEASE_TAG" --draft=false --notes-file "$RUNNER_TEMP/release-notes.md"
